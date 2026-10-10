@@ -15,6 +15,7 @@ namespace {
 class FrostcoatCub : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
 
     // "You may pay [B] as an additional cost to play me.
     //  When you play me, if you paid the additional cost, give a unit -2 [M]
@@ -36,6 +37,7 @@ public:
             legal.push_back(id);
         }
         GameObjectId tgt = pickTarget(ctx, "Frostcoat Cub: give a unit -2 [M]", legal);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (tgt == kInvalidId || !ctx.state.objectExists(tgt)) return;
         ctx.executor.giveTemporaryMight(tgt, -2);
         ctx.events.logTrace("FROSTCOAT CUB: paid [B] -> gave a unit -2 [M] this turn");

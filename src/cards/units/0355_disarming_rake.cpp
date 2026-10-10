@@ -14,6 +14,7 @@ namespace {
 class DisarmingRake : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouPlayMe; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         auto gearTargets = [&]() {
@@ -33,6 +34,7 @@ public:
 
         auto gears = gearTargets();
         GameObjectId picked = pickTarget(ctx, "Disarming Rake: choose a gear", gears);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (picked == kInvalidId) return;  // yielded or fizzled
         ctx.executor.killObject(picked);
         ctx.events.logTrace("DISARMING RAKE: killed a gear");

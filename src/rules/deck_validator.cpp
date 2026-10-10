@@ -118,8 +118,10 @@ void DeckValidator::checkBattlefields(const DeckSubmission& deck,
 
 void DeckValidator::checkSideboardSize(const DeckSubmission& deck,
                                         ValidationResult& result) const {
-    if (deck.sideboard.size() > 8) {
-        result.addError("Sideboard can have at most 8 cards, got " +
+    // Tournament Rules 601.1.c.1 (July 2026 update: raised from 8 to 10).
+    if (deck.sideboard.size() > kMaxSideboardSize) {
+        result.addError("Sideboard can have at most " +
+                        std::to_string(kMaxSideboardSize) + " cards, got " +
                         std::to_string(deck.sideboard.size()));
     }
 }
@@ -188,6 +190,7 @@ void DeckValidator::checkCopyLimits(const DeckSubmission& deck,
 
     auto countCard = [&](CardDefId id) {
         const auto& card = db_.get(id);
+        if (card.unlimited_copies) return;   // "any number of cards named ..."
         name_counts[card.name]++;
     };
 

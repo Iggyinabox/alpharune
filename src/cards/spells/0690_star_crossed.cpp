@@ -15,6 +15,7 @@ namespace {
 class StarCrossed : public SpellCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeResolve; }
     TargetRequirements getTargetRequirements() const override {
         return TargetRequirements{.count = 2, .must_be_unit = true};
     }
@@ -46,6 +47,7 @@ public:
         auto [friendly, enemy] = pickTargetPair(ctx, "Star-Crossed",
                                                   legal_friendly,
                                                   enemy_fn);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         // Suspend detection: if either is kInvalidId AND we're at
         // a prompt-publish resume_point (10 or 12), return now —
         // chain re-enters after agent picks.

@@ -1,0 +1,23 @@
+{
+  "id": "ven-008-166",
+  "name": "Ruthless Strike",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 8,
+  "public_code": "VEN-008/166",
+  "card_type": "spell",
+  "super_type": null,
+  "domains": [
+    "fury"
+  ],
+  "tags": [],
+  "energy_cost": 3,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "[Action] (Play on your turn or in showdowns.)\nAs an additional cost to play this, you may discard 1.\nDeal 3 to a unit at a battlefield. If you paid the additional cost, deal 5 to it instead.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/90293ef9407950d171f5fdd040da289a0f6da487-744x1039.png",
+  "artist": "Kudos Productions"
+}

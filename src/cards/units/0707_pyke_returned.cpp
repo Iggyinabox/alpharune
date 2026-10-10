@@ -25,9 +25,12 @@ public:
         if (it != self.card_counters.end() && it->second == ctx.state.turn.turn_number)
             return;  // "once each turn"
         self.card_counters["__pyke_token_turn"] = ctx.state.turn.turn_number;
-        LocationId loc = self.location.value_or(LocationId{BaseLocation{ctx.controller}});
+        // CR 149.2: gear is played to its controller's Base unless an effect
+        // says otherwise ("while I'm at a battlefield" is the condition, not a
+        // place for the token). Exhausted, as the real Gold card (CR 187.5).
+        LocationId loc{BaseLocation{ctx.controller}};
         auto tid = ctx.executor.createToken(ctx.controller, CardType::Gear, "Gold",
-                                            0, {"Gold"}, KeywordSet{}, loc,
+                                            0, {}, KeywordSet{}, loc,
                                             /*enter_ready=*/false);
         if (ctx.state.objectExists(tid)) {
             auto& tok = ctx.state.getObject(tid);

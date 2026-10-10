@@ -1,0 +1,26 @@
+{
+  "id": "ven-114-166",
+  "name": "Kharox",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 114,
+  "public_code": "VEN-114/166",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "chaos"
+  ],
+  "tags": [
+    "Spirit",
+    "Shadow Isles"
+  ],
+  "energy_cost": 6,
+  "power_cost": null,
+  "might": 5,
+  "might_bonus": null,
+  "rarity": "epic",
+  "ability_text": "[Empower] [6][P][P] ([6][P][P]: Empower me. Use only if not Empowered.)\nWhen I become [Empowered], choose an opponent. They [Burn 3]. Then you may do this: Choose a unit in their trash and play it, ignoring its cost. (To Burn 3, they put the top 3 cards of their Main Deck into their trash.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/2453848e7069e994498c828d72c33df6905f38e5-744x1039.png",
+  "artist": "Six More Vodka"
+}

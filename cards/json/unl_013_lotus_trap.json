@@ -16,7 +16,7 @@
   "might": null,
   "might_bonus": null,
   "rarity": "uncommon",
-  "ability_text": "[Hidden] (Hide now for [A] to react with later for .)\n[Reaction] (Play any time, even before spells and abilities resolve.)\nChoose a unit. Double all damage that would be dealt to it this turn.",
+  "ability_text": "[Hidden] (Hide now for [A] to react with later for [0].)\n[Reaction] (Play any time, even before spells and abilities resolve.)\nChoose a unit. Double all damage that would be dealt to it this turn.",
   "effect_text": null,
   "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/9490f8c80da1bf4467e14c39b66ae4262e5f7f7b-744x1039.png",
   "artist": "Kudos Productions"

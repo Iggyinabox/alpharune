@@ -21,6 +21,7 @@ namespace {
 class ApheliosExalted : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override {
         return TriggerType::WhenEquipmentAttachedToMe;
     }
@@ -38,9 +39,26 @@ public:
                             {"Ready 2 runes", "Channel 1 rune (exhausted)",
                              "Buff a friendly unit"}, legal);
         if (mode < 0) return;  // -1 waiting / -2 no legal mode left this turn
-        // Record the chosen mode as used this turn (idempotent across re-entry).
+        // Mark the mode used now (idempotent), so a second trigger finalized
+        // before this one resolves can't choose it again.
         ctx.state.getObject(ctx.source).card_counters["__aph_mask"] =
             static_cast<int>(used | (1u << mode));
+        // Mode 2's unit is chosen with the mode.
+        GameObjectId pick = kInvalidId;
+        std::vector<GameObjectId> friendly;
+        if (mode == 2) {
+            for (auto& [id, obj] : ctx.state.objects)
+                if (obj.isUnit() && obj.controller == ctx.controller &&
+                    obj.location.has_value())
+                    friendly.push_back(id);
+            if (!friendly.empty()) {
+                pick = pickTarget(ctx, "Aphelios (buff)", friendly);
+                if (pick == kInvalidId && ctx.state.chain.resuming.has_value() &&
+                    ctx.state.chain.resuming->resume_point == 7)
+                    return;  // suspended on target choice
+            }
+        }
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         switch (mode) {
         case 0: {  // Ready up to 2 of my exhausted runes
             int readied = 0;
@@ -60,21 +78,10 @@ public:
             ctx.executor.channelRunes(ctx.controller, 1, /*enter_exhausted=*/true);
             ctx.events.logTrace("APHELIOS: channeled 1 rune (exhausted)");
             break;
-        case 2: {
-            std::vector<GameObjectId> friendly;
-            for (auto& [id, obj] : ctx.state.objects)
-                if (obj.isUnit() && obj.controller == ctx.controller &&
-                    obj.location.has_value())
-                    friendly.push_back(id);
-            if (friendly.empty()) break;
-            GameObjectId pick = pickTarget(ctx, "Aphelios (buff)", friendly);
-            if (pick == kInvalidId && ctx.state.chain.resuming.has_value() &&
-                ctx.state.chain.resuming->resume_point == 7)
-                return;  // suspended on target choice
+        case 2:
             if (pick != kInvalidId && ctx.state.objectExists(pick))
                 ctx.executor.buffUnit(pick);
             break;
-        }
         }
     }
 private:

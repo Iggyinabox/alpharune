@@ -23,7 +23,7 @@ MainDeck:
 2 Pyke, Dockside Butcher
 
 Battlefields:
-1 The Arena's Greatest
+1 Sunken Temple
 1 Forge of the Fluft
 1 Rockfall Path
 

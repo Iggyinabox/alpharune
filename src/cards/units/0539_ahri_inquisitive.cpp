@@ -11,7 +11,7 @@
 namespace riftbound {
 namespace {
 
-class AhriInquisitive : public UnitCard {
+class AhriInquisitive_539 : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& targets) override {
@@ -51,7 +51,7 @@ private:
 }  // anonymous namespace
 
 void register_card_539(CardRegistry& r) {
-    r.registerCard(539, std::make_unique<AhriInquisitive>());
+    r.registerCard(539, std::make_unique<AhriInquisitive_539>());
 }
 
 } // namespace riftbound

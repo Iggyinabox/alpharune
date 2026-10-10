@@ -15,6 +15,7 @@ namespace {
 class LucianGunslinger : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
 
     // "When I attack, deal damage equal to my [Assault] to an enemy unit
     // here." Damage scales with effective Assault (base + temp + aura-granted),
@@ -43,6 +44,7 @@ public:
         GameObjectId tgt = pickTarget(ctx,
             "Lucian: deal " + std::to_string(assault) + " to an enemy unit here",
             enemies);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (tgt == kInvalidId) return;  // suspend or no targets
         ctx.executor.dealDamage(tgt, assault, ctx.source);
         if (ctx.state.objectExists(tgt) &&

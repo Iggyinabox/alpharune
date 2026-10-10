@@ -23,9 +23,35 @@ ChainItemId ChainManager::addSpell(GameObjectId spell_obj, PlayerId controller,
     item.card_def_id = state_.getObject(spell_obj).card_def_id;
     item.controller = controller;
     item.targets = targets;
+    // Objects chosen as this item is played. CR 809: choosing an opponent's
+    // [Deflect] object costs its Deflect Value in [A], a mandatory additional
+    // cost (resolve-time choices pay in Card::pickTarget instead).
+    item.chosen_objects = targets;
+    if (executor_) {
+        for (auto t : targets) {
+            const int deflect = executor_->deflectCostFor(controller, t);
+            if (deflect > 0) {
+                executor_->payAnyPower(controller, deflect);
+                events_.logTrace("DEFLECT: " + std::string(toString(controller)) + " pays " +
+                                 std::to_string(deflect) + " [A] to choose " +
+                                 state_.getObject(t).name);
+            }
+        }
+    }
     item.is_spell = true;
 
     chain.items.push_back(item);
+    // Announce the choices only once the item is on the chain, so abilities
+    // that trigger on them go above it (and resolve first).
+    for (auto t : targets) {
+        if (!state_.objectExists(t)) continue;
+        const auto& tobj = state_.getObject(t);
+        if (!tobj.isUnit() || !tobj.location.has_value()) continue;
+        if (tobj.controller == controller)
+            events_.emit(ObjectStateChangedEvent{t, "chosen_by_controller"});
+        else
+            state_.player(controller).chose_enemy_unit_this_turn = true;
+    }
 
     // Move spell object to chain zone
     auto& obj = state_.getObject(spell_obj);
@@ -82,11 +108,37 @@ ChainItemId ChainManager::addAbility(GameObjectId source, PlayerId controller,
     item.card_def_id = def_id;
     item.controller = controller;
     item.targets = targets;
+    // Objects chosen as this item is played. CR 809: choosing an opponent's
+    // [Deflect] object costs its Deflect Value in [A], a mandatory additional
+    // cost (resolve-time choices pay in Card::pickTarget instead).
+    item.chosen_objects = targets;
+    if (executor_) {
+        for (auto t : targets) {
+            const int deflect = executor_->deflectCostFor(controller, t);
+            if (deflect > 0) {
+                executor_->payAnyPower(controller, deflect);
+                events_.logTrace("DEFLECT: " + std::string(toString(controller)) + " pays " +
+                                 std::to_string(deflect) + " [A] to choose " +
+                                 state_.getObject(t).name);
+            }
+        }
+    }
     item.is_ability = true;
     item.is_activated_ability = is_activated;
     item.ability_index = ability_index;
 
     chain.items.push_back(item);
+    // Announce the choices only once the item is on the chain, so abilities
+    // that trigger on them go above it (and resolve first).
+    for (auto t : targets) {
+        if (!state_.objectExists(t)) continue;
+        const auto& tobj = state_.getObject(t);
+        if (!tobj.isUnit() || !tobj.location.has_value()) continue;
+        if (tobj.controller == controller)
+            events_.emit(ObjectStateChangedEvent{t, "chosen_by_controller"});
+        else
+            state_.player(controller).chose_enemy_unit_this_turn = true;
+    }
 
     // Source stays on board — do NOT move to Chain zone
 
@@ -160,13 +212,27 @@ bool ChainManager::stepFinalize(
         item.status = ChainItemStatus::Finalized;
         finalized_any = true;
 
-        events_.emit(ChainItemFinalizedEvent{item.id, item.source,
-                                              item.controller});
+        // Choices made at finalization (targets; see setFinalizeChoices). The
+        // callback may put triggered abilities on the chain, so re-take the
+        // reference afterwards.
+        if (finalize_choices_ && !item.is_permanent) {
+            const ChainItemId fid = item.id;
+            finalize_choices_(item);
+            bool found = false;
+            for (size_t k = 0; k < state_.chain.items.size(); ++k)
+                if (state_.chain.items[k].id == fid) { i = k; found = true; break; }
+            if (!found) continue;
+        }
+
+        {
+            const auto& fin = state_.chain.items[i];
+            events_.emit(ChainItemFinalizedEvent{fin.id, fin.source, fin.controller});
+        }
 
         // CR 337.1.c: Permanents resolve immediately on finalize.
         // They leave the chain and become game objects on the board.
-        if (item.is_permanent) {
-            ChainItem resolved_item = item; // copy before erasing
+        if (state_.chain.items[i].is_permanent) {
+            ChainItem resolved_item = state_.chain.items[i]; // copy before erasing
             state_.chain.items.erase(state_.chain.items.begin() +
                                       static_cast<ptrdiff_t>(i));
             --i; // adjust index
@@ -230,6 +296,13 @@ bool ChainManager::stepExecuteAndPass(AgentQuery query_agent,
             auto& card = state_.getObject(chosen.card);
             auto& ps = state_.player(current);
 
+            // Where a permanent played here will land: the facedown card's own
+            // battlefield, or the location the intent names ([Ambush]).
+            LocationId permanent_dest = chosen.play_location.value_or(
+                LocationId{BaseLocation{current}});
+            if (card.is_hidden && card.hidden_at != kInvalidId)
+                permanent_dest = BattlefieldLocation{card.hidden_at};
+
             if (card.is_hidden) {
                 // Playing from facedown — remove from BF facedown zone, no cost
                 for (auto& bf : state_.battlefields) {
@@ -260,12 +333,30 @@ bool ChainManager::stepExecuteAndPass(AgentQuery query_agent,
             events_.emit(CardPlayedEvent{chosen.card, current,
                 card.card_type, ps.cards_played_this_turn, energy_spent});
 
-            // Add to chain with targets
-            addSpell(chosen.card, current, chosen.targets);
+            // Add to chain. A unit or gear played with Reaction timing
+            // ([Ambush] — CR 822.1.b, a [Hidden] permanent, "play me as a
+            // Reaction") is still a permanent: it resolves onto the board, it
+            // is not a spell.
+            if (card.isSpell()) {
+                addSpell(chosen.card, current, chosen.targets);
+            } else {
+                card.location = permanent_dest;
+                addPermanent(chosen.card, current);
+            }
 
             return true; // Item added → restart FEPR from Finalize
         }
-        // Other intent types (ActivateReactionAbility etc.) are Phase 3+
+        else if (chosen.type == IntentType::ActivateReactionAbility ||
+                 chosen.type == IntentType::ActivateAbility ||
+                 chosen.type == IntentType::ActivateActionAbility) {
+            // A [Reaction] ability used in response (CR 164.2 runes, Gold,
+            // legends, ...). The engine pays its cost and queues it.
+            if (activate_ability_ && activate_ability_(chosen)) {
+                return true;   // item added → restart FEPR from Finalize
+            }
+            // No chain item (cost-only effect or nothing happened): the same
+            // player keeps priority and chooses again.
+        }
     }
 
     return false;
@@ -345,6 +436,10 @@ void ChainManager::stepResolve(
             // branch fresh on each repeat.
             state_.chain.resuming->resume_point = 0;
             state_.chain.resuming->resume_data.clear();
+            state_.chain.resuming->may_answer = -1;
+            state_.chain.resuming->choices_finalized = false;
+            state_.chain.resuming->finalize_costs_paid = false;
+            state_.chain.resuming->finalize_checked = 0;
             if (state_.chain.resuming->is_spell || state_.chain.resuming->is_ability) {
                 resolve_spell(state_.chain.resuming.value());
             }
@@ -359,14 +454,38 @@ void ChainManager::stepResolve(
         // Spell goes to controller's trash after resolving (CR 359.3)
         if (state_.objectExists(resolved.source)) {
             auto& spell_obj = state_.getObject(resolved.source);
-            spell_obj.zone = ZoneType::Trash;
+            // [Flow] / "then banish this": banished instead of trashed as it
+            // leaves the chain (a replacement effect, Vendetta rules update).
+            // "Then recycle it" (Fizz, Trickster; Kai'Sa, Evolutionary): the
+            // same kind of leaving-the-chain replacement as "then banish it".
+            auto rit = spell_obj.card_counters.find("__recycle_on_leave_chain");
+            if (rit != spell_obj.card_counters.end() && rit->second != 0 && executor_) {
+                rit->second = 0;
+                spell_obj.location = std::nullopt;
+                spell_obj.zone = ZoneType::Trash;   // recycleCards moves it on from here
+                state_.player(spell_obj.owner).trash.push_back(resolved.source);
+                events_.emit(SpellResolvedEvent{resolved.source, resolved.controller});
+                executor_->recycleCards(spell_obj.owner, {resolved.source});
+            } else {
+            const bool to_banish = spell_obj.banish_on_leave_chain;
+            spell_obj.banish_on_leave_chain = false;
+            const ZoneType dest = to_banish ? ZoneType::Banishment : ZoneType::Trash;
+            spell_obj.zone = dest;
             spell_obj.location = std::nullopt;
-            state_.player(resolved.controller).trash.push_back(resolved.source);
+            if (to_banish) {
+                state_.player(spell_obj.owner).banishment.push_back(resolved.source);
+                state_.player(spell_obj.owner).cards_banished_this_turn++;
+            } else {
+                state_.player(resolved.controller).trash.push_back(resolved.source);
+            }
 
             events_.emit(SpellResolvedEvent{resolved.source, resolved.controller});
             events_.emit(LeftBoardEvent{resolved.source, resolved.controller,
                 CardType::Spell, BaseLocation{resolved.controller},
-                ZoneType::Trash, false});
+                dest, false});
+            if (to_banish)
+                events_.emit(ObjectStateChangedEvent{resolved.source, "banished_owned"});
+            }
         }
     }
     // Triggered/activated abilities leave their source on the board — no

@@ -1,0 +1,26 @@
+{
+  "id": "rad-045-167",
+  "name": "K'Sante, Dauntless",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 45,
+  "public_code": "RAD-045/167",
+  "card_type": "unit",
+  "super_type": "champion",
+  "domains": [
+    "calm"
+  ],
+  "tags": [
+    "Shurima",
+    "K'Sante"
+  ],
+  "energy_cost": 4,
+  "power_cost": 1,
+  "might": 4,
+  "might_bonus": null,
+  "rarity": "epic",
+  "ability_text": "[Shield] (+1 [M] while I'm a defender.)\nWhen I attack or defend, double the [Shield] of a unit you control here this turn.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/f56e9f9db199f915e32ea264b7dab70202f97957-744x1039.png",
+  "artist": null
+}

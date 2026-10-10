@@ -32,6 +32,7 @@ public:
         if (ctx.state.chain.items.empty()) return;
         auto& top = ctx.state.chain.items.back();
         if (!top.is_spell) return;
+        if (isUncounterable(ctx, top)) return;
 
         // Cost gate: "no more than [4]". Read the static energy cost of the
         // spell being countered from the CardDB.
@@ -51,9 +52,7 @@ public:
         if (ctx.state.objectExists(countered)) {
             auto& obj = ctx.state.getObject(countered);
             ctx.events.logTrace("COUNTER: " + obj.name + " countered by Defy -> trash");
-            obj.zone = ZoneType::Trash;
-            obj.location = std::nullopt;
-            ctx.state.player(obj.owner).trash.push_back(countered);
+            disposeCounteredCard(ctx, countered);
         }
         // NOTE: removed the previously-present (un-printed) "draw 1".
     }

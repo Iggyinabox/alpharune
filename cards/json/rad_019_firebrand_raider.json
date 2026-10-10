@@ -1,0 +1,23 @@
+{
+  "id": "rad-019-167",
+  "name": "Firebrand Raider",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 19,
+  "public_code": "RAD-019/167",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "fury"
+  ],
+  "tags": [],
+  "energy_cost": 6,
+  "power_cost": 1,
+  "might": 6,
+  "might_bonus": null,
+  "rarity": "rare",
+  "ability_text": "I enter ready.\nWhen you play me, ready all enemy units.\nOther units enter ready.\nUnits don't ready during the Awaken Phase.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/922ef5a266378fa8ebd7e75bf83435bacd1a75d8-744x1039.png",
+  "artist": "Six More Vodka"
+}

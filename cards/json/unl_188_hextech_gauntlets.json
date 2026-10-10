@@ -17,7 +17,7 @@
   ],
   "energy_cost": 3,
   "power_cost": null,
-  "might": null,
+  "might": 3,
   "might_bonus": 3,
   "rarity": "epic",
   "ability_text": "[Equip] [3][A]. This ability's Energy cost is reduced by the Might of the unit you choose. (Pay the cost: Attach this to a unit you control.)",

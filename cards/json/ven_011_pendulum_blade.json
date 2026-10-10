@@ -1,0 +1,25 @@
+{
+  "id": "ven-011-166",
+  "name": "Pendulum Blade",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 11,
+  "public_code": "VEN-011/166",
+  "card_type": "gear",
+  "super_type": null,
+  "domains": [
+    "fury"
+  ],
+  "tags": [
+    "Equipment"
+  ],
+  "energy_cost": 3,
+  "power_cost": null,
+  "might": 1,
+  "might_bonus": 1,
+  "rarity": "uncommon",
+  "ability_text": "[Equip] [R] ([R]: Attach this to a unit you control.)",
+  "effect_text": "When I move to a battlefield, give me +2 [M] this turn.",
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/857a5cee28f403454b1825dd112c07e9ac06b8a4-744x1039.png",
+  "artist": "Kudos Productions"
+}

@@ -11,7 +11,7 @@
 namespace riftbound {
 namespace {
 
-class SettBrawler : public UnitCard {
+class SettBrawler_164 : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
     // "When I'm played and when I conquer, buff me. (If I don't have a buff, I
@@ -73,7 +73,7 @@ Spend my buff: Give me +4 [M] this turn.)RB";
 }  // anonymous namespace
 
 void register_card_164(CardRegistry& r) {
-    r.registerCard(164, std::make_unique<SettBrawler>());
+    r.registerCard(164, std::make_unique<SettBrawler_164>());
 }
 
 } // namespace riftbound

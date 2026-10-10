@@ -1,0 +1,25 @@
+{
+  "id": "ven-124-166",
+  "name": "Escaped Grayback",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 124,
+  "public_code": "VEN-124/166",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "order"
+  ],
+  "tags": [
+    "Noxus"
+  ],
+  "energy_cost": 3,
+  "power_cost": null,
+  "might": 3,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "[Empower] \u2014 Kill a friendly unit (Pay the cost: Empower me. Use only if not Empowered.)\n[Empowered][>] I have +2 [M].",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/253d782f8f6d4056eebecf9617e6858fdb2e712d-744x1039.png",
+  "artist": "Michal Ivan"
+}

@@ -14,6 +14,7 @@ namespace {
 class RelentlessStorm : public LegendCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouPlayAUnit; }
     void onTrigger(CardContext& ctx,
                    const std::vector<GameObjectId>& /*targets*/) override {
@@ -38,8 +39,9 @@ public:
             still_legal);
         if (conf == -1) return;  // waiting on agent
         if (conf == 0) return;   // declined / already exhausted
-        if (!still_legal()) return;
-        ctx.state.getObject(ctx.source).is_exhausted = true;
+        if (!costAlreadyPaid(ctx) && !still_legal()) return;
+        if (costDueNow(ctx)) ctx.state.getObject(ctx.source).is_exhausted = true;
+        if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
         ctx.executor.channelRunes(ctx.controller, 1, /*enter_exhausted=*/true);
         ctx.events.logTrace("RELENTLESS STORM: played Mighty unit -> exhaust me, "
                             "channel 1 rune exhausted");

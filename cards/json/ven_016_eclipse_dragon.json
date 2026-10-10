@@ -1,0 +1,26 @@
+{
+  "id": "ven-016-166",
+  "name": "Eclipse Dragon",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 16,
+  "public_code": "VEN-016/166",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "fury"
+  ],
+  "tags": [
+    "Dragon",
+    "Mount Targon"
+  ],
+  "energy_cost": 8,
+  "power_cost": null,
+  "might": 8,
+  "might_bonus": null,
+  "rarity": "rare",
+  "ability_text": "[Accelerate] (You may pay [1][R] as an additional cost to have me enter ready.)\nWhen I move, if you control 4 or fewer runes, draw 1.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/6b7ea97973ced0e0631554ff07c726fe0a257a3c-744x1039.png",
+  "artist": "Six More Vodka"
+}

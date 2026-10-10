@@ -15,6 +15,7 @@ namespace {
 class GrimApothecary : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouPlayMe; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         auto find_friendly_at_bf = [&]() -> GameObjectId {
@@ -31,6 +32,7 @@ public:
         int conf = confirmOptional(ctx,
             "Grim Apothecary: bounce a friendly unit at a battlefield?",
             still_legal);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (conf == -1) return;
         if (conf == 0) return;
 

@@ -14,11 +14,13 @@ namespace {
 class StartippedPeak : public BattlefieldCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouHoldHere; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         auto still_legal = []() { return true; };
         int conf = confirmOptional(ctx, "Startipped Peak: channel 1 rune exhausted?",
                                    still_legal);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (conf == -1) return;  // waiting on agent
         if (conf == 0) return;   // declined
         ctx.executor.channelRunes(ctx.controller, 1, /*enter_exhausted=*/true);

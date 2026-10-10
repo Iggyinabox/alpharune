@@ -23,6 +23,7 @@ namespace riftbound {
 
 // Forward declarations
 class GameState;
+struct GameObject;
 class EventBus;
 class EffectExecutor;
 class CardRegistry;
@@ -119,6 +120,67 @@ public:
                                         PlayerId /*controller*/,
                                         int /*ability_index*/) const { return 0; }
 
+    // ── Empower (Vendetta, CR 827) ──
+    /// "[Empower] [Cost]" — "[Cost]: Empower this. Play only if not Empowered."
+    /// A card that prints Empower returns its cost here (valid = true). The
+    /// DEFAULT activatedAbilities() appends it as the LAST ability (after the
+    /// legacy single ability, if any) and the default indexed onActivate
+    /// empowers the source for that index — so a plain Empower card overrides
+    /// only this (plus applyPassiveAura for its [Empowered] text). Cards that
+    /// override activatedAbilities() themselves append `empowerAbility()`.
+    struct EmpowerSpec {
+        bool valid = false;
+        ActivationCost cost;
+        // "[Empower] — [1] or [O]": a second way to pay. Each cost is its own
+        // Empower ability, so the player picks one by activating it.
+        bool has_alt_cost = false;
+        ActivationCost alt_cost;
+    };
+    virtual EmpowerSpec empowerSpec() const { return {}; }
+    /// The Empower ability descriptor built from empowerSpec().
+    ActivatedAbility empowerAbility() const;
+    /// Appends the Empower abilities (one per cost) to `out`.
+    void appendEmpowerAbilities(std::vector<ActivatedAbility>& out) const;
+    /// Index of the Empower ability within activatedAbilities(), or -1.
+    int empowerAbilityIndex() const;
+    /// How many Empowered statuses this object may hold (Kayle, Justified: 3).
+    virtual int maxEmpower() const { return 1; }
+
+    /// Per-ability, per-instance activation gate. Consulted by the action
+    /// generator after canActivateAbility. The default implements the Empower
+    /// rule ("Play only if not Empowered") and the disempower_self cost
+    /// ("Disempower this" requires being Empowered).
+    virtual bool canActivateAbilityAt(const GameState& state, PlayerId controller,
+                                      GameObjectId source, int ability_index) const;
+
+    /// Instance-aware variant of activationCostReduction (knows the source
+    /// object). Default: activationCostReduction(...) plus, for the Empower
+    /// ability, the source's aura-computed empower_cost_reduction.
+    virtual int activationCostReductionFor(const GameState& state, PlayerId controller,
+                                           GameObjectId source, int ability_index) const;
+
+    // ── Flow (Vendetta) ──
+    /// "[Flow] [Cost]" — the spell may be played from its owner's trash for
+    /// this cost, then banished. valid = false for cards without Flow.
+    struct FlowCost {
+        bool valid = false;
+        int energy = 0;
+        int power = 0;
+        Domain power_domain = Domain::Fury;
+        bool any_domain = false;        // power is [A]
+    };
+    virtual FlowCost flowCost() const { return {}; }
+
+    /// "This can't be countered." Counter effects leave such a spell on the chain.
+    virtual bool cantBeCountered() const { return false; }
+
+    /// "This enters exhausted." (gear normally enters ready, CR 149.1).
+    virtual bool entersExhausted() const { return false; }
+
+    /// Play-legality gate independent of cost/targets ("I can't be played on
+    /// your first, second, or third turns" — Ol' Poro). Default: playable.
+    virtual bool canBePlayed(const GameState& /*state*/, PlayerId /*player*/) const { return true; }
+
     /// Cost to activate the (single, legacy) ability.
     virtual ActivationCost getActivationCost() const { return {}; }
 
@@ -202,6 +264,33 @@ public:
     ///    1 = effect confirmed and re-validated — caller proceeds
     int confirmOptional(CardContext& ctx, const std::string& label,
                         const std::function<bool()>& still_legal);
+
+    // ── Choices at finalization (CR 355, 383.3) ──
+    // Targets, modes, "you may" and "[cost] to [effect]" payments of a spell
+    // or ability are decided when it is played / put on the chain, before
+    // anyone can respond — not as it resolves. A card opts a callback in by
+    // returning its bit here, and splits that callback in two:
+    //
+    //     int go = confirmOptional(ctx, ...);          // choices
+    //     if (go <= 0) return;
+    //     auto t = pickTarget(ctx, ...);
+    //     if (costDueNow(ctx)) payEnergy(ctx, 1);      // costs
+    //     if (finalizingChoices(ctx)) return;          // ── end of choices ──
+    //     ... the effect ...
+    //
+    // The engine runs the callback once at finalization (it stops at the
+    // marker) and again at resolution, where the helpers return the stored
+    // answers. Nothing before the marker may change game state other than
+    // through the helpers and the cost payment.
+    enum : unsigned { kFinalizeTrigger = 1, kFinalizeResolve = 2, kFinalizeActivate = 4 };
+    virtual unsigned choicesAtFinalization() const { return 0; }
+    /// True while the engine is collecting this item's finalization choices.
+    static bool finalizingChoices(const CardContext& ctx);
+    /// False at resolution when the cost was already paid at finalization.
+    static bool costDueNow(CardContext& ctx);
+    /// True at resolution when the cost was paid at finalization: checks like
+    /// "can I afford it" / "am I ready to exhaust" no longer apply.
+    static bool costAlreadyPaid(const CardContext& ctx);
 
     /// Variable-X cost helper (CR principle: "pay any amount of [X]").
     ///
@@ -347,6 +436,26 @@ public:
         const GameState& state, PlayerId controller,
         int /*ability_index*/) const {
         return enumerateLegalTargets(state, controller);
+    }
+
+    /// What the engine calls for an activated ability: also given the object
+    /// whose ability it is, for targets defined relative to it ("a unit
+    /// here", "an attacker at my battlefield"). Default ignores `source`.
+    virtual std::vector<GameObjectId> enumerateLegalTargets(
+        const GameState& state, PlayerId controller,
+        int ability_index, GameObjectId /*source*/) const {
+        return enumerateLegalTargets(state, controller, ability_index);
+    }
+
+    /// An intervening condition on a triggered ability ("When a BUFFED
+    /// friendly unit dies", "..., if you ..."): checked when the event
+    /// happens; false means the ability does not trigger at all. `subject` is
+    /// the event's object (the unit that died, the card that was played),
+    /// kInvalidId when the event has none.
+    virtual bool triggerCondition(const GameState& /*state*/, GameObjectId /*source*/,
+                                  PlayerId /*controller*/, TriggerType /*trigger*/,
+                                  GameObjectId /*subject*/) const {
+        return true;
     }
 
     /// Universal legality gate for play / activate intents.
@@ -543,6 +652,28 @@ public:
     virtual int selfCostReduction(const GameState& /*state*/,
                                   PlayerId /*player*/) const { return 0; }
 
+    /// Power-side counterpart ("I cost [2][Y] less if ..." — Keeper of Law).
+    /// Reduces this card's own POWER cost, clamped at 0.
+    virtual int selfPowerCostReduction(const GameState& /*state*/,
+                                       PlayerId /*player*/) const { return 0; }
+
+    /// Called when this gear stops being attached to `unit` for any reason
+    /// (re-equipped elsewhere, the unit or the gear left the board). Lets
+    /// "for as long as this is attached" effects end (Shady Spectacles).
+    virtual void onUnattached(CardContext& /*ctx*/, GameObjectId /*unit*/) {}
+
+    /// Kinds of hostile effect a card may replace on itself (Gangplank, Naval:
+    /// "If a spell or ability that chooses me would stun me, give me -[M], or
+    /// return me to hand, give me +3 [M] this turn instead").
+    enum class HostileEffect : uint8_t { Stun, ReduceMight, ReturnToHand };
+    /// Return true if this card replaced the effect (the caller then skips it).
+    /// Consulted only for effects of a spell or ability that chose `self`.
+    virtual bool replaceHostileEffect(CardContext& /*ctx*/, GameObjectId /*self*/,
+                                      HostileEffect /*kind*/) { return false; }
+
+    /// "Ignore [Deflect] while paying this spell's cost." (Decree of Insight)
+    virtual bool ignoresDeflect() const { return false; }
+
     // ── Reaction-to-attack play (e.g., Rengar, Pouncing) ──
     /// Whether this card can be played as a [Reaction] to a battlefield
     /// where the controller is currently attacking. Action generator
@@ -572,6 +703,27 @@ public:
     virtual bool entersReadyOnPlay(const GameState& /*state*/,
                                     PlayerId /*controller*/) const {
         return entersReadyOnPlay();
+    }
+
+    /// A continuous effect that gives a unit being played [Accelerate] ("Friendly
+    /// units played from anywhere other than a player's hand have Accelerate").
+    /// Asked of each card `self`'s controller has on the board as the unit's
+    /// cost is paid; the unit's controller then gets the usual optional [1][C].
+    virtual bool grantsAccelerateTo(const GameState& /*state*/, GameObjectId /*self*/,
+                                    const GameObject& /*played*/,
+                                    bool /*played_from_hand*/) const {
+        return false;
+    }
+
+    /// Change to the points needed to win while this card is a battlefield in
+    /// play ("Increase the points needed to win the game by 1").
+    virtual int victoryScoreModifier() const { return 0; }
+
+    /// What the engine calls: also given the unit being played, already at its
+    /// destination ("If you play me to a battlefield, I enter ready").
+    virtual bool entersReadyOnPlay(const GameState& state, PlayerId controller,
+                                    const GameObject& /*self*/) const {
+        return entersReadyOnPlay(state, controller);
     }
 
 };

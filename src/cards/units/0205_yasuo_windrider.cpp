@@ -11,7 +11,7 @@
 namespace riftbound {
 namespace {
 
-class YasuoWindrider : public UnitCard {
+class YasuoWindrider_205 : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
     // "The third time I move in a turn, you score 1 point."
@@ -27,7 +27,7 @@ public:
         }
         int moves = ++self.card_counters["yasuo_moves"];
         if (moves == 3) {
-            ctx.state.player(ctx.controller).score++;
+            ctx.executor.scorePoints(ctx.controller, 1);   // CR 194.1.c
             ctx.events.logTrace("YASUO WINDRIDER: 3rd move this turn -> score 1");
         }
     }
@@ -61,7 +61,7 @@ The third time I move in a turn, you score 1 point.)RB";
 }  // anonymous namespace
 
 void register_card_205(CardRegistry& r) {
-    r.registerCard(205, std::make_unique<YasuoWindrider>());
+    r.registerCard(205, std::make_unique<YasuoWindrider_205>());
 }
 
 } // namespace riftbound

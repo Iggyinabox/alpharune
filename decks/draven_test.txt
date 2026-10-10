@@ -5,14 +5,13 @@ Champion:
 1 Draven, Showboat
 
 MainDeck:
-3 Stacked Deck
 3 Tideturner
 3 Overzealous Fan
 3 Treasure Hunter
 3 Spinning Axe
-2 Noxus Hopeful
-2 Falling Star
-2 Rebuke
+3 Noxus Hopeful
+3 Falling Star
+3 Rebuke
 2 Ride the Wind
 2 Star-Crossed
 1 Mindsplitter

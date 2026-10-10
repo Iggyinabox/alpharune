@@ -14,6 +14,7 @@ namespace {
 class Adaptatron : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenIConquer; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>&) override {
         // Collect legal gears on the board.
@@ -32,6 +33,7 @@ public:
         auto legal = gears();
         if (legal.empty()) return;
         GameObjectId picked = pickTarget(ctx, "Adaptatron: kill which gear", legal);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (picked == kInvalidId) return;  // suspended or fizzled
         if (!ctx.state.objectExists(picked)) return;
         ctx.executor.killObject(picked);

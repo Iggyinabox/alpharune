@@ -6,14 +6,13 @@ Champion:
 
 MainDeck:
 3 Noxus Hopeful
-3 Stacked Deck
 3 Traveling Merchant
 3 Flash
 3 Ferrous Forerunner
 3 Inferna
-2 Cleave
-2 Long Sword
-2 Overzealous Fan
+3 Cleave
+3 Long Sword
+3 Overzealous Fan
 2 Grim Apothecary
 2 Star-Crossed
 2 Abandon
@@ -23,7 +22,7 @@ MainDeck:
 2 Vex, Apathetic
 
 Battlefields:
-1 The Arena's Greatest
+1 Sunken Temple
 1 Zaun Warrens
 1 Seat of Power
 

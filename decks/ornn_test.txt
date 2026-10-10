@@ -23,7 +23,7 @@ MainDeck:
 1 Shurelya's Requiem
 
 Battlefields:
-1 The Arena's Greatest
+1 Sunken Temple
 1 Ornn's Forge
 1 Dusk Rose Lab
 

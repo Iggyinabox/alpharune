@@ -3,7 +3,8 @@
 Fetch all Riftbound cards from the official card gallery and save them
 as individual JSON files in a format consumable by the C++ engine.
 
-Source: https://riftbound.leagueoflegends.com/en-us/card-gallery/
+Source: https://playriftbound.com/en-us/card-gallery/
+(the old riftbound.leagueoflegends.com host now 301-redirects there)
 Data is embedded as __NEXT_DATA__ JSON in the gallery page.
 
 Output format per card (engine-ready):
@@ -39,8 +40,13 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 
-GALLERY_URL = "https://riftbound.leagueoflegends.com/en-us/card-gallery/"
+GALLERY_URL = "https://playriftbound.com/en-us/card-gallery/"
 OUTPUT_DIR = Path(__file__).resolve().parent.parent / "cards" / "json"
+
+# Set by main() when the downloaded gallery uses the explicit-supertype schema.
+EXPLICIT_SUPERTYPES = False
+
+CARD_TYPES = {"unit", "spell", "gear", "rune", "battlefield", "legend"}
 
 # Symbols found in ability HTML that map to engine shorthands
 SYMBOL_MAP = {
@@ -54,6 +60,9 @@ SYMBOL_MAP = {
     ":rb_energy_8:": "[8]",
     ":rb_energy_9:": "[9]",
     ":rb_energy_10:": "[10]",
+    ":rb_energy_11:": "[11]",
+    ":rb_energy_12:": "[12]",
+    ":rb_energy_0:": "[0]",
     ":rb_rune_fury:": "[R]",
     ":rb_rune_calm:": "[G]",
     ":rb_rune_mind:": "[B]",
@@ -119,6 +128,45 @@ def html_to_text(html_body: str) -> str:
     return result.strip()
 
 
+def full_name(raw_card: dict) -> str:
+    """Card name as printed. Since the Vendetta-era gallery update, champion
+    names are split into `name` ("Ahri") + `subtitle` ("Alluring"); rejoin
+    them into the "Name, Title" form the engine and deck lists use."""
+    name = raw_card.get("name", "")
+    subtitle = raw_card.get("subtitle")
+    if not subtitle:
+        return name
+    type_ids = raw_type_ids(raw_card)
+    supers = raw_card.get("cardType", {}).get("superType") or []
+    is_signature = any(st.get("id") == "signature" for st in supers)
+    if "unit" in type_ids and not is_signature:
+        return f"{name}, {subtitle}"
+    if "legend" in type_ids:
+        return f"{name} - {subtitle}"  # e.g. "Dark Child - Starter"
+    # Signature spells/gear carry their champion's name as the subtitle; it
+    # is not part of the card name.
+    return name
+
+
+def raw_type_ids(raw_card: dict) -> list[str]:
+    """Card type ids. The structured `cardType` is unreliable for pre-release
+    sets (Radiance shipped with empty and outright wrong types), while the
+    card image's "Riftbound <Type>: ..." accessibility text is transcribed
+    from the printed card — so it wins whenever it names a real card type."""
+    type_ids = [t["id"] for t in raw_card.get("cardType", {}).get("type", [])]
+    alt = (raw_card.get("cardImage") or {}).get("accessibilityText", "")
+    m = re.match(r"Riftbound (\w+):", alt)
+    if m and m.group(1).lower() in CARD_TYPES and m.group(1).lower() not in type_ids:
+        return [m.group(1).lower()]
+    return type_ids
+
+
+def raw_super_type(raw_card: dict) -> str | None:
+    """Explicit supertype from the gallery data, when present."""
+    supers = raw_card.get("cardType", {}).get("superType") or []
+    return supers[0]["id"] if supers else None
+
+
 def build_champion_tag_set(raw_cards: list[dict]) -> set[str]:
     """Collect all champion tags by inspecting legend cards.
 
@@ -127,7 +175,7 @@ def build_champion_tag_set(raw_cards: list[dict]) -> set[str]:
     """
     champion_tags = set()
     for card in raw_cards:
-        type_ids = [t["id"] for t in card.get("cardType", {}).get("type", [])]
+        type_ids = raw_type_ids(card)
         if "legend" in type_ids:
             tags = card.get("tags", {})
             if isinstance(tags, dict):
@@ -150,7 +198,7 @@ def detect_super_type(raw_card: dict, champion_tags: set[str]) -> str | None:
     - Signature card: a non-legend, non-champion card that has a tag
       matching a legend's champion tag (e.g., "Jinx" tag on a spell).
     """
-    type_ids = [t["id"] for t in raw_card.get("cardType", {}).get("type", [])]
+    type_ids = raw_type_ids(raw_card)
     card_tags = raw_card.get("tags", {})
     if isinstance(card_tags, dict):
         card_tags = card_tags.get("tags", [])
@@ -159,12 +207,24 @@ def detect_super_type(raw_card: dict, champion_tags: set[str]) -> str | None:
 
     has_champion_tag = any(t in champion_tags for t in card_tags)
 
+    if "superType" in raw_card.get("cardType", {}) or raw_card.get("subtitle") is not None \
+            or EXPLICIT_SUPERTYPES:
+        # The gallery now states the supertype outright; it is authoritative.
+        # The tag heuristics below over-match once a legend carries a shared
+        # tag (Kennen's legend is tagged "Yordle", which would turn every
+        # Yordle unit into a signature card). "basic" runes and tokens carry
+        # no engine supertype.
+        if "legend" in type_ids:
+            return None
+        explicit = raw_super_type(raw_card)
+        return explicit if explicit in ("champion", "signature") else None
+
     if "legend" in type_ids:
         # Legends are their own card type, not champions.
         # They share champion tags with champion units but are functionally distinct.
         return None
 
-    if "unit" in type_ids and "," in raw_card.get("name", ""):
+    if "unit" in type_ids and "," in full_name(raw_card):
         # All "Name, Title" units are champion units
         return "champion"
 
@@ -172,7 +232,7 @@ def detect_super_type(raw_card: dict, champion_tags: set[str]) -> str | None:
         # Non-unit with a champion tag = signature spell/gear
         return "signature"
 
-    if has_champion_tag and "unit" in type_ids and "," not in raw_card.get("name", ""):
+    if has_champion_tag and "unit" in type_ids and "," not in full_name(raw_card):
         # Unit with a champion tag but no comma = signature unit (e.g., Daisy!)
         return "signature"
 
@@ -181,7 +241,7 @@ def detect_super_type(raw_card: dict, champion_tags: set[str]) -> str | None:
 
 def normalize_card_type(raw_card: dict) -> str:
     """Extract the base card type from the raw data."""
-    type_ids = [t["id"] for t in raw_card.get("cardType", {}).get("type", [])]
+    type_ids = raw_type_ids(raw_card)
 
     # Map gallery type IDs to engine types
     type_map = {
@@ -310,7 +370,7 @@ def transform_card(raw: dict, champion_tags: set[str]) -> dict:
 
     return {
         "id": raw.get("id", ""),
-        "name": raw.get("name", ""),
+        "name": full_name(raw),
         "set": set_id,
         "set_name": set_name,
         "collector_number": raw.get("collectorNumber"),
@@ -371,13 +431,19 @@ def is_duplicate_art(card: dict, seen_names: set[tuple[str, str]]) -> bool:
     3. Same name+set combo already seen (catches remaining dupes)
     """
     card_id = card.get("id", "")
-    name = card.get("name", "")
+    name = full_name(card)
     set_id = card.get("set", {}).get("value", {}).get("id", "")
 
     # Check ID patterns for known alt-art formats
     if re.match(r"^[a-z]+-\d+[a-z]-\d+$", card_id):
         return True
     if "star" in card_id:
+        return True
+    # Special-insert reprints ('ven-sp3-006') and alt-art runes ('rad-r04a')
+    if re.match(r"^[a-z]+-sp\d+-\d+$", card_id) or re.match(r"^[a-z]+-r\d+[a-z]$", card_id):
+        return True
+    # Rules-reference inserts ("Buff", "XP Tracker") aren't cards
+    if not set(raw_type_ids(card)) & CARD_TYPES:
         return True
 
     # Deduplicate by name+set
@@ -392,7 +458,9 @@ def is_duplicate_art(card: dict, seen_names: set[tuple[str, str]]) -> bool:
 def main():
     # Allow using cached HTML for development
     cache_path = Path("/tmp/riftbound-gallery.html")
-    if cache_path.exists() and "--no-cache" not in sys.argv:
+    if "--html" in sys.argv:  # parse an already-downloaded gallery page
+        html = Path(sys.argv[sys.argv.index("--html") + 1]).read_text()
+    elif cache_path.exists() and "--no-cache" not in sys.argv:
         print(f"Using cached page from {cache_path}")
         html = cache_path.read_text()
     else:
@@ -403,6 +471,20 @@ def main():
     # Extract raw cards
     raw_cards = extract_cards_from_html(html)
     print(f"Found {len(raw_cards)} total card entries")
+    # name+set dedup keeps the first printing it sees. Engine card classes are
+    # keyed by gallery id (CardDef::def_id), so a printing already in
+    # card_index.json always wins; otherwise prefer the lowest collector
+    # number (base printing over overnumbered alt art).
+    index_path = OUTPUT_DIR.parent / "card_index.json"
+    known_ids = set()
+    if index_path.exists():
+        known_ids = {c["id"] for c in json.loads(index_path.read_text())}
+    raw_cards.sort(key=lambda c: (c.get("set", {}).get("value", {}).get("id", ""),
+                                  c.get("id", "") not in known_ids,
+                                  c.get("collectorNumber") or 0, c.get("id", "")))
+
+    global EXPLICIT_SUPERTYPES
+    EXPLICIT_SUPERTYPES = any("superType" in c.get("cardType", {}) for c in raw_cards)
 
     # Build champion tag set from legends for super_type detection
     champion_tags = build_champion_tag_set(raw_cards)
@@ -419,6 +501,7 @@ def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     saved = 0
+    written: set[str] = set()
     skipped_dupes = 0
     by_type = {}
     by_set = {}
@@ -442,6 +525,7 @@ def main():
             json.dump(card, f, indent=2)
 
         saved += 1
+        written.add(filename)
 
         # Track stats
         ct = card["card_type"]
@@ -451,6 +535,13 @@ def main():
         sp = card["super_type"] or "none"
         by_super[sp] = by_super.get(sp, 0) + 1
 
+    # Drop per-card files from earlier runs that no longer correspond to a
+    # card (renames, a different printing chosen) so the dir mirrors the index.
+    stale = [p for p in OUTPUT_DIR.glob("*.json") if p.name not in written]
+    for p in stale:
+        p.unlink()
+    print(f"Removed {len(stale)} stale per-card files")
+
     print(f"\nSaved {saved} unique cards to {OUTPUT_DIR}")
     print(f"Skipped {skipped_dupes} alt-art duplicates")
     print(f"\nBy type: {json.dumps(by_type, indent=2)}")
@@ -458,7 +549,6 @@ def main():
     print(f"\nBy super_type: {json.dumps(by_super, indent=2)}")
 
     # Also save a combined index for quick loading
-    index_path = OUTPUT_DIR.parent / "card_index.json"
     all_cards = []
     seen_for_index: set[tuple[str, str]] = set()
     for raw in raw_cards:

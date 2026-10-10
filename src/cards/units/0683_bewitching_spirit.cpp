@@ -14,12 +14,14 @@ namespace {
 class BewitchingSpirit : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouPlayMe; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>&) override {
         static const std::vector<std::string> kModes = {"You discard",
                                                          "Opponent discards"};
         int mode = pickMode(ctx, "Bewitching Spirit: choose a player to discard",
                             /*num_modes=*/2, kModes);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (mode == -1) return;        // waiting on agent
         if (mode < 0) mode = 0;        // no-legal fallback -> self
         PlayerId target = (mode == 0) ? ctx.controller : opponent(ctx.controller);

@@ -1,0 +1,25 @@
+{
+  "id": "rad-052-167",
+  "name": "Resource Extractor",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 52,
+  "public_code": "RAD-052/167",
+  "card_type": "gear",
+  "super_type": null,
+  "domains": [
+    "mind"
+  ],
+  "tags": [
+    "Device"
+  ],
+  "energy_cost": 1,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "[Deploy] (Play this only to a battlefield. When an opponent holds here, kill this.)\nAt the end of your turn, if you control this battlefield, play a Gold gear token exhausted. (It has \"[Reaction][>] Kill this, [E]: [Add] [A].\")",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/d5cc2f85febe2260e51b88bddfeab6ce700c85dd-744x1039.png",
+  "artist": "Fish Art Studio"
+}

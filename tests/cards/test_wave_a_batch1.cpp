@@ -242,6 +242,12 @@ TEST_F(WaveABatch1Test, VoidBurrower_ConquerBanishAndPlayTop) {
     state.getObject(top).zone = ZoneType::MainDeck;
     state.getObject(top).location = std::nullopt;
     state.player(P1).main_deck.push_back(top);
+    // "banish one, then play it" does not waive the card's cost (CR 356.1.b.2):
+    // give P1 the runes to pay for the unit.
+    {
+        const auto& d = card_db.get(kVanguardAttendant);
+        for (int i = 0; i < d.energy_cost + d.power_cost; ++i) addRune(P1, d.domains.at(0));
+    }
 
     int deck_before = deckSize(P1);
 

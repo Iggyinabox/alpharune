@@ -1,0 +1,23 @@
+{
+  "id": "rad-122-167",
+  "name": "Party Crasher",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 122,
+  "public_code": "RAD-122/167",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "order"
+  ],
+  "tags": [],
+  "energy_cost": 9,
+  "power_cost": 1,
+  "might": 6,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "I cost [1] less for each exhausted unit you control.\n[Tank] (I must be assigned combat damage first.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/3413fc46086d559c2a60657e4729f22475bbdec0-744x1039.png",
+  "artist": "Kudos Productions"
+}

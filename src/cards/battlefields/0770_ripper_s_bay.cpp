@@ -15,6 +15,7 @@ namespace {
 class RipperSBay : public BattlefieldCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // "When a unit here is returned to a player's hand, that player may pay [1]
     // to channel 1 rune exhausted." Fired by TriggerManager::onUnitReturnedToHand
     // with ctx.controller = the bounced unit's owner ("that player").
@@ -22,13 +23,17 @@ public:
         return TriggerType::WhenAUnitReturnsToHandHere;
     }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>&) override {
-        auto& ps = ctx.state.player(ctx.controller);
-        auto still_legal = [&ps]() { return ps.rune_pool.energy >= 1; };
-        if (!still_legal()) return;
+        // CR 445.2 / 164.2.a: the [1] may come from floating Energy or from
+        // exhausting a ready rune (payableEnergy / payEnergy).
+        auto still_legal = [&ctx]() {
+            return payableEnergy(ctx.state, ctx.controller) >= 1;
+        };
+        if (!costAlreadyPaid(ctx) && !still_legal()) return;
         int conf = confirmOptional(ctx, "Ripper's Bay: pay [1] to channel 1 rune exhausted?",
                                    still_legal);
         if (conf < 1) return;
-        ps.rune_pool.energy -= 1;
+        if (costDueNow(ctx) && !payEnergy(ctx, ctx.controller, 1)) return;
+        if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
         ctx.executor.channelRunes(ctx.controller, 1, /*enter_exhausted=*/true);
         ctx.events.logTrace("RIPPER'S BAY: paid [1] -> channel 1 rune exhausted");
     }

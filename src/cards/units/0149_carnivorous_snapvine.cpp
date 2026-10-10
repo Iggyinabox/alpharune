@@ -14,6 +14,7 @@ namespace {
 class CarnivorousSnapvine : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouPlayMe; }
     // "When you play me, choose an enemy unit at a battlefield. We deal damage
     // equal to our Mights to each other." Triggers get empty targets — pick at
@@ -27,6 +28,7 @@ public:
             legal.push_back(id);
         }
         GameObjectId enemy = pickTarget(ctx, "Carnivorous Snapvine (fight)", legal);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (enemy == kInvalidId && ctx.state.chain.resuming.has_value() &&
             ctx.state.chain.resuming->resume_point == 7) {
             return;  // suspended for agent decision

@@ -15,6 +15,7 @@ namespace {
 class NamiHeadstrong : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // "You may pay [G] as an additional cost to play me." Real play-time
     // optional cost now; the on-play stun is gated on whether it was paid.
     OptionalAdditionalCost optionalAdditionalCost() const override {
@@ -45,6 +46,7 @@ public:
                 legal.push_back(id);
             }
             GameObjectId enemy = pickTarget(ctx, "Nami: stun an enemy unit", legal);
+            if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
             if (enemy == kInvalidId || !ctx.state.objectExists(enemy)) return;
             ctx.executor.stunUnitBy(enemy, ctx.source);
             ctx.events.logTrace("NAMI: paid [G] -> stunned an enemy unit");
@@ -52,6 +54,7 @@ public:
         }
 
         if (ctx.firing_trigger == TriggerType::WhenIHold) {
+            if (finalizingChoices(ctx)) return;   // no choices
             // Arm the one-shot "next unit you play this turn" effect.
             auto& self = ctx.state.getObject(ctx.source);
             self.card_counters["__nami_hold_arm_turn"] = ctx.state.turn.turn_number;
@@ -65,7 +68,6 @@ public:
             if (it == self.card_counters.end()) return;
             if (it->second != ctx.state.turn.turn_number) return;  // stale arm
             // One-shot: disarm now.
-            self.card_counters.erase(it);
             // Ready+buff the just-played unit. The trigger carries no event
             // object, so let the agent pick among freshly-played friendly
             // units (units enter exhausted, so prefer exhausted candidates).
@@ -79,7 +81,9 @@ public:
             }
             if (legal.empty()) return;
             GameObjectId pick = pickTarget(ctx, "Nami: ready + buff the played unit", legal);
+            if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
             if (pick == kInvalidId || !ctx.state.objectExists(pick)) return;
+            self.card_counters.erase("__nami_hold_arm_turn");   // one-shot
             ctx.executor.readyObject(pick);
             ctx.executor.buffUnit(pick);
             ctx.events.logTrace("NAMI: readied + buffed the played unit");

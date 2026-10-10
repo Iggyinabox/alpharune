@@ -25,11 +25,16 @@ namespace riftbound {
 
 struct RunePool {
     int energy = 0;
+    // Energy that may be spent "only to play units or activated abilities of
+    // units" (Butcher of the Sands). Counted and spent first when the engine
+    // pays for one of those; invisible to every other payment.
+    int unit_energy = 0;
     int power[static_cast<int>(Domain::Count)] = {};  // per-domain
     int universal_power = 0;  // [A] — any domain
 
     void clear() {
         energy = 0;
+        unit_energy = 0;
         universal_power = 0;
         for (int i = 0; i < static_cast<int>(Domain::Count); ++i)
             power[i] = 0;
@@ -120,6 +125,12 @@ struct PlayerState {
     int next_spell_bonus_damage = 0;           // Ravenborn Tome: "the next spell you play this turn deals N Bonus Damage" (consumed when that spell deals damage)
     bool grant_repeat_base_to_next_spell = false; // The Academy (772): next spell gets [Repeat] at tranche cost = its base energy
     int zilean_double_token_turn = -1;         // Zilean, Time Mage (648): turn on which the once/turn token-doubling was used
+    // Staged around an effect-driven play that ignores part of a card's cost
+    // ("ignoring its Energy cost" — you still pay its Power). Read by
+    // canAfford / beginCostPayment; always cleared by the caller.
+    int transient_power_discount = 0;   // staged power discount for the card being played (Sandswept Tomb)
+    bool transient_ignore_energy = false;
+    bool transient_ignore_power = false;
     int transient_play_discount = 0;           // Irelia, Graceful (462): energy discount staged just before paying a specific spell (set+consumed in executePlaySpell)
     // Phase 6q+ engine-audit follow-on: reset last_spell_energy_spent
     // at turn start. Pre-fix, a Virtuoso/Forgotten Library trigger that
@@ -148,6 +159,8 @@ struct PlayerState {
         bool this_turn_only = true;        // expires at end of turn
         bool next_spell_only = false;      // expires after next spell played
         bool next_unit_only = false;       // expires after next unit played
+        bool next_card_only = false;       // expires after the next card of ANY type (Astral Heron)
+        int power_reduction = 0;           // power component of the discount ([A] less)
         bool affects_non_token_only = false; // restricts the modifier to non-token cards
         // Combat-active scope (Vex Cheerless: "While I'm in combat,
         // friendly spells cost [1] less and enemy spells cost [1] more").
@@ -175,6 +188,7 @@ struct PlayerState {
         int power = 0;
         Domain power_domain = Domain::Fury;
         bool any_domain = false;          // [A] — power may be any single domain
+        bool banish_after = false;        // granted [Flow]: banish the spell after it's played
     };
     std::vector<TrashReplayGrant> trash_replay_grants;
 
@@ -209,7 +223,54 @@ struct PlayerState {
     // Consumed by Rek'Sai Breacher's auto-Accelerate path.
     Intent::PlaySource current_play_source = Intent::PlaySource::Hand;
 
+    // ── Vendetta ─────────────────────────────────────────────────────────
+    int cards_burned_this_turn = 0;       // cards this player Burned this turn (CR 441)
+    int cards_banished_this_turn = 0;     // owned cards banished this turn
+    bool chose_enemy_unit_this_turn = false;   // Hungry Wolf
+
+    // This player's most recent combat this turn: where it was, whether they
+    // attacked, and how much combat damage they assigned beyond what was
+    // needed for lethal ("if you assigned N or more excess damage").
+    // last_combat_bf is kInvalidId when they have not been in a combat this turn.
+    BattlefieldId last_combat_bf = kInvalidId;
+    bool last_combat_attacker = false;
+    int excess_combat_damage = 0;
+    bool played_nontoken_unit_this_turn = false;  // Swain, Visionary
+    bool played_nontoken_gear_this_turn = false;
+    bool played_spell_this_turn = false;
+    int cards_played_not_from_hand_this_turn = 0;
+    int spells_played_this_turn = 0;      // Crumbling Sands
+    int gear_abilities_activated_this_turn = 0;   // Piltovan Forge ("first ... each turn")
+    int abilities_activated_this_turn = 0;
+    // Continuous-effect flags/counters below are recomputed by
+    // recalculateAuras (reset there, then set by cards' applyPassiveAura).
+    bool skip_draw_phase = false;         // Endless Riches: "Skip your Draw Phase."
+    bool may_play_from_trash = false;     // Endless Riches: "You may play cards from your trash."
+    bool trash_goes_to_banish = false;    // Endless Riches: non-deck cards headed to trash are banished
+    int flow_cost_reduction = 0;          // Stargazer: Flow plays cost [N] less (min [1])
+    int spell_tax_energy = 0;             // Helm of Suppression: THIS player's spells cost more
+    int spell_tax_power = 0;
+    int spell_discount_energy = 0;        // Applied Researchers: your spells cost less (min [1])
+    int spell_discount_power = 0;
+    bool spells_cant_be_countered = false;  // Mel, Newly Awakened
+    int extra_minus_might = 0;            // Mel, Newly Awakened: your -[M] effects give extra
+    std::vector<std::string> locked_spell_names;  // Fallen Feline: this player can't play these
+    int first_gear_ability_discount = 0;  // Piltovan Forge: first friendly gear ability each turn costs [N] less
+
     void resetTurnTracking() {
+        cards_burned_this_turn = 0;
+        cards_banished_this_turn = 0;
+        chose_enemy_unit_this_turn = false;
+        last_combat_bf = kInvalidId;
+        last_combat_attacker = false;
+        excess_combat_damage = 0;
+        played_nontoken_unit_this_turn = false;
+        played_nontoken_gear_this_turn = false;
+        played_spell_this_turn = false;
+        cards_played_not_from_hand_this_turn = 0;
+        spells_played_this_turn = 0;
+        gear_abilities_activated_this_turn = 0;
+        abilities_activated_this_turn = 0;
         cards_played_this_turn = 0;
         equipment_played_this_turn = 0;
         gears_played_this_turn = 0;
@@ -247,6 +308,16 @@ struct BattlefieldState {
     GameObjectId card_object_id = kInvalidId;  // the battlefield card itself
 
     std::optional<PlayerId> controller;
+    // ── Vendetta battlefield continuous effects (recomputed each recalculateAuras) ──
+    bool ignore_tank[2] = {false, false};   // Dune Surfer: this player ignores [Tank] assigning here
+    bool ignore_deflect_here = false;       // Heisho: players ignore [Deflect] choosing something here
+    int reaction_tax_power = 0;             // Mystic Vortex: [Reaction] cards cost [A] more in showdowns here
+    int friendly_spell_discount_power = 0;  // Sandswept Tomb: spells choosing friendly units here cost [A] less
+    // "Any player may pay [A]... as an additional cost to play a <tag>. If they
+    // do, they play it to this battlefield." (Dragon Roost). 0 = no such offer.
+    int paid_play_power = 0;
+    std::string paid_play_tag;
+    int empower_cost_reduction[2] = {0, 0}; // Risen Altar: per-player [Empower] discount for units here
     bool is_contested = false;
     PlayerId contested_by = PlayerId::None;
     PlayerId contributed_by = PlayerId::None;  // who brought this BF to the game
@@ -339,6 +410,14 @@ struct TurnState {
     // Read by cards like Towering Pairofant ("if a unit died this turn, ...").
     bool any_unit_died_this_turn = false;
 
+    // Sandstone Chimera: "players only channel 1 rune at the start of their
+    // Channel Phase." 0 = no cap. Recomputed each recalculateAuras.
+    int channel_phase_cap = 0;
+    // Otterpus: "If a player would score 1 point from conquering or holding
+    // during their first or second turn, they draw 1 instead." Recomputed each
+    // recalculateAuras.
+    bool early_score_draws_instead = false;
+
     // Per-turn decision counters (reset each turn)
     int turn_decisions_p1 = 0;
     int turn_decisions_p2 = 0;
@@ -375,6 +454,11 @@ struct ChainItem {
 
     // Targeting
     std::vector<GameObjectId> targets;
+    // Everything this item has chosen so far: play-time targets plus objects
+    // picked at resolution (Card::pickTarget / pickTargetPair). Lets other
+    // effects ask "what does this chain item choose" (Deflect, Irelia,
+    // Sandswept Tomb, Decree of Focus, Repulse) for resolve-time-target cards.
+    std::vector<GameObjectId> chosen_objects;
 
     // Classification
     bool is_spell = false;        // true for spells (go to trash on resolve)
@@ -418,6 +502,24 @@ struct ChainItem {
     // them entirely.
     int resume_point = 0;
     std::vector<int32_t> resume_data;
+
+    // ── Choices made at finalization (CR 355, 383.3) ──
+    // A card that opts in (Card::choicesAtFinalization) has its callback run
+    // once when the item is finalized, with `finalizing` set: the choice
+    // helpers ask the agent as usual and the card returns before its effect
+    // (Card::finalizingChoices). The answers stay on the item; when it
+    // resolves (`choices_finalized`) the helpers return them without asking.
+    bool finalizing = false;
+    bool choices_finalized = false;
+    // A cost was paid during the finalize pass (Card::costDueNow), so it is
+    // not charged again at resolution.
+    bool finalize_costs_paid = false;
+    // confirmOptional's answer: -1 not asked, 0 no, 1 yes, 2 yes and
+    // re-validated at resolution.
+    int8_t may_answer = -1;
+    // Finalized targets are checked for legality once as the item resolves
+    // (a target that is no longer legal is a mistarget). 1 = single, 2 = pair.
+    uint8_t finalize_checked = 0;
 
     // ── Repeat (CR 820) — optional additional cost ──
     // `repeats_paid` is the number of times the Repeat cost was paid as

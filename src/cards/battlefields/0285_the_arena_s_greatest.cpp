@@ -23,8 +23,8 @@ public:
                           std::to_string(playerIndex(ctx.controller));
         if (self.card_counters[key] != 0) return;  // already fired for this player
         self.card_counters[key] = 1;
-        auto& ps = ctx.state.player(ctx.controller);
-        ps.score++;
+        ctx.executor.scorePoints(ctx.controller, 1);   // CR 194.1.c
+        const auto& ps = ctx.state.player(ctx.controller);
         ctx.events.logTrace("THE ARENA'S GREATEST: first Beginning Phase -> +1 point ("
                             + std::to_string(ps.score) + ")");
     }
@@ -43,6 +43,7 @@ private:
         d.rarity = Rarity::Uncommon;
         d.ability_text = R"RB(At the start of each player's first Beginning Phase, that player gains 1 point.)RB";
         d.image_url = R"RB(https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/2afd8bdfdd42b1595af0746a6c6b92879ac770d6-1038x744.png)RB";
+        d.banned = true;  // tournament ban (2026-07-24)
         return d;
     }();
 };

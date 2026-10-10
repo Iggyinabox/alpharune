@@ -14,6 +14,7 @@ namespace {
 class SolariChief : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         // "choose an enemy unit. If it is stunned, kill it. Otherwise, stun it."
         std::vector<GameObjectId> enemies;
@@ -24,6 +25,7 @@ public:
         }
         if (enemies.empty()) return;
         GameObjectId picked = pickTarget(ctx, "Solari Chief (enemy unit)", enemies);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (picked == kInvalidId && ctx.state.chain.resuming.has_value() &&
             ctx.state.chain.resuming->resume_point == 7) {
             return;  // suspended for agent decision

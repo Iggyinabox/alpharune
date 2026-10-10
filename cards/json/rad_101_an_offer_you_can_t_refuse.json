@@ -1,0 +1,23 @@
+{
+  "id": "rad-101-167",
+  "name": "An Offer You Can't Refuse",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 101,
+  "public_code": "RAD-101/167",
+  "card_type": "spell",
+  "super_type": null,
+  "domains": [
+    "chaos"
+  ],
+  "tags": [],
+  "energy_cost": 2,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "[Action] (Play on your turn or in showdowns.)\nKill a gear. Its controller plays a Gold gear token exhausted. (It has \"[Reaction][>] Kill this, [E]: [Add] [A].\")",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/f724f95257abeacee82c774eff64973b56035357-744x1039.png",
+  "artist": "Kudos Productions"
+}

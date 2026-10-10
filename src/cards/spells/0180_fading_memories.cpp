@@ -17,10 +17,13 @@ public:
 
     bool needsPlayTimeTarget() const override { return true; }
 
-    static std::vector<GameObjectId> legalTargets(const GameState& state) {
+    static std::vector<GameObjectId> legalTargets(const GameState& state,
+                                                  PlayerId controller) {
         std::vector<GameObjectId> out;
         for (auto& [id, obj] : state.objects) {
             if (!obj.location.has_value()) continue;
+            // "Can't be chosen by enemy spells and abilities."
+            if (obj.controller != controller && obj.untargetable_by_enemy) continue;
             if (obj.isUnit() && obj.isAtBattlefield()) {
                 out.push_back(id);
             } else if (obj.isGear()) {
@@ -31,8 +34,8 @@ public:
     }
 
     std::vector<GameObjectId> enumerateLegalTargets(
-        const GameState& state, PlayerId /*controller*/) const override {
-        return legalTargets(state);
+        const GameState& state, PlayerId controller) const override {
+        return legalTargets(state, controller);
     }
 
     void onResolve(CardContext& ctx, const std::vector<GameObjectId>& targets) override {
@@ -41,7 +44,7 @@ public:
             picked = targets[0];
         } else {
             picked = pickTarget(ctx, "Fading Memories: give [Temporary]",
-                                 legalTargets(ctx.state));
+                                 legalTargets(ctx.state, ctx.controller));
         }
         if (picked == kInvalidId || !ctx.state.objectExists(picked)) return;
         auto& obj = ctx.state.getObject(picked);

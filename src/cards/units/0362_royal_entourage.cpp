@@ -15,6 +15,7 @@ namespace {
 class RoyalEntourage : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
 
     // "When you play me, ready or exhaust a legend."
     TriggerType triggerType() const override { return TriggerType::WhenYouPlayMe; }
@@ -26,13 +27,13 @@ public:
         for (auto& [id, obj] : ctx.state.objects) {
             if (obj.card_type == CardType::Legend) legends.push_back(id);
         }
-        GameObjectId tgt = pickTarget(ctx, "Royal Entourage: ready/exhaust a legend",
-                                      legends);
-        if (tgt == kInvalidId) return;  // suspend or no legends
         int mode = pickMode(ctx, "Royal Entourage: ready or exhaust?", 2,
                             {"Ready", "Exhaust"});
-        if (mode == -1) return;  // suspend
-        if (mode < 0) return;
+        if (mode < 0) return;  // suspended, or nothing to choose
+        GameObjectId tgt = pickTarget(ctx, "Royal Entourage: ready/exhaust a legend",
+                                      legends);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
+        if (tgt == kInvalidId || !ctx.state.objectExists(tgt)) return;
         if (mode == 0) {
             ctx.executor.readyObject(tgt);
             ctx.events.logTrace("ROYAL ENTOURAGE: readied a legend");

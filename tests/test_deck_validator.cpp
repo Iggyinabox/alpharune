@@ -195,18 +195,30 @@ TEST_F(DeckValidatorTest, DuplicateBattlefieldNames) {
     EXPECT_TRUE(found_dupe);
 }
 
-TEST_F(DeckValidatorTest, SideboardTooLarge) {
-    auto deck = makeValidDeck();
-    // Add cards until sideboard > 8
+namespace {
+bool hasSideboardSizeError(const ValidationResult& r) {
+    for (const auto& e : r.errors)
+        if (e.find("Sideboard can have at most") != std::string::npos) return true;
+    return false;
+}
+}  // namespace
+
+// Tournament Rules 601.1.c.1: a sideboard can include 10 or fewer cards.
+// (Other errors, e.g. the 3-copy cap from padding with one card, are ignored:
+// this pins only the size boundary.)
+TEST_F(DeckValidatorTest, SideboardSizeLimitIsTen) {
     auto* card = db.findByName("Salvage");
-    if (card) {
-        while (deck.sideboard.size() < 10) {
-            deck.sideboard.push_back(card->id);
-        }
-    }
+    ASSERT_NE(card, nullptr);
     DeckValidator validator(db);
+
+    auto deck = makeValidDeck();
+    deck.sideboard.assign(10, card->id);
+    EXPECT_FALSE(hasSideboardSizeError(validator.validate(deck))) << "10 is legal";
+
+    deck.sideboard.assign(11, card->id);
     auto result = validator.validate(deck);
     EXPECT_FALSE(result.is_legal);
+    EXPECT_TRUE(hasSideboardSizeError(result)) << "11 exceeds the limit";
 }
 
 TEST_F(DeckValidatorTest, DomainViolation) {

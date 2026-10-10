@@ -15,9 +15,10 @@ namespace {
 // "[Assault 3] If an opponent controls a battlefield, I enter ready. When I
 //  conquer, you may pay [1] to return me to my owner's hand."
 
-class VayneHunter : public UnitCard {
+class VayneHunter_537 : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
 
     bool entersReadyOnPlay(const GameState& state, PlayerId controller) const override {
         PlayerId opp = opponent(controller);
@@ -30,14 +31,16 @@ public:
     TriggerType triggerType() const override { return TriggerType::WhenIConquer; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         if (!ctx.state.objectExists(ctx.source)) return;
-        auto& ps = ctx.state.player(ctx.controller);
+        // CR 445.2 / 164.2.a: the [1] may come from floating Energy or from
+        // exhausting a ready rune (payableEnergy / payEnergy).
         int conf = confirmOptional(ctx, "Vayne, Hunter: pay [1] to return me to hand?",
                                    [&]() {
-            return ctx.state.objectExists(ctx.source) && ps.rune_pool.energy >= 1;
+            return ctx.state.objectExists(ctx.source) &&
+                   payableEnergy(ctx.state, ctx.controller) >= 1;
         });
         if (conf != 1) return;
-        if (ps.rune_pool.energy < 1) return;
-        ps.rune_pool.energy -= 1;
+        if (costDueNow(ctx) && !payEnergy(ctx, ctx.controller, 1)) return;
+        if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
         ctx.executor.bounceToHand(ctx.source);
         ctx.events.logTrace("VAYNE, HUNTER: conquer -> paid [1] to return to hand");
     }
@@ -73,7 +76,7 @@ When I conquer, you may pay [1] to return me to my owner's hand.)RB";
 }  // anonymous namespace
 
 void register_card_537(CardRegistry& r) {
-    r.registerCard(537, std::make_unique<VayneHunter>());
+    r.registerCard(537, std::make_unique<VayneHunter_537>());
 }
 
 } // namespace riftbound

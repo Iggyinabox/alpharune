@@ -15,6 +15,7 @@ namespace {
 class VexMocking : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouStun; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         if (!ctx.state.objectExists(ctx.source)) return;
@@ -43,6 +44,7 @@ public:
 
         int conf = confirmOptional(ctx, "Vex Mocking: move me to that battlefield?",
                                     still_legal);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (conf < 1) return;
         auto bf = target_bf_of();
         if (!bf) return;

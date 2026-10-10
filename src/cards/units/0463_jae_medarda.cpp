@@ -17,14 +17,16 @@ public:
     // "When you choose me with a spell, draw 1."
     // The engine fires WhenYouChooseAFriendlyUnit on ALL the player's units
     // when ANY friendly unit is chosen, so self-filter: only draw if a chain
-    // item actually chose ME.
+    // item actually chose ME (ChainItem::chosen_objects / targets).
     TriggerType triggerType() const override { return TriggerType::WhenYouChooseAFriendlyUnit; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         bool chose_me = false;
         for (const auto& item : ctx.state.chain.items) {
-            if (!item.is_spell) continue;
-            for (auto t : item.targets)
-                if (t == ctx.source) { chose_me = true; break; }
+            if (!item.is_spell || item.controller != ctx.controller) continue;
+            chose_me = std::find(item.chosen_objects.begin(), item.chosen_objects.end(),
+                                 ctx.source) != item.chosen_objects.end() ||
+                       std::find(item.targets.begin(), item.targets.end(), ctx.source)
+                           != item.targets.end();
             if (chose_me) break;
         }
         if (!chose_me) return;

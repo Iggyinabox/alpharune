@@ -1,0 +1,27 @@
+{
+  "id": "rad-141-167",
+  "name": "Hexplosives Expert",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 141,
+  "public_code": "RAD-141/167",
+  "card_type": "legend",
+  "super_type": null,
+  "domains": [
+    "fury",
+    "chaos"
+  ],
+  "tags": [
+    "Yordle",
+    "Ziggs"
+  ],
+  "energy_cost": null,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "rare",
+  "ability_text": "[1][A], [E]: Play a Bomb gear token to a battlefield. (It has [Deploy]. When it dies, deal 2 to an enemy there and kill your other Bombs there.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/69899f4d5e05ff0a060b9f38894cd77f9e17d195-744x1039.png",
+  "artist": "Envar Studio"
+}

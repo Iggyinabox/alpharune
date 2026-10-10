@@ -1,0 +1,23 @@
+{
+  "id": "ven-049-166",
+  "name": "Dredge Up",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 49,
+  "public_code": "VEN-049/166",
+  "card_type": "spell",
+  "super_type": null,
+  "domains": [
+    "mind"
+  ],
+  "tags": [],
+  "energy_cost": 2,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "Draw 1.\n[Flow] [2] (You may play this from your trash for its Flow cost. Then banish it.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/cf561c8a0f8debde66b66d3e74ce861d0ce388ae-744x1039.png",
+  "artist": "Kudos Productions"
+}

@@ -17,8 +17,8 @@ public:
     const CardDef& def() const override { return def_; }
     TriggerType triggerType() const override { return TriggerType::WhenIHold; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& targets) override {
-        auto& ps = ctx.state.player(ctx.controller);
-        ps.score++;
+        ctx.executor.scorePoints(ctx.controller, 1);   // CR 194.1.c
+        const auto& ps = ctx.state.player(ctx.controller);
         ctx.events.logTrace("TRIGGER: Ahri scores 1 point -> " + std::to_string(ps.score));
     }
 private:

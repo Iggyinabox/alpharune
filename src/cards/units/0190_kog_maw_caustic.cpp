@@ -15,11 +15,18 @@ class KogMawCaustic : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& targets) override {
-        // AoE: deal 4 to all matching
+        // "Deal 4 to all units at MY battlefield": the battlefield I died at
+        // (last-known location, CR 383.2.c.3.b). Dying anywhere else (base)
+        // there is no such battlefield and nothing is dealt.
+        if (!ctx.state.objectExists(ctx.source)) return;
+        const auto& self = ctx.state.getObject(ctx.source);
+        const auto& where = self.location.has_value() ? self.location : self.last_location;
+        if (!where.has_value() || !std::holds_alternative<BattlefieldLocation>(*where)) return;
+        const LocationId my_bf = *where;
         {
             std::vector<GameObjectId> to_damage;
             for (auto& [id, obj] : ctx.state.objects) {
-                if (!obj.location.has_value()) continue;
+                if (!obj.location.has_value() || *obj.location != my_bf) continue;
                 if (!obj.isUnit()) continue;
                 to_damage.push_back(id);
             }

@@ -11,9 +11,10 @@
 namespace riftbound {
 namespace {
 
-class AhriInquisitive : public UnitCard {
+class AhriInquisitive_119 : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // "When I attack or defend, give an enemy unit here -2 [M] this turn, to
     // a minimum of 1 [M]." Combat triggers receive EMPTY targets, so pick at
     // resolution from enemy units at my battlefield.
@@ -29,6 +30,7 @@ public:
             legal.push_back(id);
         }
         GameObjectId picked = pickTarget(ctx, "Ahri, Inquisitive (-2 M)", legal);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (picked == kInvalidId && ctx.state.chain.resuming.has_value() &&
             ctx.state.chain.resuming->resume_point == 7) {
             return;  // suspended for agent decision
@@ -64,7 +66,7 @@ private:
 }  // anonymous namespace
 
 void register_card_119(CardRegistry& r) {
-    r.registerCard(119, std::make_unique<AhriInquisitive>());
+    r.registerCard(119, std::make_unique<AhriInquisitive_119>());
 }
 
 } // namespace riftbound

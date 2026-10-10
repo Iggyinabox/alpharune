@@ -1,0 +1,23 @@
+{
+  "id": "rad-016-167",
+  "name": "Coalesced Energy",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 16,
+  "public_code": "RAD-016/167",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "mind"
+  ],
+  "tags": [],
+  "energy_cost": 4,
+  "power_cost": 2,
+  "might": 4,
+  "might_bonus": null,
+  "rarity": "rare",
+  "ability_text": "At the end of your turn, recycle all your runes, then channel 4 runes exhausted.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/59e551045ca75d932ff76c4820d873d4a2cde9e8-744x1039.png",
+  "artist": "Michal Ivan"
+}

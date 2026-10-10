@@ -1,0 +1,26 @@
+{
+  "id": "ven-002-166",
+  "name": "Blade Twirler",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 2,
+  "public_code": "VEN-002/166",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "fury"
+  ],
+  "tags": [
+    "Yordle",
+    "Ionia"
+  ],
+  "energy_cost": 4,
+  "power_cost": null,
+  "might": 4,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "The first time I move each turn, choose a player. They [Burn 1]. (They put the top card of their Main Deck into their trash.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/b222082d5d38630c4d2542ed24c0442881e3de18-744x1039.png",
+  "artist": "Six More Vodka"
+}

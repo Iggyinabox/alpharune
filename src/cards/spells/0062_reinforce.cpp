@@ -75,7 +75,12 @@ public:
 
         if (chosen != kInvalidId && ctx.state.objectExists(chosen)) {
             ctx.executor.banishObject(chosen);
-            ctx.executor.playIgnoringCost(ctx.controller, chosen);
+            const EffectExecutor::EffectPlayCost reduced{.energy_reduction = 5};
+            if (ctx.executor.canPlayPayingCost(ctx.controller, chosen, reduced)) {
+                auto& bz = ctx.state.player(ctx.state.getObject(chosen).owner).banishment;
+                bz.erase(std::remove(bz.begin(), bz.end(), chosen), bz.end());
+                ctx.executor.playPayingCost(ctx.controller, chosen, std::nullopt, reduced);
+            }
             ctx.events.logTrace("REINFORCE: banished + played " +
                                 ctx.state.getObject(chosen).name + " (cost reduced)");
         } else {

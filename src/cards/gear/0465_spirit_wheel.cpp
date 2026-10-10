@@ -15,28 +15,30 @@ namespace {
 class SpiritWheel : public GearCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override {
         return TriggerType::WhenYouChooseAFriendlyUnit;
     }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         if (!ctx.state.objectExists(ctx.source)) return;
         auto& self = ctx.state.getObject(ctx.source);
-        if (self.is_exhausted) return;
-        auto& ps = ctx.state.player(ctx.controller);
+        if (!costAlreadyPaid(ctx) && self.is_exhausted) return;
         // confirmOptional needs to re-validate both energy AND the still-
         // ready state of this gear (a different effect may have exhausted
         // it between trigger fire and resolution).
-        auto still_legal = [&ps, &ctx]() {
+        auto still_legal = [&ctx]() {
             if (!ctx.state.objectExists(ctx.source)) return false;
             if (ctx.state.getObject(ctx.source).is_exhausted) return false;
-            return ps.rune_pool.energy >= 1;
+            // CR 445.2 / 164.2.a: floating Energy or a ready rune can pay.
+            return payableEnergy(ctx.state, ctx.controller) >= 1;
         };
-        if (!still_legal()) return;
+        if (!costAlreadyPaid(ctx) && !still_legal()) return;
         auto conf = confirmOptional(ctx,
             "Spirit Wheel: pay [1] + exhaust to draw 1?", still_legal);
         if (conf < 1) return;
-        ps.rune_pool.energy -= 1;
-        ctx.executor.exhaustObject(ctx.source);
+        if (costDueNow(ctx) && !payEnergy(ctx, ctx.controller, 1)) return;
+        if (costDueNow(ctx)) ctx.executor.exhaustObject(ctx.source);
+        if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
         ctx.executor.drawCards(ctx.controller, 1);
         ctx.events.logTrace("SPIRIT WHEEL: paid [1] + exhaust -> draw 1");
     }

@@ -15,6 +15,7 @@ namespace {
 class RellMagnetic : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
 
     // "[Tank]" engine-handled. "When I attack, you may play an Equipment with
     // Energy cost no more than [2], ignoring its cost. If you do, attach it
@@ -42,6 +43,7 @@ public:
 
         GameObjectId eq = pickTarget(ctx, "Rell: choose an Equipment to play",
                                      candidates());
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (eq == kInvalidId || !ctx.state.objectExists(eq)) return;
         // Play it ignoring cost (to base), then attach it to me.
         ctx.executor.playIgnoringCost(ctx.controller, eq,

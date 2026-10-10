@@ -1,0 +1,23 @@
+{
+  "id": "rad-118-167",
+  "name": "Herald of the Emperor",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 118,
+  "public_code": "RAD-118/167",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "order"
+  ],
+  "tags": [],
+  "energy_cost": 5,
+  "power_cost": null,
+  "might": 3,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "When you play me, choose a friendly unit. Its base Might becomes 5 this turn.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/a168856002994f7ac67150d991e65152e6434ab6-744x1039.png",
+  "artist": "Kudos Productions"
+}

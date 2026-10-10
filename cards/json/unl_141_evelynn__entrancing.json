@@ -19,7 +19,7 @@
   "might": 2,
   "might_bonus": null,
   "rarity": "rare",
-  "ability_text": "[Hidden] (Hide now for [A] to react with later for .)\n[Backline] (I must be assigned combat damage last.)\nWhen you play me from face down on your turn, you may move an enemy unit at a different location to my battlefield.",
+  "ability_text": "[Hidden] (Hide now for [A] to react with later for [0].)\n[Backline] (I must be assigned combat damage last.)\nWhen you play me from face down on your turn, you may move an enemy unit at a different location to my battlefield.",
   "effect_text": null,
   "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/1cea41a2b9c3de59a1c95ceacc59950be1d01907-744x1039.png",
   "artist": "Kudos Productions"

@@ -1,0 +1,23 @@
+{
+  "id": "rad-012-167",
+  "name": "Runeblade Anvil",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 12,
+  "public_code": "RAD-012/167",
+  "card_type": "gear",
+  "super_type": null,
+  "domains": [
+    "chaos"
+  ],
+  "tags": [],
+  "energy_cost": 1,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "When you play this or when this leaves the board, banish the top card of your Main Deck. Until your next Ending Phase, you may play that card. (You still pay its costs.)\n[2][P], [E]: Kill this.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/11e2ddea70ec4dd8e562681a1ab1dfbc2b2dca0f-744x1039.png",
+  "artist": "Kudos Productions"
+}

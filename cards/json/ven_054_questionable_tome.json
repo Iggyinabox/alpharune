@@ -1,0 +1,23 @@
+{
+  "id": "ven-054-166",
+  "name": "Questionable Tome",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 54,
+  "public_code": "VEN-054/166",
+  "card_type": "gear",
+  "super_type": null,
+  "domains": [
+    "mind"
+  ],
+  "tags": [],
+  "energy_cost": 3,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "[Empower] \u2014 [E] (Pay the cost: Empower me. Use only if not Empowered.)\nDisempower this, [1], [E]: Draw 1.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/07bb606d7cbcb218496b78a4fef354abb99875dc-744x1039.png",
+  "artist": "Kudos Productions"
+}

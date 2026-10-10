@@ -1,0 +1,25 @@
+{
+  "id": "ven-014-166",
+  "name": "Shadow Fiend",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 14,
+  "public_code": "VEN-014/166",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "fury"
+  ],
+  "tags": [
+    "Ionia"
+  ],
+  "energy_cost": 2,
+  "power_cost": null,
+  "might": 2,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "[Empower] [2][R] ([2][R]: Empower me. Use only if not Empowered.)\n[Empowered][>] I have [Assault 3]. (+3 [M] while I'm an attacker.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/3bbeed15ac517c2e39c039e376553ce7e1c65f0c-744x1039.png",
+  "artist": "Six More Vodka"
+}

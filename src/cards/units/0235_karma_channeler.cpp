@@ -11,9 +11,10 @@
 namespace riftbound {
 namespace {
 
-class KarmaChanneler : public UnitCard {
+class KarmaChanneler_235 : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // Clause 1: "[Vision]" — engine-handled (TriggerManager peeks the top card on
     //   play for any unit with the Vision keyword; set in def below). Works.
     // Clause 2: "When you recycle one or more cards to your Main Deck, buff a
@@ -31,6 +32,7 @@ public:
         if (friendly.empty()) return;
         GameObjectId pick = pickTarget(ctx, "Karma, Channeler: buff a friendly unit",
                                        friendly);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (pick == kInvalidId && ctx.state.chain.resuming.has_value() &&
             ctx.state.chain.resuming->resume_point == 7)
             return;  // suspended
@@ -68,7 +70,7 @@ When you recycle one or more cards to your Main Deck, buff a friendly unit. (If 
 }  // anonymous namespace
 
 void register_card_235(CardRegistry& r) {
-    r.registerCard(235, std::make_unique<KarmaChanneler>());
+    r.registerCard(235, std::make_unique<KarmaChanneler_235>());
 }
 
 } // namespace riftbound

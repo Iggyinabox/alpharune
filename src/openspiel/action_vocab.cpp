@@ -179,7 +179,9 @@ int encodeAction(const Intent& intent, const GameState& state) {
                      + kNumCardDefIds + 1 + v;
             }
             uint32_t first = 0;
-            if (!intent.chosen_objects.empty()) {
+            if (intent.chosen_card_def != kInvalidId) {
+                first = intent.chosen_card_def;          // a named card
+            } else if (!intent.chosen_objects.empty()) {
                 first = defIdOf(state, intent.chosen_objects[0]);
             }
             int idx = (first == 0)

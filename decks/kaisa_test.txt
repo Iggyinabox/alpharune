@@ -23,7 +23,7 @@ MainDeck:
 1 Ashe, Focused
 
 Battlefields:
-1 The Arena's Greatest
+1 Sunken Temple
 1 Rockfall Path
 1 Forbidding Waste
 

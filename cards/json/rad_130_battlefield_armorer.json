@@ -1,0 +1,23 @@
+{
+  "id": "rad-130-167",
+  "name": "Battlefield Armorer",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 130,
+  "public_code": "RAD-130/167",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "order"
+  ],
+  "tags": [],
+  "energy_cost": 3,
+  "power_cost": null,
+  "might": 3,
+  "might_bonus": null,
+  "rarity": "rare",
+  "ability_text": "When a friendly gear at a battlefield dies, you may pay [1] to return it to its owner's hand.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/eb04c39763de8fb8e56153d1f0e4f799e15dced9-744x1039.png",
+  "artist": "Six More Vodka"
+}

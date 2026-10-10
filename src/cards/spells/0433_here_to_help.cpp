@@ -57,9 +57,11 @@ public:
                 }
             }
             // Remove from hand before re-playing.
+            const EffectExecutor::EffectPlayCost reduced{.energy_reduction = 3};
+            if (!ctx.executor.canPlayPayingCost(ctx.controller, unit, reduced)) return;
             auto it = std::find(ps.hand.begin(), ps.hand.end(), unit);
             if (it != ps.hand.end()) ps.hand.erase(it);
-            ctx.executor.playIgnoringCost(ctx.controller, unit, dest);
+            ctx.executor.playPayingCost(ctx.controller, unit, dest, reduced);
             ctx.events.logTrace("HERE TO HELP: played a unit from hand to a "
                                 "controlled battlefield (-[3] approximated as free)");
             return;

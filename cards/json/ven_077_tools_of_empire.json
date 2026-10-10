@@ -1,0 +1,23 @@
+{
+  "id": "ven-077-166",
+  "name": "Tools of Empire",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 77,
+  "public_code": "VEN-077/166",
+  "card_type": "gear",
+  "super_type": null,
+  "domains": [
+    "body"
+  ],
+  "tags": [],
+  "energy_cost": 4,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "[Empower] [2] ([2]: Empower this. Use only if not Empowered.)\n[E]: Give a unit +2 [M] this turn. If this is [Empowered], give that unit +4 [M] this turn instead.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/c4f511ca650143e3f5267e272513e4dcf9cba04f-744x1039.png",
+  "artist": "Wild Blue Studios"
+}

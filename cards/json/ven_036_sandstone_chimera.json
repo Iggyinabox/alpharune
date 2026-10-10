@@ -1,0 +1,25 @@
+{
+  "id": "ven-036-166",
+  "name": "Sandstone Chimera",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 36,
+  "public_code": "VEN-036/166",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "calm"
+  ],
+  "tags": [
+    "Shurima"
+  ],
+  "energy_cost": 7,
+  "power_cost": 2,
+  "might": 8,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "While I'm at a battlefield, players only channel 1 rune at the start of their Channel Phase.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/7a483e91e2bbb81bc8f66697bd610427b080b45c-744x1039.png",
+  "artist": "Kudos Productions"
+}

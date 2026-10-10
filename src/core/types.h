@@ -103,7 +103,9 @@ enum class Keyword : uint32_t {
     Unique       = 20,
     Vision       = 21,
     Weaponmaster = 22,
-    Count        = 23,
+    Empower      = 23,  // Vendetta: activated "[Cost]: Empower this" (CR 827)
+    Flow         = 24,  // Vendetta: spell may be played from trash for its Flow cost, then banished
+    Count        = 25,
 };
 
 // Fixed-size keyword bitset

@@ -1,0 +1,26 @@
+{
+  "id": "ven-112-166",
+  "name": "Zed, Without a Sound",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 112,
+  "public_code": "VEN-112/166",
+  "card_type": "unit",
+  "super_type": "champion",
+  "domains": [
+    "chaos"
+  ],
+  "tags": [
+    "Ionia",
+    "Zed"
+  ],
+  "energy_cost": 5,
+  "power_cost": null,
+  "might": 5,
+  "might_bonus": null,
+  "rarity": "rare",
+  "ability_text": "When I conquer, play a 0 [M] Shadow Clone unit token to your base. (It has \"When I attack, you may banish a unit from your trash. If you do, give me [Assault 4] this turn.\")\n[Action][>] [1][P]: Move me and a Shadow Clone you control to each other's locations.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/be97ca6a33e25b85a04ec1b3a163b31f141776cf-744x1039.png",
+  "artist": "Six More Vodka"
+}

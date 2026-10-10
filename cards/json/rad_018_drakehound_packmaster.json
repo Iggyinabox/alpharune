@@ -1,0 +1,23 @@
+{
+  "id": "rad-018-167",
+  "name": "Drakehound Packmaster",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 18,
+  "public_code": "RAD-018/167",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "fury"
+  ],
+  "tags": [],
+  "energy_cost": 9,
+  "power_cost": 2,
+  "might": 9,
+  "might_bonus": null,
+  "rarity": "rare",
+  "ability_text": "When you play me, reveal the top card of each opponent's Main Deck. Choose one and banish it, then play it, ignoring its cost. Recycle the rest.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/9ddc2759cf8b039bc1ee77e32326c5475cc001e8-744x1039.png",
+  "artist": "Six More Vodka"
+}

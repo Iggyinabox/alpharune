@@ -1,0 +1,23 @@
+{
+  "id": "rad-093-167",
+  "name": "Disposal Expert",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 93,
+  "public_code": "RAD-093/167",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "fury"
+  ],
+  "tags": [],
+  "energy_cost": 4,
+  "power_cost": null,
+  "might": 3,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "I enter ready if you control no other units.\n[Disarm 2] (When I attack, give an enemy unit here -2 [M] this turn.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/79ec89753be773e7ea93b2116ea29d21c81fcef9-744x1039.png",
+  "artist": "Kudos Productions"
+}

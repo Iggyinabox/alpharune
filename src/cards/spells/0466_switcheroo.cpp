@@ -14,6 +14,7 @@ namespace {
 class Switcheroo : public SpellCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeResolve; }
     bool isActionAbility() const override { return true; }
     TargetRequirements getTargetRequirements() const override {
         return TargetRequirements{.count = 2, .must_be_unit = true,
@@ -40,6 +41,7 @@ public:
             return out;
         };
         auto [a, b] = pickTargetPair(ctx, "Switcheroo", first_legal, second_fn);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         bool suspending = (a == kInvalidId || b == kInvalidId) &&
                           ctx.state.chain.resuming.has_value() &&
                           (ctx.state.chain.resuming->resume_point == 10 ||

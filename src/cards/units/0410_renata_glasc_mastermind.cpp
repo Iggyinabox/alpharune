@@ -42,7 +42,9 @@ public:
             ctx.executor.drawCards(ctx.controller, 1);
             ctx.events.logTrace("RENATA MASTERMIND: [1][B] -> draw 1");
         } else {
-            ctx.state.player(ctx.controller).score += 1;
+            // CR 194.1.c: points from an ability go through the executor (honours
+            // "can't gain points", ends the game at the Victory Score).
+            ctx.executor.scorePoints(ctx.controller, 1);
             ctx.events.logTrace("RENATA MASTERMIND: [4][B][B][B][B],[E] -> score 1 point");
         }
     }

@@ -15,6 +15,7 @@ namespace {
 class Gloomist : public LegendCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenIHold; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         // Optional: "you may exhaust me to draw 1". Routed through
@@ -30,7 +31,8 @@ public:
         if (conf == -1) return;
         if (conf == 0) return;
         auto& legend = ctx.state.getObject(ctx.source);
-        legend.is_exhausted = true;
+        if (costDueNow(ctx)) legend.is_exhausted = true;
+        if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
         ctx.executor.drawCards(ctx.controller, 1);
         ctx.events.logTrace("TRIGGER: Gloomist exhausts to draw 1");
     }

@@ -14,6 +14,7 @@ namespace {
 class StealthyPursuer : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // "When a friendly unit moves from my location, I may be moved with it."
     // WhenAFriendlyUnitMovesFromMyLocation fires only on watchers that shared
     // the FROM location; the moved unit is the subject — we follow it to its
@@ -30,6 +31,7 @@ public:
         int answer = confirmOptional(ctx, "Stealthy Pursuer: move with it?",
             [&]() { return ctx.state.objectExists(ctx.source) &&
                            ctx.state.objectExists(subject); });
+                           if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (answer < 1) return;  // declined or pending
         if (std::holds_alternative<BattlefieldLocation>(*mover.location))
             ctx.executor.moveToBattlefield(
@@ -57,6 +59,7 @@ private:
         d.might = 4;
         d.ability_text = R"RB(When a friendly unit moves from my location, I may be moved with it.)RB";
         d.image_url = R"RB(https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/ab23fd84badd67e9981512acbe6c3e9a8f97f42d-744x1039.png)RB";
+        d.banned = true;  // tournament ban (2026-07-24)
         return d;
     }();
 };

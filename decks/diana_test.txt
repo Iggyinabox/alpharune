@@ -7,11 +7,10 @@ Champion:
 MainDeck:
 3 Stupefy
 3 Ravenbloom Student
-3 Stacked Deck
 3 Moonfall
-2 Gust
-2 Ride the Wind
-2 Seal of Discord
+3 Gust
+3 Ride the Wind
+3 Seal of Discord
 2 Flash
 2 Sprite Fountain
 2 Star-Crossed

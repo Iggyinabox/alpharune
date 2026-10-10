@@ -14,9 +14,33 @@ namespace {
 class ReaverSRow : public BattlefieldCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
+    // "When you defend here, you may move a friendly unit here to base."
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& targets) override {
-        if (!targets.empty())
-            ctx.executor.moveToBase(targets[0]);
+        GameObjectId unit = kInvalidId;
+        if (!targets.empty()) {
+            unit = targets[0];
+        } else {
+            auto unitsHere = [&]() {
+                std::vector<GameObjectId> out;
+                for (const auto& bf : ctx.state.battlefields) {
+                    if (bf.card_object_id != ctx.source) continue;
+                    for (auto& [id, obj] : ctx.state.objects) {
+                        if (!obj.isUnit() || obj.controller != ctx.controller) continue;
+                        auto ubf = obj.battlefieldId();
+                        if (ubf && *ubf == bf.id) out.push_back(id);
+                    }
+                }
+                return out;
+            };
+            int go = confirmOptional(ctx, "Reaver's Row: move a friendly unit here to base?",
+                                     [&]() { return !unitsHere().empty(); });
+            if (go < 1) return;   // waiting on the agent, declined or no unit here
+            unit = pickTarget(ctx, "Reaver's Row: move which unit to base", unitsHere());
+        }
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
+        if (unit == kInvalidId || !ctx.state.objectExists(unit)) return;
+        ctx.executor.moveToBase(unit);
     }
     TriggerType triggerType() const override { return TriggerType::WhenYouDefendHere; }
     TargetRequirements getTargetRequirements() const override {
@@ -37,6 +61,7 @@ private:
         d.rarity = Rarity::Uncommon;
         d.ability_text = R"RB(When you defend here, you may move a friendly unit here to base.)RB";
         d.image_url = R"RB(https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/7d99fe84c9b815463198b5dbad694759940cac12-1038x744.png)RB";
+        d.banned = true;  // tournament ban (first ban list; was missing here)
         return d;
     }();
 };

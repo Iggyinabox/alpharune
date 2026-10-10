@@ -16,23 +16,19 @@ namespace {
 class PowerNexus : public BattlefieldCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouHoldHere; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
-        auto& ps = ctx.state.player(ctx.controller);
+        // CR 445.2 / 164.2.b: the [A][A][A][A] may be paid with floating power
+        // or by recycling runes; the payment is only offered when it can be
+        // made, and it is made exactly once (after the yes/no is answered).
         int conf = confirmOptional(ctx, "Power Nexus: pay [A][A][A][A] to score 1?",
-                                   [&]() { return ps.rune_pool.totalPower() >= 4; });
+            [&]() { return ctx.executor.payableAnyPower(ctx.controller) >= 4; });
         if (conf != 1) return;
-        if (ps.rune_pool.totalPower() < 4) return;
-        for (int i = 0; i < 4; ++i) spendOnePower(ps);
-        ps.score++;
+        if (costDueNow(ctx) && !ctx.executor.payAnyPower(ctx.controller, 4)) return;
+        if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
+        ctx.executor.scorePoints(ctx.controller, 1);   // CR 194.1.c
         ctx.events.logTrace("POWER NEXUS: paid [A][A][A][A] -> score 1 point");
-    }
-private:
-    static void spendOnePower(PlayerState& ps) {
-        if (ps.rune_pool.universal_power > 0) { ps.rune_pool.universal_power--; return; }
-        for (int d = 0; d < static_cast<int>(Domain::Count); ++d) {
-            if (ps.rune_pool.power[d] > 0) { ps.rune_pool.power[d]--; return; }
-        }
     }
 private:
     const CardDef def_ = [] {

@@ -1,0 +1,21 @@
+{
+  "id": "rad-049-167",
+  "name": "Industrious Mechsmith",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 49,
+  "public_code": "RAD-049/167",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [],
+  "tags": [],
+  "energy_cost": 4,
+  "power_cost": null,
+  "might": 1,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "When you play me, play a 3 [M] Mech unit token here.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/c8f6b4191874f23b522566f8ebeeb6e5ee18eb7f-744x1039.png",
+  "artist": "Six More Vodka"
+}

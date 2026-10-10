@@ -518,10 +518,13 @@ TEST_F(AuditFix7Test, HextechGauntlets_ConquerRiderDraws) {
     Card* card = card_registry.get(748);
     EXPECT_EQ(card->equippedTriggerType(), TriggerType::WhenIConquer);
     CardContext ctx{state, events, exec, P1, gear};
+    // "if you assigned 3 or more excess damage": in the combat where my unit is.
+    state.player(P1).last_combat_bf = 0;
+    state.player(P1).excess_combat_damage = 2;
     card->onEquippedTrigger(ctx, unit, {});
-
-    // Best-effort approximation: draws unconditionally on conquer (excess-damage
-    // signal not threaded). TODO: real card gates on "3+ excess damage assigned".
+    EXPECT_EQ(handSize(P1), before) << "2 excess is not enough";
+    state.player(P1).excess_combat_damage = 3;
+    card->onEquippedTrigger(ctx, unit, {});
     EXPECT_EQ(handSize(P1), before + 1);
 }
 

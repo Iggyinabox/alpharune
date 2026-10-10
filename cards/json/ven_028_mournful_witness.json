@@ -1,0 +1,26 @@
+{
+  "id": "ven-028-166",
+  "name": "Mournful Witness",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 28,
+  "public_code": "VEN-028/166",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "calm"
+  ],
+  "tags": [
+    "Fae",
+    "Ionia"
+  ],
+  "energy_cost": 2,
+  "power_cost": null,
+  "might": 2,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "When a combat that I was in ends, empower me. (I become Empowered if I'm not already.)\n[Empowered][>] I have +2 [M].",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/2f31651fc37a3e8bc562d0a361c509c0998d82c8-744x1039.png",
+  "artist": "Kudos Productions"
+}

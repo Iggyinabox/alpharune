@@ -48,11 +48,19 @@ public:
     // When the delayed ability fires, spawn the Gold gear token.
     TriggerType triggerType() const override { return TriggerType::WhenIDie; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>&) override {
-        ctx.executor.createToken(ctx.controller, CardType::Gear, "Gold",
-                                  /*might=*/0, /*tags=*/{},
-                                  /*kw=*/KeywordSet{},
-                                  BaseLocation{ctx.controller},
-                                  /*exhausted=*/true);
+        auto tok = ctx.executor.createToken(ctx.controller, CardType::Gear, "Gold",
+                                            /*might=*/0, /*tags=*/{},
+                                            /*kw=*/KeywordSet{},
+                                            BaseLocation{ctx.controller},
+                                            /*enter_ready=*/false);
+        if (ctx.state.objectExists(tok)) {
+            // "exhausted": createToken's last argument is enter_ready and it only
+            // exhausts units, so exhaust the gear token explicitly.
+            ctx.state.getObject(tok).is_exhausted = true;
+            // CR 187.5: a Gold gear token has "[Reaction][>] Kill this, [E]:
+            // [Add] [A]" — carried by the registered Gold card.
+            ctx.state.getObject(tok).card_def_id = kGoldGearCardDefId;
+        }
         ctx.events.logTrace("DEADLY FLOURISH: victim died — spawned Gold token");
     }
 private:

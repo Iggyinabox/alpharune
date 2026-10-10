@@ -17,6 +17,7 @@ namespace {
 class MischievousMarai : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouPlayMe; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         if (!ctx.state.objectExists(ctx.source)) return;
@@ -32,6 +33,7 @@ public:
         }
         GameObjectId picked = pickTarget(ctx, "Mischievous Marai: deal 2 to enemy unit here",
                                          legal);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (picked == kInvalidId) return;
         if (!ctx.state.objectExists(picked)) return;
         ctx.executor.dealDamage(picked, 2, ctx.source);

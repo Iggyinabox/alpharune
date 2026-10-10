@@ -54,8 +54,8 @@ private:
                                  std::to_string(pres.count()) + "/4) — no score");
             return;
         }
-        auto& ps = ctx.state.player(ctx.controller);
-        ps.score++;
+        ctx.executor.scorePoints(ctx.controller, 1);   // CR 194.1.c
+        const auto& ps = ctx.state.player(ctx.controller);
         ctx.events.logTrace("IVERN FRIEND: all-4-tag union satisfied — score 1 -> " +
                              std::to_string(ps.score));
     }

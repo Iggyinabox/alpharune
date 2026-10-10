@@ -1,0 +1,26 @@
+{
+  "id": "ven-141-166",
+  "name": "Butcher of the Sands",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 141,
+  "public_code": "VEN-141/166",
+  "card_type": "legend",
+  "super_type": null,
+  "domains": [
+    "fury",
+    "body"
+  ],
+  "tags": [
+    "Renekton"
+  ],
+  "energy_cost": null,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "rare",
+  "ability_text": "[Reaction][>] [A][A], [E]: [Add] [2]. Spend this Energy only to play units or activated abilities of units.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/7620595b36b40a0c3d05c4c5469b016d1c18c6f2-744x1039.png",
+  "artist": "Envar Studio"
+}

@@ -13,10 +13,9 @@ MainDeck:
 3 Boots of Swiftness
 3 Defiant Dance
 3 Scuttle Crab
-2 Charm
-2 En Garde
+3 Charm
+3 En Garde
 2 Ride the Wind
-2 Stacked Deck
 2 Not So Fast
 2 Star-Crossed
 1 Adaptatron

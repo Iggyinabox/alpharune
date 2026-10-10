@@ -15,15 +15,35 @@ namespace {
 class Shadow : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
-    void onPlay(CardContext& ctx) override {
-        if (!ctx.state.objectExists(ctx.source)) return;
-        auto& self = ctx.state.getObject(ctx.source);
-        if (self.isAtBattlefield()) self.is_exhausted = false;
+    // "If you play me to a battlefield, I enter ready."
+    bool entersReadyOnPlay(const GameState&, PlayerId, const GameObject& self) const override {
+        return self.isAtBattlefield();
+    }
+    TargetRequirements getTargetRequirements() const override {
+        return TargetRequirements{.count = 1, .must_be_unit = true, .must_be_enemy = true,
+                                  .must_be_at_battlefield = true};
+    }
+    // "[Stun] an attacking unit here": only attackers at my battlefield.
+    std::vector<GameObjectId> enumerateLegalTargets(const GameState& state, PlayerId controller,
+                                                    int ability_index,
+                                                    GameObjectId source) const override {
+        std::vector<GameObjectId> out;
+        if (!state.objectExists(source)) return out;
+        const auto my_bf = state.getObject(source).battlefieldId();
+        if (!my_bf) return out;
+        for (auto t : Card::enumerateLegalTargets(state, controller, ability_index)) {
+            const auto& u = state.getObject(t);
+            if (u.combat_designation == CombatDesignation::Attacker && u.battlefieldId() == my_bf)
+                out.push_back(t);
+        }
+        return out;
     }
     std::vector<ActivatedAbility> activatedAbilities() const override {
         return {{
+            // [1][A]: the power is of ANY Domain (CR 135.2.e), so it is flagged
+            // power_any_domain — power_domain alone would demand Fury.
             .cost = {.exhaust = true, .energy = 1, .power = 1,
-                     .power_domain = Domain::Fury},  // [1][A] — A is universal
+                     .power_any_domain = true},
             .targets = TargetRequirements{.count = 1, .must_be_unit = true,
                                            .must_be_enemy = true,
                                            .must_be_at_battlefield = true},
@@ -37,7 +57,7 @@ public:
         if (!targets.empty()) {
             picked = targets[0];
         } else {
-            auto legal = enumerateLegalTargets(ctx.state, ctx.controller, 0);
+            auto legal = enumerateLegalTargets(ctx.state, ctx.controller, 0, ctx.source);
             picked = pickTarget(ctx, "Shadow", legal);
         }
         if (picked == kInvalidId || !ctx.state.objectExists(picked)) return;
@@ -49,6 +69,10 @@ public:
         // verify combat is in progress at THIS BF.
         auto& tgt = ctx.state.getObject(picked);
         if (tgt.combat_designation != CombatDesignation::Attacker) return;
+        // "attacking here": the attacker must (still) be at my battlefield.
+        if (!ctx.state.objectExists(ctx.source)) return;
+        auto my_bf = ctx.state.getObject(ctx.source).battlefieldId();
+        if (!my_bf || tgt.battlefieldId() != my_bf) return;
         ctx.executor.stunUnitBy(picked, ctx.source);
     }
 private:

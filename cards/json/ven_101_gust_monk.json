@@ -1,0 +1,26 @@
+{
+  "id": "ven-101-166",
+  "name": "Gust Monk",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 101,
+  "public_code": "VEN-101/166",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "chaos"
+  ],
+  "tags": [
+    "Yordle",
+    "Bandle City"
+  ],
+  "energy_cost": 2,
+  "power_cost": null,
+  "might": 2,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "You may pay [1] as an additional cost to play me.\nWhen you play me, if you paid the additional cost, banish a card from any trash to give a unit [Assault 2] this turn. (+2 [M] while it's an attacker.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/93a194c0c1f055c0b3bc3c0717cbe488749fed92-744x1039.png",
+  "artist": "Kudos Productions"
+}

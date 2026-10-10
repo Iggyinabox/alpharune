@@ -1,0 +1,25 @@
+{
+  "id": "ven-121-166",
+  "name": "Reluctant Leader",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 121,
+  "public_code": "VEN-121/166",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "order"
+  ],
+  "tags": [
+    "Ionia"
+  ],
+  "energy_cost": 4,
+  "power_cost": 1,
+  "might": 3,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "When you play another unit, give me +2 [M] this turn.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/d70352ba57ae548c405614ec6ba2bb17d7a19a44-744x1039.png",
+  "artist": "Six More Vodka"
+}

@@ -15,6 +15,7 @@ namespace {
 class ImmortalPhoenix : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // "When you kill a unit with a spell, you may pay [1][R] to play me from
     //  your trash." Wired via WhenYouKillAUnitWithASpell (dispatched by
     //  TriggerManager::onUnitDied to the resolving spell controller's cards incl.
@@ -50,13 +51,17 @@ public:
         if (conf == -1) return;   // waiting for agent
         if (conf < 1) return;     // declined / unaffordable
         // Pay [R] (recycle a Fury rune), then [1] (exhaust a remaining ready rune).
-        if (!payOnePower(ctx, ctx.controller, Domain::Fury)) return;
-        for (auto& [id, obj] : ctx.state.objects) {
-            if (!obj.isRune() || obj.controller != ctx.controller) continue;
-            if (obj.is_exhausted || !obj.location.has_value() || *obj.location != base) continue;
-            obj.is_exhausted = true;  // [1] energy
-            break;
+        if (costDueNow(ctx)) {
+            if (!payOnePower(ctx, ctx.controller, Domain::Fury)) return;
+            for (auto& [id, obj] : ctx.state.objects) {
+                if (!obj.isRune() || obj.controller != ctx.controller) continue;
+                if (obj.is_exhausted || !obj.location.has_value() || *obj.location != base) continue;
+                obj.is_exhausted = true;  // [1] energy
+                break;
+            }
         }
+        if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
+        if (ctx.state.getObject(ctx.source).zone != ZoneType::Trash) return;
         auto& ps = ctx.state.player(ctx.controller);
         auto it = std::find(ps.trash.begin(), ps.trash.end(), ctx.source);
         if (it != ps.trash.end()) ps.trash.erase(it);

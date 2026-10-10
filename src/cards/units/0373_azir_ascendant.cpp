@@ -14,6 +14,7 @@ namespace {
 class AzirAscendant : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeActivate; }
 
     bool hasActivatedAbility() const override { return true; }
     bool isActionAbility() const override { return true; }
@@ -90,6 +91,7 @@ public:
         };
         auto pair = pickTargetPair(ctx, "Azir: choose a unit to swap with",
                                    legal_a, legal_b_fn);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         GameObjectId picked = pair.first;
         if (picked == kInvalidId) {
             // Either suspended (resume_point != 13) or fizzled (no targets).

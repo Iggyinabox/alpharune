@@ -15,11 +15,16 @@ namespace {
 class AvaAchiever : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenIAttack; }
     // "When I attack, you may pay [C] to play a card with [Hidden] from your
     // hand, ignoring its cost. If it's a unit, play it here." [C] = one Power of
-    // my domain (Mind). Cost paid via payOnePower; Power-only approximation
-    // for the played card (playIgnoringCost ignores all costs).
+    // my domain (Mind): floating Mind (or universal) power, else a Mind rune
+    // recycled through payOnePower.
+    bool canPayC(CardContext& ctx) const {
+        return payableOnePower(ctx.state, ctx.controller, Domain::Mind);
+    }
+    bool payC(CardContext& ctx) const { return payOnePower(ctx, ctx.controller, Domain::Mind); }
     std::vector<GameObjectId> hiddenInHand(CardContext& ctx) const {
         std::vector<GameObjectId> out;
         const auto& ps = ctx.state.player(ctx.controller);
@@ -31,21 +36,26 @@ public:
     }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         if (!ctx.state.objectExists(ctx.source)) return;
-        auto still_legal = [&]() { return !hiddenInHand(ctx).empty(); };
+        // CR 445.2: only offer a payment that can be made.
+        auto still_legal = [&]() { return !hiddenInHand(ctx).empty() && canPayC(ctx); };
         int conf = confirmOptional(ctx, "Ava Achiever: pay [C] to play a Hidden card?",
                                    still_legal);
         if (conf == -1) return;  // waiting for agent
         if (conf < 1) return;    // declined / no Hidden cards
-        // Pay [C] = one Mind power. If we can't pay, abort.
-        if (!payOnePower(ctx, ctx.controller, Domain::Mind)) return;
         auto eligible = hiddenInHand(ctx);
         if (eligible.empty()) return;
         GameObjectId picked = pickTarget(ctx, "Ava Achiever (Hidden card)", eligible);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (picked == kInvalidId && ctx.state.chain.resuming.has_value() &&
             ctx.state.chain.resuming->resume_point == 7) {
             return;  // suspended
         }
         if (picked == kInvalidId || !ctx.state.objectExists(picked)) return;
+        // Pay [C] exactly once, now that the card is known. pickTarget suspends
+        // (returns kInvalidId) and this trigger is re-entered afterwards, when
+        // confirmOptional answers 1 again — paying between the two helpers
+        // charged the cost on both entries.
+        if (!payC(ctx)) return;
         auto& ps = ctx.state.player(ctx.controller);
         auto it = std::find(ps.hand.begin(), ps.hand.end(), picked);
         if (it != ps.hand.end()) ps.hand.erase(it);

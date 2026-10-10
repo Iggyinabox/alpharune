@@ -1,0 +1,26 @@
+{
+  "id": "ven-156-166",
+  "name": "Lightning Rush",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 156,
+  "public_code": "VEN-156/166",
+  "card_type": "spell",
+  "super_type": "signature",
+  "domains": [
+    "order",
+    "chaos"
+  ],
+  "tags": [
+    "Kennen"
+  ],
+  "energy_cost": 1,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "epic",
+  "ability_text": "Look at the top 3 cards of your Main Deck. You may choose a card from among them and draw it. Put the rest into your trash.\n[Flow] [2][A] (You may play this from your trash for its Flow cost. Then banish it.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/22375e0d2d1a49cb0eb7e31aebf3e73a2e0bba55-744x1039.png",
+  "artist": "Kudos Productions"
+}

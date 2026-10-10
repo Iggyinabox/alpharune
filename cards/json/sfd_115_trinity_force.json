@@ -15,7 +15,7 @@
   ],
   "energy_cost": 4,
   "power_cost": null,
-  "might": null,
+  "might": 2,
   "might_bonus": 2,
   "rarity": "rare",
   "ability_text": "[Equip] [O] ([O]: Attach this to a unit you control.)",

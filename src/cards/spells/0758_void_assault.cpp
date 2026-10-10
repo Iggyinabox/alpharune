@@ -53,11 +53,13 @@ public:
         return TargetRequirements{.count = 2, .must_be_unit = true};
     }
     std::vector<GameObjectId> enumerateLegalTargets(
-        const GameState& state, PlayerId /*controller*/) const override {
+        const GameState& state, PlayerId controller) const override {
         // All units on the board; engine generates friendly/enemy pairs.
         std::vector<GameObjectId> targets;
         for (auto& [id, obj] : state.objects) {
             if (!obj.isUnit() || !obj.location.has_value()) continue;
+            // "Can't be chosen by enemy spells and abilities."
+            if (obj.controller != controller && obj.untargetable_by_enemy) continue;
             targets.push_back(id);
         }
         return targets;

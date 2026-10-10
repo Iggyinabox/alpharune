@@ -1,0 +1,26 @@
+{
+  "id": "ven-091-166",
+  "name": "Corrupted Dragon",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 91,
+  "public_code": "VEN-091/166",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "body"
+  ],
+  "tags": [
+    "Dragon",
+    "Shadow Isles"
+  ],
+  "energy_cost": 10,
+  "power_cost": 2,
+  "might": 10,
+  "might_bonus": null,
+  "rarity": "epic",
+  "ability_text": "If your score is not within 3 points of the Victory Score, I enter ready.\nWhen I attack, you may move any number of enemy units here each with 5 [M] or less to their base.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/6000c549047967e619d47bdbd2f265e5bb8b5b19-744x1039.png",
+  "artist": "Envar Studio"
+}

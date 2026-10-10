@@ -20,7 +20,8 @@ public:
         auto& chain = ctx.state.chain;
         bool counter_legal = !chain.items.empty() &&
                              chain.items.back().is_spell &&
-                             chain.items.back().source != ctx.source;
+                             chain.items.back().source != ctx.source &&
+                             !isUncounterable(ctx, chain.items.back());
 
         uint32_t legal_mask = 0b10;  // mode 1 (spawn birds) always legal
         if (counter_legal) legal_mask |= 0b01;
@@ -36,14 +37,7 @@ public:
             chain.items.pop_back();
             ctx.events.logTrace("FLURRY OF FEATHERS: countered spell (id=" +
                                  std::to_string(victim.source) + ")");
-            if (ctx.state.objectExists(victim.source)) {
-                auto& sp = ctx.state.getObject(victim.source);
-                auto owner = sp.owner;
-                sp.zone = ZoneType::Trash;
-                if (owner != PlayerId::None) {
-                    ctx.state.player(owner).trash.push_back(victim.source);
-                }
-            }
+            disposeCounteredCard(ctx, victim.source);
             return;
         }
 

@@ -40,6 +40,69 @@ struct GameObject {
     BattlefieldId hidden_at = kInvalidId; // which BF it's hidden at
     int hidden_on_turn = -1;            // turn it was hidden (gains Reaction next turn)
 
+    // ── Empowered (Vendetta, CR 442/443/828) ──
+    // Number of Empowered statuses. 0 = not Empowered. Normally binary (0/1);
+    // objects allowed to be Empowered multiple times (Kayle, Justified) stack
+    // up to Card::maxEmpower(). Cleared when the object leaves the board.
+    int empowered = 0;
+    // Deferred end-of-turn flip set by "Empower X. Disempower it at end of
+    // turn" (-1) and "Disempower X. Empower it at end of turn" (+1). Applied
+    // and cleared by the expiration step.
+    int empower_flip_eot = 0;
+    // Aura-computed reduction to THIS object's [Empower] energy cost (Risen
+    // Altar). Reset each recalculateAuras.
+    int empower_cost_reduction = 0;
+    bool isEmpowered() const { return empowered > 0; }
+
+    // ── Flow / "then banish this" (Vendetta) ──
+    // When set on a spell, it is banished instead of going to trash when it
+    // leaves the chain. Set when a spell is played for its Flow cost.
+    bool banish_on_leave_chain = false;
+
+    // ── Per-turn damage tracking ──
+    // Total damage dealt to this object this turn, even if since healed
+    // (Affectionate Poro: "if I haven't been dealt damage this turn").
+    int damage_taken_this_turn = 0;
+    // Recomputed each recalculateAuras: prevent all damage that ENEMY spells
+    // and abilities would deal to me (Esteemed Hierophant).
+    bool prevent_enemy_spell_ability_damage = false;
+    // Recomputed each recalculateAuras: enemy spells and abilities can't move
+    // me (Jagged Cutlass).
+    bool cant_be_moved_by_enemy = false;
+    // "It can't be chosen by enemy spells and abilities this turn" (Twilight
+    // Shroud). ORed into untargetable_by_enemy by the aura pass; cleared at
+    // end of turn.
+    bool untargetable_by_enemy_this_turn = false;
+
+    // ── Counted damage prevention (Ki Barrier: "prevent the next 7 damage") ──
+    // Remaining damage to prevent this turn. dealDamage consumes it; expires at
+    // end of turn.
+    int prevent_damage_remaining = 0;
+
+    // ── Intrinsic token-ness (CR 185.1) ──
+    bool is_token = false;
+
+    // ── Last-known information (CR 383.2.c.3.b / 429.1.a.1.b) ──
+    // Snapshot taken just before this object leaves the board by dying, so
+    // "When I die" abilities read the state from before the death. The kill
+    // paths fill it; it stays valid while the death trigger resolves.
+    struct LastKnown {
+        bool valid = false;
+        int might = 0;
+        int empowered = 0;
+        int buff_count = 0;
+        CombatDesignation combat_designation = CombatDesignation::None;
+        bool in_combat = false;                 // at a battlefield with combat in progress
+        std::vector<GameObjectId> attachments;  // gear attached at death
+        KeywordSet keywords;                    // printed + aura + "this turn"
+    };
+    LastKnown last_known;
+
+    // ── Who marked the damage (CR: "your damage" = damage you marked) ──
+    // damage_marked split by the player whose effect / units dealt it. Index
+    // by playerIndex(). Cleared whenever damage_marked is healed to 0.
+    int damage_marked_by[2] = {0, 0};
+
     // ── Position ──
     ZoneType zone = ZoneType::MainDeck;
     std::optional<LocationId> location;  // only meaningful when on board
@@ -86,6 +149,10 @@ struct GameObject {
         int ability_index = 0;
     };
     std::vector<GrantedAbilityRef> granted_abilities;
+    // Abilities granted "this turn" by a resolved effect (Dominus: `give it
+    // "[A][A]: Ready me."`). Merged into granted_abilities every aura pass and
+    // cleared at end of turn.
+    std::vector<GrantedAbilityRef> temp_granted_abilities;
 
     // ── Keywords (computed via layers, cached) ──
     KeywordSet keywords;
@@ -217,7 +284,11 @@ struct GameObject {
     bool isLegend() const { return card_type == CardType::Legend; }
     bool isPermanent() const { return isUnit() || isGear(); }
     bool isChampion() const { return super_type == SuperType::Champion; }
-    bool isToken() const { return super_type == SuperType::Token; }
+    // CR 185.1: "Token" is an intrinsic category of game object, not a
+    // supertype: a token stays a token however it is copied or altered, and a
+    // card can never become one. is_token is that intrinsic bit; the supertype
+    // check keeps token card defs (Gold, Recruit, ...) working.
+    bool isToken() const { return is_token || super_type == SuperType::Token; }
 
     bool isAlive() const { return damage_marked < current_might; }
     bool hasLethalDamage() const {

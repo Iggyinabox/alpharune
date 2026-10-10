@@ -1,0 +1,26 @@
+{
+  "id": "ven-174-166",
+  "name": "Irelia, Fervent",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 174,
+  "public_code": "VEN-174/166",
+  "card_type": "unit",
+  "super_type": "champion",
+  "domains": [
+    "calm"
+  ],
+  "tags": [
+    "Irelia",
+    "Ionia"
+  ],
+  "energy_cost": 5,
+  "power_cost": null,
+  "might": 4,
+  "might_bonus": null,
+  "rarity": "showcase",
+  "ability_text": "[Deflect]\nWhen you choose or ready me, give me +1 [M] this turn.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/45d83debda443f1bf88e1cf7123eb8b844143124-744x1039.png",
+  "artist": "JunHuan"
+}

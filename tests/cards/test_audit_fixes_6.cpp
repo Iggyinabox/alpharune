@@ -230,6 +230,12 @@ TEST_F(AuditFix6Test, Fizz_PlaysCheapSpellFromTrashThenRecycles) {
     ph.erase(std::remove(ph.begin(), ph.end(), trashed), ph.end());
     state.getObject(trashed).zone = ZoneType::Trash;
     state.player(P1).trash.push_back(trashed);
+    // Only the Energy cost is ignored: "(You must still pay its Power cost.)"
+    // (CR 356.1.b.2), so P1 needs runes for the spell's Power.
+    {
+        const auto& d = card_db.get(kBellowsBreath);
+        for (int i = 0; i < d.power_cost; ++i) addRune(P1, d.domains.at(0));
+    }
 
     EffectExecutor exec(state, events, card_db);
     exec.setCardRegistry(&card_registry);

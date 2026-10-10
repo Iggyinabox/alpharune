@@ -1,0 +1,26 @@
+{
+  "id": "ven-068-166",
+  "name": "Jayce, Brilliant Inventor",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 68,
+  "public_code": "VEN-068/166",
+  "card_type": "unit",
+  "super_type": "champion",
+  "domains": [
+    "mind"
+  ],
+  "tags": [
+    "Jayce",
+    "Piltover"
+  ],
+  "energy_cost": 6,
+  "power_cost": 1,
+  "might": 6,
+  "might_bonus": null,
+  "rarity": "epic",
+  "ability_text": "When you play me or the first time you play a non-token gear each turn, you may ready something besides me that's exhausted.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/123e949085a63fdb6e1590ff0e519cab5758688b-744x1039.png",
+  "artist": "League of Legends"
+}

@@ -186,9 +186,9 @@ TEST_F(CardTestFixture, CopyUnit_PreservesCardDefIdOnToken) {
     EXPECT_EQ(state.getObject(refl).card_def_id, 734)
         << "copyUnit must propagate card_def_id so TriggerManager can find "
            "the source's Deathknell via card_registry lookup.";
-    EXPECT_EQ(state.getObject(refl).super_type, SuperType::Token)
-        << "Token's super_type stays Token after copy — it's still a "
-           "token, just one whose printed traits match the source.";
+    EXPECT_TRUE(state.getObject(refl).isToken())
+        << "CR 185.1: it is still a token after the copy — token-ness is "
+           "intrinsic, not a supertype, so the copied supertype can't remove it.";
 }
 
 TEST_F(CardTestFixture, ReflectionCopyEmitsUnitDiedEventWithCardDefId) {

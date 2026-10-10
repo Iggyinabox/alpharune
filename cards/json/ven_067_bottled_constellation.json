@@ -1,0 +1,23 @@
+{
+  "id": "ven-067-166",
+  "name": "Bottled Constellation",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 67,
+  "public_code": "VEN-067/166",
+  "card_type": "gear",
+  "super_type": null,
+  "domains": [
+    "mind"
+  ],
+  "tags": [],
+  "energy_cost": 10,
+  "power_cost": 2,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "epic",
+  "ability_text": "At the start of your Main Phase, you may kill 3 other friendly units and/or gear to score 1 point.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/2068b7c202cab7f877c331a7bad0531d6a8f0d73-744x1039.png",
+  "artist": "Kudos Productions"
+}

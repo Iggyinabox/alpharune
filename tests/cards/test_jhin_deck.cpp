@@ -519,6 +519,9 @@ TEST_F(JhinDeckTest, ForgottenLibrary_PiercingLightWithRepeat_Procs) {
     auto bf = state.createObject();
     state.getObject(bf).card_def_id = 767;
     state.getObject(bf).controller = P1;
+    // "While you control this battlefield": bind the card to a controlled battlefield.
+    state.battlefields[0].card_object_id = bf;
+    state.battlefields[0].controller = P1;
 
     addToDeck(P1, kInvalidId);
     emulateSpellResolved(P1, 346);
@@ -538,6 +541,9 @@ TEST_F(JhinDeckTest, ForgottenLibrary_ArbitraryCost4Spell_Procs) {
     auto bf = state.createObject();
     state.getObject(bf).card_def_id = 767;
     state.getObject(bf).controller = P1;
+    // "While you control this battlefield": bind the card to a controlled battlefield.
+    state.battlefields[0].card_object_id = bf;
+    state.battlefields[0].controller = P1;
     addToDeck(P1, kInvalidId);
     emulateSpellResolved(P1, 122);  // Time Warp, cost 10
 
@@ -1255,7 +1261,7 @@ TEST_F(JhinDeckTest, SpriteBurst_SpawnsTwoSpriteTokens) {
     int sprites = 0;
     for (auto& [id, obj] : state.objects) {
         if (obj.name == "Sprite" && obj.controller == P1 &&
-            obj.super_type == SuperType::Token) {
+            obj.isToken()) {
             sprites++;
         }
     }
@@ -1272,7 +1278,7 @@ TEST_F(JhinDeckTest, SpriteBurst_TokensHaveTemporaryKeyword) {
     EffectExecutor exec(state, events, card_db);
     invokeOnResolve(src, 631, P1, {}, exec);
     for (auto& [id, obj] : state.objects) {
-        if (obj.name == "Sprite" && obj.super_type == SuperType::Token) {
+        if (obj.name == "Sprite" && obj.isToken()) {
             EXPECT_TRUE(obj.keywords.has(Keyword::Temporary))
                 << "Sprite Burst tokens must have Temporary keyword";
             EXPECT_EQ(obj.controller, P1)
@@ -1691,7 +1697,10 @@ TEST_F(JhinDeckTest, ProductionSurge_MechToken_AlsoTriggersCostReduction) {
     mt.controller = P1;
     mt.card_type = CardType::Unit;
     mt.super_type = SuperType::Token;
-    mt.name = "Mech";  // matches Production Surge's text search
+    mt.name = "Mech";
+    // CR 187.4: a Mech token has the Mech tag. "If you control a Mech" reads
+    // the tag (it used to substring-match the unit's name).
+    mt.tags = {"Mech"};
     mt.base_might = 3;
     mt.current_might = 3;
     mt.zone = ZoneType::Base;

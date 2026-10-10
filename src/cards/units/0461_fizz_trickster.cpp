@@ -15,6 +15,7 @@ namespace {
 class FizzTrickster : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouPlayMe; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         if (!ctx.state.objectExists(ctx.source)) return;
@@ -39,18 +40,30 @@ public:
 
         int conf = confirmOptional(ctx,
             "Fizz: play a spell (cost <= 3) from trash for free?", still_legal);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (conf != 1) return;
 
         GameObjectId chosen = find_spell();
         if (chosen == kInvalidId) return;
+        // Energy is waived; "(You must still pay its Power cost.)" (CR 356.1.b.2).
+        const EffectExecutor::EffectPlayCost power_only{.ignore_energy = true};
+        if (!ctx.executor.canPlayPayingCost(ctx.controller, chosen, power_only)) return;
         // Remove from trash before playing.
         auto it = std::find(ps.trash.begin(), ps.trash.end(), chosen);
         if (it != ps.trash.end()) ps.trash.erase(it);
 
         std::string sname = ctx.state.getObject(chosen).name;
-        ctx.executor.playIgnoringCost(ctx.controller, chosen);
-        // "Recycle that spell after you play it" — bottom of owner's main deck.
-        ctx.executor.recycleCards(ctx.controller, {chosen});
+        // The spell goes on the chain and resolves; "Then recycle it" replaces
+        // where it goes when it leaves the chain.
+        ctx.state.getObject(chosen).card_counters["__recycle_on_leave_chain"] = 1;
+        ctx.executor.playPayingCost(ctx.controller, chosen, std::nullopt, power_only);
+        // With no chain to resolve on (an executor driven directly, outside a
+        // game), the spell can't leave the chain later: recycle it now.
+        if (ctx.state.objectExists(chosen) &&
+            ctx.state.getObject(chosen).zone != ZoneType::Chain) {
+            ctx.state.getObject(chosen).card_counters["__recycle_on_leave_chain"] = 0;
+            ctx.executor.recycleCards(ctx.controller, {chosen});
+        }
         ctx.events.logTrace("FIZZ: played " + sname +
                              " from trash (energy<=3, ignoring energy), then recycled it");
     }
@@ -73,7 +86,7 @@ private:
         d.power_cost = 1;
         d.might = 3;
         d.rarity = Rarity::Rare;
-        d.ability_text = R"RB(When you play me, you may play a spell from your trash with Energy cost no more than [3], ignoring its Energy cost. Recycle that spell after you play it. (You must still pay its Power cost.))RB";
+        d.ability_text = R"RB(When you play me, you may play a spell from your trash with Energy cost no more than [3], ignoring its Energy cost. Then recycle it. (You must still pay its Power cost.))RB";
         d.image_url = R"RB(https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/6d1c6615fb6ef5fb520a35b2ce76f8feee9167dc-744x1039.png)RB";
         return d;
     }();

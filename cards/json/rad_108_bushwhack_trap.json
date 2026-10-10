@@ -1,0 +1,25 @@
+{
+  "id": "rad-108-167",
+  "name": "Bushwhack Trap",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 108,
+  "public_code": "RAD-108/167",
+  "card_type": "gear",
+  "super_type": null,
+  "domains": [
+    "fury"
+  ],
+  "tags": [
+    "Device"
+  ],
+  "energy_cost": 1,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "rare",
+  "ability_text": "[Deploy] (Play this only to a battlefield. When an opponent holds here, kill this.)\nWhile you or an ally control this battlefield, that player may hide an additional card here.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/120762e23a599ee14d3f88856fcf707154338fb0-744x1039.png",
+  "artist": "Fish Art Studio"
+}

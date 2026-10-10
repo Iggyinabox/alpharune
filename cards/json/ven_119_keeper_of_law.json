@@ -1,0 +1,25 @@
+{
+  "id": "ven-119-166",
+  "name": "Keeper of Law",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 119,
+  "public_code": "VEN-119/166",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "order"
+  ],
+  "tags": [
+    "Shurima"
+  ],
+  "energy_cost": 5,
+  "power_cost": 1,
+  "might": 5,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "I cost [2][Y] less if you control a battlefield with exactly two units there.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/42b965736c715293da57ec23472684506f49ba7f-744x1039.png",
+  "artist": "Envar Studio"
+}

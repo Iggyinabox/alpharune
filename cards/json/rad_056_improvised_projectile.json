@@ -1,0 +1,23 @@
+{
+  "id": "rad-056-167",
+  "name": "Improvised Projectile",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 56,
+  "public_code": "RAD-056/167",
+  "card_type": "spell",
+  "super_type": null,
+  "domains": [
+    "mind"
+  ],
+  "tags": [],
+  "energy_cost": 3,
+  "power_cost": 1,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "[Action] (Play on your turn or in showdowns.)\nChoose a friendly gear. Deal damage equal to its Energy cost to a unit at a battlefield.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/ecbb970f955b8e12369921f30ad08cab04e59a3f-744x1039.png",
+  "artist": "Kudos Productions"
+}

@@ -308,7 +308,7 @@ TEST(ActionVocab, TriggerResponses) {
 
 TEST(ActionVocab, SlotsInRange) {
     MiniState ms;
-    auto card = ms.addObject(/*def_id=*/787);  // highest registered id
+    auto card = ms.addObject(/*def_id=*/kNumCardDefIds);  // top of the id space
     Intent i;
     i.type = IntentType::PlayCard;
     i.player = PlayerId::Player1;
@@ -380,7 +380,7 @@ TEST(ActionVocab, CollapsingPlayVariantsAliasIntentionally) {
 }
 
 TEST(ActionVocab, VocabSizeIsReasonable) {
-    // Should be ~7000 (≈ 9 buckets × 787 cards + small singletons).
+    // ≈ 12 card-keyed buckets × kNumCardDefIds (1100) + small singletons.
     // Sanity: not insanely small (< 1000) and not insanely large (> 100k).
     EXPECT_GT(kVocabSize, 1000);
     EXPECT_LT(kVocabSize, 100000);

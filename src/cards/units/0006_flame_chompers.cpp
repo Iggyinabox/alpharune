@@ -15,25 +15,23 @@ namespace {
 class FlameChompers : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
-    // "When you discard me, you may pay [R] to play me."
-    // ENGINE GAP: the engine does not currently dispatch WhenYouDiscard
-    // triggers (no CardsDiscardedEvent subscriber fires them), so this
-    // onTrigger is forward-compatible but inert until that wiring exists.
-    TriggerType triggerType() const override { return TriggerType::WhenYouDiscard; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
+    // "When you discard me, you may pay [R] to play me." Fires from the trash.
+    TriggerType triggerType() const override { return TriggerType::WhenIAmDiscarded; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         if (!ctx.state.objectExists(ctx.source)) return;
-        auto& ps = ctx.state.player(ctx.controller);
-        int fury = static_cast<int>(Domain::Fury);
+        auto in_trash = [&]() { return ctx.state.getObject(ctx.source).zone == ZoneType::Trash; };
         auto can_pay = [&]() {
-            return ps.rune_pool.power[fury] + ps.rune_pool.universal_power >= 1;
+            return in_trash() && payableOnePower(ctx.state, ctx.controller, Domain::Fury);
         };
-        if (!can_pay()) return;
-        int conf = confirmOptional(ctx, "Flame Chompers: pay [R] to play me?",
-                                   can_pay);
+        if (!costAlreadyPaid(ctx) && !can_pay()) return;
+        int conf = confirmOptional(ctx, "Flame Chompers: pay [R] to play me?", can_pay);
         if (conf < 1) return;
-        // Pay [R]: prefer Fury power, fall back to universal.
-        if (ps.rune_pool.power[fury] >= 1) ps.rune_pool.power[fury] -= 1;
-        else ps.rune_pool.universal_power -= 1;
+        if (costDueNow(ctx) && !payOnePower(ctx, ctx.controller, Domain::Fury)) return;
+        if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
+        if (!in_trash()) return;              // left the trash in response
+        auto& trash = ctx.state.player(ctx.state.getObject(ctx.source).owner).trash;
+        trash.erase(std::remove(trash.begin(), trash.end(), ctx.source), trash.end());
         ctx.executor.playIgnoringCost(ctx.controller, ctx.source);
         ctx.events.logTrace("FLAME CHOMPERS: paid [R] -> play from trash");
     }

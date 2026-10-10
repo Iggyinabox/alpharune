@@ -10,7 +10,7 @@ MainDeck:
 3 Honest Broker
 3 Hostile Takeover
 3 Shadow's Call
-2 Stupefy
+3 Stupefy
 2 Ravenbloom Student
 2 Singularity
 2 Hidden Blade
@@ -23,10 +23,9 @@ MainDeck:
 1 The Ruination
 3 Ornn, Forge God
 2 Shen, Kinkou
-1 Ekko, Recurrent
 
 Battlefields:
-1 The Arena's Greatest
+1 Sunken Temple
 1 Vilemaw's Lair
 1 Treasure Hoard
 

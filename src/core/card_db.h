@@ -52,6 +52,10 @@ struct CardDef {
     // CardDef; DeckValidator rejects them unless --wild is set.
     bool banned = false;
 
+    // Deck construction: exempt from the 3-copies-per-name cap ("Your deck can
+    // have any number of cards named Spiderling").
+    bool unlimited_copies = false;
+
     bool hasTag(const std::string& tag) const {
         for (auto& t : tags)
             if (t == tag) return true;

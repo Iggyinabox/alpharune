@@ -1,0 +1,25 @@
+{
+  "id": "rad-136-167",
+  "name": "Dockside Lock-Up",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 136,
+  "public_code": "RAD-136/167",
+  "card_type": "gear",
+  "super_type": null,
+  "domains": [
+    "order"
+  ],
+  "tags": [
+    "Device"
+  ],
+  "energy_cost": 6,
+  "power_cost": 2,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "epic",
+  "ability_text": "[Deploy] (Play this only to a battlefield. When an opponent holds here, kill this.)\nWhen you play this, banish a unit here.\nWhen you hold here, kill this to play the banished card, ignoring its cost. (Tokens aren't cards.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/4f477ccc474cb16e4e9d681b388f0673f77fae5b-744x1039.png",
+  "artist": null
+}

@@ -1,0 +1,21 @@
+{
+  "id": "rad-006-167",
+  "name": "Scorched Earth",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 6,
+  "public_code": "RAD-006/167",
+  "card_type": "spell",
+  "super_type": null,
+  "domains": [],
+  "tags": [],
+  "energy_cost": 4,
+  "power_cost": 1,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "[Action] (Play on your turn or in showdowns.)\nDeal 5 damage split among units at a single battlefield.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/e646f9850571e20eca22e07af5d4dd68813fdd19-744x1039.png",
+  "artist": "Kudos Productions"
+}

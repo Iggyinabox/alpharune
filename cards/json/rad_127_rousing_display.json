@@ -1,0 +1,23 @@
+{
+  "id": "rad-127-167",
+  "name": "Rousing Display",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 127,
+  "public_code": "RAD-127/167",
+  "card_type": "spell",
+  "super_type": null,
+  "domains": [
+    "order"
+  ],
+  "tags": [],
+  "energy_cost": 5,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "[Show Off] a card with Energy cost [7] or more. (As you play this, you may reveal such a card from hand or pick a friendly one.)\nPlay two 1 [M] Recruit unit tokens to your base. If you showed off, play four to your base instead.disa",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/18aa7cab082fd0e293260bcf480a1a76d12b64d9-744x1039.png",
+  "artist": "Kudos Productions"
+}

@@ -27,22 +27,21 @@ public:
             int& last = self.card_counters["draven_win_turn"];
             if (last == turn_id) return;  // already scored this turn
             last = turn_id;
-            ctx.state.player(ctx.controller).score++;
+            ctx.executor.scorePoints(ctx.controller, 1);   // CR 194.1.c
             ctx.events.logTrace("DRAVEN AUDACIOUS: first combat win -> score 1");
         } else if (ctx.firing_trigger == TriggerType::WhenIDie) {
-            // "When I die in combat" — approximate "in combat" by requiring the
-            // death to have happened at a battlefield (last_location).
-            if (ctx.state.objectExists(ctx.source)) {
-                const auto& self = ctx.state.getObject(ctx.source);
-                bool died_at_bf = self.last_location.has_value() &&
-                    std::holds_alternative<BattlefieldLocation>(*self.last_location);
-                if (!died_at_bf) {
-                    // Not clearly a combat death — skip to honor "in combat".
-                    return;
-                }
-            }
-            PlayerId opp = opponent(ctx.controller);
-            ctx.state.player(opp).score++;
+            // "When I die in combat": read from the last-known information the
+            // kill paths snapshot just before the death (CR 383.2.c.3.b) — I was
+            // an attacker or defender, or at a battlefield with a combat in
+            // progress. Dying at a battlefield outside combat (a spell in the
+            // Main Phase, a non-combat showdown) does not count. Without a
+            // snapshot nothing is known about the death, so nothing happens.
+            if (!ctx.state.objectExists(ctx.source)) return;
+            const auto& lk = ctx.state.getObject(ctx.source).last_known;
+            if (!lk.valid) return;
+            if (!lk.in_combat && lk.combat_designation == CombatDesignation::None) return;
+            // "Choose an opponent. They gain 1 point." 1v1: the one opponent.
+            ctx.executor.scorePoints(opponent(ctx.controller), 1);   // CR 194.1.c
             ctx.events.logTrace("DRAVEN AUDACIOUS: died in combat -> opponent scores 1");
         }
     }

@@ -1,0 +1,26 @@
+{
+  "id": "rad-140-167",
+  "name": "Chronobreak",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 140,
+  "public_code": "RAD-140/167",
+  "card_type": "spell",
+  "super_type": "signature",
+  "domains": [
+    "fury",
+    "mind"
+  ],
+  "tags": [
+    "Ekko"
+  ],
+  "energy_cost": 2,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "epic",
+  "ability_text": "As an additional cost to play this, pay any amount of Power.\nBanish that many units you control, then for each, its owner plays that unit back to the same location or to their base, ignoring its cost. (You choose the order.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/af2123a99f3e3e7e6c9b101c5fc2c9b0ff56e096-744x1040.png",
+  "artist": "Luscinia Studio"
+}

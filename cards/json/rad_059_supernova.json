@@ -1,0 +1,23 @@
+{
+  "id": "rad-059-167",
+  "name": "Supernova",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 59,
+  "public_code": "RAD-059/167",
+  "card_type": "spell",
+  "super_type": null,
+  "domains": [
+    "order"
+  ],
+  "tags": [],
+  "energy_cost": 9,
+  "power_cost": 1,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "Deal 10 to a unit. Draw 2.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/bea8e402f99b0afb5af1b19c0ee8ea34052e736f-744x1039.png",
+  "artist": "Kudos Productions"
+}

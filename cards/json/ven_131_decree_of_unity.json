@@ -1,0 +1,23 @@
+{
+  "id": "ven-131-166",
+  "name": "Decree of Unity",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 131,
+  "public_code": "VEN-131/166",
+  "card_type": "spell",
+  "super_type": null,
+  "domains": [
+    "order"
+  ],
+  "tags": [],
+  "energy_cost": 2,
+  "power_cost": 1,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "rare",
+  "ability_text": "Kill an enemy Chaos ([P]) unit or gear.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/220161ac48f1307e4d74c372d549fea18829a86b-744x1039.png",
+  "artist": "Envar Studio"
+}

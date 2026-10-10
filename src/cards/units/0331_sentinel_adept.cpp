@@ -15,6 +15,7 @@ namespace {
 class SentinelAdept : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouPlayMe; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         if (!ctx.state.objectExists(ctx.source)) return;
@@ -40,6 +41,7 @@ public:
         if (conf < 1) return;
 
         GameObjectId gear_id = pickTarget(ctx, "Sentinel Adept: pick Equipment", equipment);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (gear_id == kInvalidId || !ctx.state.objectExists(gear_id)) return;
 
         auto& gear = ctx.state.getObject(gear_id);

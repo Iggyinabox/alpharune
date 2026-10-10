@@ -15,6 +15,7 @@ namespace {
 class Virtuoso : public LegendCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouPlayASpell; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>&) override {
         // Validation closure: "you may banish it" is legal iff the
@@ -44,6 +45,7 @@ public:
 
         int conf = confirmOptional(ctx, "Virtuoso: banish 4-cost spell?",
                                     still_legal);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (conf == -1) return;     // waiting for agent
         if (conf == 0) return;      // declined or invalidated
         // conf == 1: confirmed, proceed.

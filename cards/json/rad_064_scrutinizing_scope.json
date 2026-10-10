@@ -1,0 +1,23 @@
+{
+  "id": "rad-064-167",
+  "name": "Scrutinizing Scope",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 64,
+  "public_code": "RAD-064/167",
+  "card_type": "gear",
+  "super_type": null,
+  "domains": [
+    "mind"
+  ],
+  "tags": [],
+  "energy_cost": 2,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "rare",
+  "ability_text": "[1], [E]: Choose an opponent. They guess a card type. Reveal the top card of your Main Deck. If it has that type, recycle it. Otherwise, draw it. (Unit, gear, and spell are types.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/6a028fc372c14dda73864aba3d3e84063f6da98d-744x1039.png",
+  "artist": "Kudos Productions"
+}

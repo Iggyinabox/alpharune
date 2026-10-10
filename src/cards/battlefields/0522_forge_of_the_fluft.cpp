@@ -15,6 +15,7 @@ namespace {
 class ForgeOfTheFluft : public BattlefieldCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeActivate; }
     // "While you control this battlefield, friendly legends have
     //  '[E]: Attach an Equipment you control to a unit you control.'"
     // Wired via the aura-granted-ability pipeline: applyPassiveAura grants this
@@ -47,6 +48,7 @@ public:
         };
         auto [eq, unit] = pickTargetPair(ctx, "Forge of the Fluft: attach Equipment to a unit",
                                          equips, units_fn);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (eq == kInvalidId || unit == kInvalidId) return;  // suspended or fizzled
         attachFree(ctx, eq, unit);
         ctx.events.logTrace("FORGE OF THE FLUFT: attached an Equipment to a unit");

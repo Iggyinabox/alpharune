@@ -294,10 +294,14 @@ TEST_F(AuditFix3Test, Jax_EquipsEquipmentAndPaysForDraw) {
     addToDeck(P1, kInvalidId);  // something to draw
 
     int hand_before = handSize(P1);
-    // Jax's onTrigger dereferences chain.resuming, so we must drive it
-    // through the resume loop (sets resuming). Answer "yes" to the rider.
+    // [Weaponmaster] on play: pick the Equipment.
     driveResumableTrigger(kJax, P1, jax, &AuditFix3Test::yesAndFirstTarget, exec,
                           TriggerType::WhenYouPlayMe);
+    // "When you attach an Equipment to me, you may pay [1] to draw 1" is a
+    // separate triggered ability (CR 383: it triggers on every attach, not
+    // only on the play), queued by the attach; drive it and answer "yes".
+    driveResumableTrigger(kJax, P1, jax, &AuditFix3Test::yesAndFirstTarget, exec,
+                          TriggerType::WhenEquipmentAttachedToMe);
 
     // Gear attached to Jax, might bonus applied.
     EXPECT_EQ(state.getObject(gear).attached_to.value_or(kInvalidId), jax);
@@ -331,11 +335,15 @@ TEST_F(AuditFix3Test, Jax_DeclineRiderKeepsEnergy) {
     addToDeck(P1, kInvalidId);
 
     int hand_before = handSize(P1);
-    // Drive through the resume loop and DECLINE the pay-1 rider.
-    driveResumableTrigger(kJax, P1, jax, &AuditFix3Test::noChoice, exec,
+    // Equip through [Weaponmaster], then DECLINE the pay-1 rider — a separate
+    // triggered ability (CR 383). Weaponmaster itself is "you MAY [Equip]"
+    // (answering "no" there would attach nothing), so it is answered "yes".
+    driveResumableTrigger(kJax, P1, jax, &AuditFix3Test::yesAndFirstTarget, exec,
                           TriggerType::WhenYouPlayMe);
+    driveResumableTrigger(kJax, P1, jax, &AuditFix3Test::noChoice, exec,
+                          TriggerType::WhenEquipmentAttachedToMe);
 
-    // Equip still happened (mandatory Weaponmaster step), rider declined.
+    // Equip happened, rider declined.
     EXPECT_EQ(state.getObject(gear).attached_to.value_or(kInvalidId), jax);
     EXPECT_EQ(state.player(P1).rune_pool.energy, 1);
     EXPECT_EQ(handSize(P1), hand_before);
@@ -351,6 +359,9 @@ TEST_F(AuditFix3Test, Jax_RiderNotOfferedWhenNoEnergy) {
     int hand_before = handSize(P1);
     driveResumableTrigger(kJax, P1, jax, &AuditFix3Test::yesAndFirstTarget, exec,
                           TriggerType::WhenYouPlayMe);
+    // The rider is its own triggered ability (CR 383), fired by the attach.
+    driveResumableTrigger(kJax, P1, jax, &AuditFix3Test::yesAndFirstTarget, exec,
+                          TriggerType::WhenEquipmentAttachedToMe);
 
     EXPECT_EQ(state.getObject(gear).attached_to.value_or(kInvalidId), jax);
     EXPECT_EQ(handSize(P1), hand_before);  // no draw — couldn't afford
@@ -419,13 +430,17 @@ TEST_F(AuditFix3Test, TreasureHoard_PaysForGoldToken) {
     fireTriggerAs(kTreasureHoard, P1, bf_card, TriggerType::WhenYouConquerHere, exec);
 
     EXPECT_EQ(state.player(P1).rune_pool.energy, 0);  // paid [1]
-    // A new exhausted Gold gear token exists at BF 0.
+    // A new exhausted Gold gear token exists in P1's BASE. CR 149.2: gear can
+    // only be played to a player's Base unless an effect specifies otherwise,
+    // and "play a Gold gear token exhausted" names no location (this used to
+    // assert the token at battlefield 0).
     int gold = 0;
     for (auto& [id, obj] : state.objects) {
         if (obj.isGear() && obj.name == "Gold") {
             ++gold;
             EXPECT_TRUE(obj.is_exhausted) << "Gold token must enter exhausted";
-            EXPECT_EQ(obj.battlefieldId().value_or(kInvalidId), 0u);
+            EXPECT_TRUE(obj.isAtBase()) << "CR 149.2: gear is played to base";
+            EXPECT_FALSE(obj.battlefieldId().has_value());
         }
     }
     EXPECT_EQ(gold, 1);
@@ -682,6 +697,7 @@ TEST_F(AuditFix3Test, DuskRoseLab_KillsUnitHereDrawsOne) {
     state.getObject(bf_card).card_def_id = kDuskRoseLab;
     state.getObject(bf_card).card_type = CardType::Battlefield;
     state.battlefields[0].card_object_id = bf_card;
+    state.battlefields[0].controller = P1;   // "your Beginning Phase": the battlefield's controller
     auto unit = addUnit(P1, kInvalidId, 2, /*at_bf=*/0);
     addToDeck(P1, kInvalidId);
 
@@ -733,6 +749,7 @@ TEST_F(AuditFix3Test, DuskRoseLab_OnlyKillsOwnUnitHere) {
     state.getObject(bf_card).card_def_id = kDuskRoseLab;
     state.getObject(bf_card).card_type = CardType::Battlefield;
     state.battlefields[0].card_object_id = bf_card;
+    state.battlefields[0].controller = P1;   // "your Beginning Phase": the battlefield's controller
     auto own = addUnit(P1, kInvalidId, 2, /*at_bf=*/0);
     auto enemy = addUnit(P2, kInvalidId, 2, /*at_bf=*/0);
     addToDeck(P1, kInvalidId);

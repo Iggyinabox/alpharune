@@ -17,7 +17,7 @@
   ],
   "energy_cost": 4,
   "power_cost": 2,
-  "might": null,
+  "might": 3,
   "might_bonus": 3,
   "rarity": "epic",
   "ability_text": "[Unique] (Your deck can have only 1 card with this name.)\n[Equip] [A] ([A]: Attach this to a unit you control.)",

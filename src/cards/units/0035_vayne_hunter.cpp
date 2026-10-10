@@ -12,9 +12,10 @@
 namespace riftbound {
 namespace {
 
-class VayneHunter : public UnitCard {
+class VayneHunter_35 : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
 
     // "If an opponent controls a battlefield, I enter ready."
     bool entersReadyOnPlay(const GameState& state,
@@ -29,15 +30,18 @@ public:
     TriggerType triggerType() const override { return TriggerType::WhenIConquer; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         if (!ctx.state.objectExists(ctx.source)) return;
-        auto& ps = ctx.state.player(ctx.controller);
+        // CR 445.2 / 164.2.a: the [1] may come from floating Energy or from
+        // exhausting a ready rune (payableEnergy / payEnergy).
         auto still_legal = [&]() {
-            return ps.rune_pool.energy >= 1 && ctx.state.objectExists(ctx.source);
+            return payableEnergy(ctx.state, ctx.controller) >= 1 &&
+                   ctx.state.objectExists(ctx.source);
         };
-        if (!still_legal()) return;
+        if (!costAlreadyPaid(ctx) && !still_legal()) return;
         int conf = confirmOptional(ctx, "Vayne: pay [1] to return me to hand?",
                                    still_legal);
         if (conf < 1) return;
-        ps.rune_pool.energy -= 1;
+        if (costDueNow(ctx) && !payEnergy(ctx, ctx.controller, 1)) return;
+        if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
         ctx.executor.bounceToHand(ctx.source);
         ctx.events.logTrace("VAYNE: paid [1] -> returned to owner's hand");
     }
@@ -73,7 +77,7 @@ When I conquer, you may pay [1] to return me to my owner's hand.)RB";
 }  // anonymous namespace
 
 void register_card_35(CardRegistry& r) {
-    r.registerCard(35, std::make_unique<VayneHunter>());
+    r.registerCard(35, std::make_unique<VayneHunter_35>());
 }
 
 } // namespace riftbound

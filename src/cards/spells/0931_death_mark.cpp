@@ -1,0 +1,68 @@
+#include "cards/card.h"
+#include "cards/card_helpers.h"
+#include "cards/card_registry.h"
+#include "core/game_state.h"
+#include "core/events.h"
+#include "engine/effect_executor.h"
+#include <algorithm>
+#include <memory>
+#include <string>
+#include <vector>
+
+namespace riftbound {
+namespace {
+
+class DeathMark : public SpellCard {
+public:
+    const CardDef& def() const override { return def_; }
+    // [vendetta-E]
+    // "[Burn 3]. Play a 0 [M] Shadow Clone unit token."
+    // (The token carries the registered Shadow Clone card, id 955.)
+    void onResolve(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
+        ctx.executor.burn(ctx.controller, 3);
+        if (ctx.state.game_over) return;
+        LocationId loc{BaseLocation{ctx.controller}};
+        {
+            auto clone_id = ctx.executor.createToken(ctx.controller, CardType::Unit, "Shadow Clone", 0,
+                                 {}, KeywordSet{}, loc, /*enter_ready=*/false);
+            // Carry the Shadow Clone token card so its "When I attack" ability fires.
+            if (ctx.state.objectExists(clone_id))
+                ctx.state.getObject(clone_id).card_def_id = 955;
+        }
+    }
+    // "[Flow] [1][A][A]"
+    FlowCost flowCost() const override { return flow(1, 2, Domain::Fury, /*any_domain=*/true); }
+private:
+    const CardDef def_ = [] {
+        CardDef d;
+        d.id = 931;
+        d.def_id = R"RB(ven-144-166)RB";
+        d.name = R"RB(Death Mark)RB";
+        d.set_code = R"RB(VEN)RB";
+        d.set_name = R"RB(Vendetta)RB";
+        d.public_code = R"RB(VEN-144/166)RB";
+        d.collector_number = 144;
+        d.artist = R"RB(JunHuan)RB";
+        d.card_type = CardType::Spell;
+        d.super_type = SuperType::Signature;
+        d.domains = {Domain::Fury, Domain::Chaos};
+        d.tags = {R"RB(Zed)RB"};
+        d.energy_cost = 2;
+        d.power_cost = 1;
+        d.rarity = Rarity::Epic;
+        d.keywords.set(Keyword::Flow);
+        d.ability_text = R"RB([Burn 3]. (Put the top 3 cards of your Main Deck into your trash.)
+Play a 0 [M] Shadow Clone unit token. (It has "When I attack, you may banish a unit from your trash. If you do, give me [Assault 4] this turn.")
+[Flow] [1][A][A] (You may play this from your trash for its Flow cost. Then banish it.))RB";
+        d.image_url = R"RB(https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/87ccfb8d1c19f402bb37ffa392011ee2f0880aa9-744x1039.png)RB";
+        return d;
+    }();
+};
+
+}  // anonymous namespace
+
+void register_card_931(CardRegistry& r) {
+    r.registerCard(931, std::make_unique<DeathMark>());
+}
+
+}  // namespace riftbound

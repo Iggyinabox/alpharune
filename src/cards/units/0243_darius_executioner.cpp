@@ -11,7 +11,7 @@
 namespace riftbound {
 namespace {
 
-class DariusExecutioner : public UnitCard {
+class DariusExecutioner_243 : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& targets) override {
@@ -50,7 +50,7 @@ Other friendly units have +1 [M] here.)RB";
 }  // anonymous namespace
 
 void register_card_243(CardRegistry& r) {
-    r.registerCard(243, std::make_unique<DariusExecutioner>());
+    r.registerCard(243, std::make_unique<DariusExecutioner_243>());
 }
 
 } // namespace riftbound

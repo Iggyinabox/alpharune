@@ -310,6 +310,11 @@ struct CardRevealedEvent {
 ///   bus.on_unit_moved.connect([](const UnitMovedEvent& e) { ... });
 ///   bus.emit(UnitMovedEvent{...});
 
+// Member functions are defined in events.cpp, not inline: an inline body that
+// calls a signal makes every translation unit that merely includes this header
+// instantiate Boost.Signals2's invocation machinery for that signal (GCC queues
+// those instantiations when it parses the body). That was most of a card
+// file's compile time.
 class EventBus {
 public:
     // Signals — subscribers connect to these
@@ -354,90 +359,54 @@ public:
     boost::signals2::signal<void(const CardRevealedEvent&)>        on_card_revealed;
 
     // Convenience emit methods
-    void emit(const UnitMovedEvent& e)          { on_unit_moved(e); }
-    void emit(const EnteredBoardEvent& e)       { on_entered_board(e); }
-    void emit(const TokenCreatedEvent& e)      { on_token_created(e); }
-    void emit(const LeftBoardEvent& e)          { on_left_board(e); }
-    void emit(const DamageDealtEvent& e)        { on_damage_dealt(e); }
-    void emit(const UnitDiedEvent& e)           { on_unit_died(e); }
-    void emit(const CardsDrawnEvent& e)         { on_cards_drawn(e); }
-    void emit(const CardsDiscardedEvent& e)     { on_cards_discarded(e); }
-    void emit(const CardPlayedEvent& e)         { on_card_played(e); }
-    void emit(const RuneChanneledEvent& e)      { on_rune_channeled(e); }
-    void emit(const ControlChangedEvent& e)     { on_control_changed(e); }
-    void emit(const ContestedEvent& e)          { on_contested(e); }
-    void emit(const ScoreEvent& e)              { on_score(e); }
-    void emit(const PointsGainedEvent& e)       { on_points_gained(e); }
-    void emit(const PhaseChangedEvent& e)       { on_phase_changed(e); }
-    void emit(const PriorityGrantedEvent& e)    { on_priority_granted(e); }
-    void emit(const CombatStartedEvent& e)      { on_combat_started(e); }
-    void emit(const CombatEndedEvent& e)        { on_combat_ended(e); }
-    void emit(const ShowdownStartedEvent& e)    { on_showdown_started(e); }
-    void emit(const ShowdownEndedEvent& e)      { on_showdown_ended(e); }
-    void emit(const CleanupNeededEvent& e)      { on_cleanup_needed(e); }
-    void emit(const ObjectStateChangedEvent& e) { on_object_state_changed(e); }
-    void emit(const UnitStunnedEvent& e)        { on_unit_stunned(e); }
-    void emit(const UnitReadiedEvent& e)        { on_unit_readied(e); }
-    void emit(const CardHiddenEvent& e)         { on_card_hidden(e); }
-    void emit(const PlayedFromFacedownEvent& e) { on_played_from_facedown(e); }
-    void emit(const UnitReturnedToHandEvent& e) { on_unit_returned_to_hand(e); }
-    void emit(const GameOverEvent& e)           { on_game_over(e); }
-    void emit(const LogEvent& e)                  { on_log(e); }
-    void emit(const ChainCreatedEvent& e)        { on_chain_created(e); }
-    void emit(const ChainItemFinalizedEvent& e)  { on_chain_item_finalized(e); }
-    void emit(const ChainItemResolvedEvent& e)   { on_chain_item_resolved(e); }
-    void emit(const ChainEmptiedEvent& e)        { on_chain_emptied(e); }
-    void emit(const SpellResolvedEvent& e)       { on_spell_resolved(e); }
-    void emit(const CardRevealedEvent& e)        { on_card_revealed(e); }
+    void emit(const UnitMovedEvent& e);
+    void emit(const EnteredBoardEvent& e);
+    void emit(const TokenCreatedEvent& e);
+    void emit(const LeftBoardEvent& e);
+    void emit(const DamageDealtEvent& e);
+    void emit(const UnitDiedEvent& e);
+    void emit(const CardsDrawnEvent& e);
+    void emit(const CardsDiscardedEvent& e);
+    void emit(const CardPlayedEvent& e);
+    void emit(const RuneChanneledEvent& e);
+    void emit(const ControlChangedEvent& e);
+    void emit(const ContestedEvent& e);
+    void emit(const ScoreEvent& e);
+    void emit(const PointsGainedEvent& e);
+    void emit(const PhaseChangedEvent& e);
+    void emit(const PriorityGrantedEvent& e);
+    void emit(const CombatStartedEvent& e);
+    void emit(const CombatEndedEvent& e);
+    void emit(const ShowdownStartedEvent& e);
+    void emit(const ShowdownEndedEvent& e);
+    void emit(const CleanupNeededEvent& e);
+    void emit(const ObjectStateChangedEvent& e);
+    void emit(const UnitStunnedEvent& e);
+    void emit(const UnitReadiedEvent& e);
+    void emit(const CardHiddenEvent& e);
+    void emit(const PlayedFromFacedownEvent& e);
+    void emit(const UnitReturnedToHandEvent& e);
+    void emit(const GameOverEvent& e);
+    void emit(const LogEvent& e);
+    void emit(const ChainCreatedEvent& e);
+    void emit(const ChainItemFinalizedEvent& e);
+    void emit(const ChainItemResolvedEvent& e);
+    void emit(const ChainEmptiedEvent& e);
+    void emit(const SpellResolvedEvent& e);
+    void emit(const CardRevealedEvent& e);
 
     // Convenience logging. Every line is prefixed with [D:NNN.NN]
     // where NNN is a per-EventBus decision counter (bumped + reset
     // sub-counter whenever a "DECISION #" line is emitted) and NN is
     // the sub-counter within the current decision. Lines emitted
     // before the first DECISION show as [D:000.NN].
-    void logTrace(const std::string& msg) { emit(LogEvent{LogLevel::Trace,   tagWithDecision(msg)}); }
-    void logDebug(const std::string& msg) { emit(LogEvent{LogLevel::Debug,   tagWithDecision(msg)}); }
-    void logInfo(const std::string& msg)  { emit(LogEvent{LogLevel::Info,    tagWithDecision(msg)}); }
-    void logWarn(const std::string& msg)  { emit(LogEvent{LogLevel::Warning, tagWithDecision(msg)}); }
+    void logTrace(const std::string& msg);
+    void logDebug(const std::string& msg);
+    void logInfo(const std::string& msg);
+    void logWarn(const std::string& msg);
 
     /// Disconnect all subscribers (useful between games).
-    void disconnectAll() {
-        on_unit_moved.disconnect_all_slots();
-        on_entered_board.disconnect_all_slots();
-        on_token_created.disconnect_all_slots();
-        on_left_board.disconnect_all_slots();
-        on_damage_dealt.disconnect_all_slots();
-        on_unit_died.disconnect_all_slots();
-        on_cards_drawn.disconnect_all_slots();
-        on_cards_discarded.disconnect_all_slots();
-        on_card_played.disconnect_all_slots();
-        on_rune_channeled.disconnect_all_slots();
-        on_control_changed.disconnect_all_slots();
-        on_contested.disconnect_all_slots();
-        on_score.disconnect_all_slots();
-        on_points_gained.disconnect_all_slots();
-        on_phase_changed.disconnect_all_slots();
-        on_priority_granted.disconnect_all_slots();
-        on_combat_started.disconnect_all_slots();
-        on_combat_ended.disconnect_all_slots();
-        on_showdown_started.disconnect_all_slots();
-        on_showdown_ended.disconnect_all_slots();
-        on_cleanup_needed.disconnect_all_slots();
-        on_object_state_changed.disconnect_all_slots();
-        on_unit_stunned.disconnect_all_slots();
-        on_unit_readied.disconnect_all_slots();
-        on_card_hidden.disconnect_all_slots();
-        on_played_from_facedown.disconnect_all_slots();
-        on_unit_returned_to_hand.disconnect_all_slots();
-        on_game_over.disconnect_all_slots();
-        on_chain_created.disconnect_all_slots();
-        on_chain_item_finalized.disconnect_all_slots();
-        on_chain_item_resolved.disconnect_all_slots();
-        on_chain_emptied.disconnect_all_slots();
-        on_spell_resolved.disconnect_all_slots();
-        on_card_revealed.disconnect_all_slots();
-        on_log.disconnect_all_slots();
-    }
+    void disconnectAll();
 
 private:
     int log_decision_counter_ = 0;
@@ -446,19 +415,7 @@ private:
     /// Prefix the message with `[D:NNN.NN] `. Bumps the decision
     /// counter (and resets the sub-counter to 0) when `msg` begins
     /// with `"DECISION #"`; otherwise bumps the sub-counter.
-    std::string tagWithDecision(const std::string& msg) {
-        static constexpr const char* kDecisionPrefix = "DECISION #";
-        if (msg.compare(0, 10, kDecisionPrefix) == 0) {
-            ++log_decision_counter_;
-            log_sub_counter_ = 0;
-        } else {
-            ++log_sub_counter_;
-        }
-        char buf[24];
-        std::snprintf(buf, sizeof(buf), "[D:%03d.%02d] ",
-                      log_decision_counter_, log_sub_counter_);
-        return std::string(buf) + msg;
-    }
+    std::string tagWithDecision(const std::string& msg);
 };
 
 } // namespace riftbound

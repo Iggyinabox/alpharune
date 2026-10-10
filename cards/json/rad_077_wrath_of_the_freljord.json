@@ -1,0 +1,23 @@
+{
+  "id": "rad-077-167",
+  "name": "Wrath of the Freljord",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 77,
+  "public_code": "RAD-077/167",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "body"
+  ],
+  "tags": [],
+  "energy_cost": 9,
+  "power_cost": null,
+  "might": 7,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "I enter ready.\n[Shield 3] (+3 [M] while I'm a defender.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/531b923f3437f497b858bf186b46b4ac88460da6-744x1039.png",
+  "artist": "Kudos Productions"
+}

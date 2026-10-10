@@ -15,6 +15,7 @@ namespace {
 class KaiSaEvolutionary : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenIConquer; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         if (!ctx.state.objectExists(ctx.source)) return;
@@ -40,10 +41,14 @@ public:
         int conf = confirmOptional(ctx,
             "Kai'Sa: play a spell (Energy cost < points) from trash without Energy cost?",
             still_legal);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (conf != 1) return;
 
         GameObjectId chosen = find_spell();
         if (chosen == kInvalidId) return;
+        // Energy is waived; "(You must still pay its Power cost.)" (CR 356.1.b.2).
+        const EffectExecutor::EffectPlayCost power_only{.ignore_energy = true};
+        if (!ctx.executor.canPlayPayingCost(ctx.controller, chosen, power_only)) return;
         auto it = std::find(ps.trash.begin(), ps.trash.end(), chosen);
         if (it != ps.trash.end()) ps.trash.erase(it);
 
@@ -51,8 +56,17 @@ public:
         // NOTE: playIgnoringCost ignores ALL costs (incl. Power); the printed
         // "you must still pay its Power cost" is approximated as free — same
         // convention as Fizz, Trickster (461).
-        ctx.executor.playIgnoringCost(ctx.controller, chosen);
-        ctx.executor.recycleCards(ctx.controller, {chosen});
+        // The spell goes on the chain and resolves; "Then recycle it" replaces
+        // where it goes when it leaves the chain.
+        ctx.state.getObject(chosen).card_counters["__recycle_on_leave_chain"] = 1;
+        ctx.executor.playPayingCost(ctx.controller, chosen, std::nullopt, power_only);
+        // With no chain to resolve on (an executor driven directly, outside a
+        // game), the spell can't leave the chain later: recycle it now.
+        if (ctx.state.objectExists(chosen) &&
+            ctx.state.getObject(chosen).zone != ZoneType::Chain) {
+            ctx.state.getObject(chosen).card_counters["__recycle_on_leave_chain"] = 0;
+            ctx.executor.recycleCards(ctx.controller, {chosen});
+        }
         ctx.events.logTrace("KAI'SA: conquer -> played " + sname +
                              " from trash (ignoring Energy), then recycled it");
     }

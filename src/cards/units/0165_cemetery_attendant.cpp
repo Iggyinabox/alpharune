@@ -15,6 +15,7 @@ namespace {
 class CemeteryAttendant : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouPlayMe; }
     // "When you play me, return a unit from your trash to your hand."
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
@@ -27,6 +28,7 @@ public:
         if (trash_units.empty()) return;
         GameObjectId picked = pickTarget(ctx, "Cemetery Attendant (unit from trash)",
                                           trash_units);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (picked == kInvalidId && ctx.state.chain.resuming.has_value() &&
             ctx.state.chain.resuming->resume_point == 7) {
             return;  // suspended for agent decision

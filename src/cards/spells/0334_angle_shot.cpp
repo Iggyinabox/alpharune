@@ -14,6 +14,7 @@ namespace {
 class AngleShot : public SpellCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeResolve; }
     bool isReactionAbility() const override { return true; }
     bool needsPlayTimeTargetPair() const override { return true; }
     TargetRequirements getTargetRequirements() const override {
@@ -48,6 +49,7 @@ public:
         };
         auto [unit, equip] = pickTargetPair(ctx, "Angle Shot: unit + Equipment",
                                             units, second_fn);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         bool suspending = (unit == kInvalidId || equip == kInvalidId) &&
                           ctx.state.chain.resuming.has_value() &&
                           (ctx.state.chain.resuming->resume_point == 10 ||

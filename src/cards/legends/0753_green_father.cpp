@@ -15,6 +15,7 @@ namespace {
 class GreenFather : public LegendCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenIConquerOrHold; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>&) override {
         if (!ctx.state.objectExists(ctx.source)) return;
@@ -45,8 +46,10 @@ public:
         BattlefieldId target = find_target();
         if (target == kInvalidId) return;
         auto& legend = ctx.state.getObject(ctx.source);
-        legend.is_exhausted = true;
-        ctx.executor.replaceBattlefieldWithToken(target, "Brush", ctx.controller);
+        if (costDueNow(ctx)) legend.is_exhausted = true;
+        if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
+        ctx.executor.replaceBattlefieldWithToken(target, "Brush", ctx.controller,
+                                                  /*token_def=*/561);   // the Brush card
         ctx.events.logTrace("GREEN FATHER: exhausted to replace BF#" +
                              std::to_string(target) + " with Brush token");
     }

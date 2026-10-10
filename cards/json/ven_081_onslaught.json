@@ -1,0 +1,23 @@
+{
+  "id": "ven-081-166",
+  "name": "Onslaught",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 81,
+  "public_code": "VEN-081/166",
+  "card_type": "spell",
+  "super_type": null,
+  "domains": [
+    "body"
+  ],
+  "tags": [],
+  "energy_cost": 4,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "Give a unit +6 [M] this turn.\n[Flow] [4] (You may play this from your trash for its Flow cost. Then banish it.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/6a1ef90c64e07b3f561e34c8d43ff5f64db925d8-744x1039.png",
+  "artist": "Kudos Productions"
+}

@@ -1,0 +1,25 @@
+{
+  "id": "ven-073-166",
+  "name": "Jagged Cutlass",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 73,
+  "public_code": "VEN-073/166",
+  "card_type": "gear",
+  "super_type": null,
+  "domains": [
+    "body"
+  ],
+  "tags": [
+    "Equipment"
+  ],
+  "energy_cost": 3,
+  "power_cost": null,
+  "might": 2,
+  "might_bonus": 2,
+  "rarity": "common",
+  "ability_text": "Equip [O] ([O]: Attach this to a unit you control.)",
+  "effect_text": "I can't be moved by enemy spells and abilities.",
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/22aae23e1ac1797beb50f3f735becfe65b51ee02-744x1039.png",
+  "artist": "Kudos Productions"
+}

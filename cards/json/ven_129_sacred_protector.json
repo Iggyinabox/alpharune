@@ -1,0 +1,26 @@
+{
+  "id": "ven-129-166",
+  "name": "Sacred Protector",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 129,
+  "public_code": "VEN-129/166",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "order"
+  ],
+  "tags": [
+    "Fae",
+    "Ionia"
+  ],
+  "energy_cost": 4,
+  "power_cost": 1,
+  "might": 6,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "I don't deal combat damage unless I'm at a battlefield with exactly one other unit you control.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/a93887af1128d19cdec798611ffdd29900ac5d85-744x1039.png",
+  "artist": "Kudos Productions"
+}

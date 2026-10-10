@@ -19,16 +19,18 @@ public:
         for (const auto& [id, obj] : state.objects) {
             if (!obj.isUnit() || obj.controller != controller) continue;
             if (!obj.location.has_value()) continue;
-            // Match by name (no Mech keyword/tag in the card data — token
-            // name is "Mech"). Real Mech-tag enforcement is a follow-up.
-            if (obj.name.find("Mech") != std::string::npos) return 2;
+            // "a Mech" is a unit with the Mech TAG (CR 187.4: a Mech token has
+            // the Mech tag) — not a unit whose name happens to contain "Mech".
+            if (std::find(obj.tags.begin(), obj.tags.end(), "Mech") != obj.tags.end())
+                return 2;
         }
         return 0;
     }
     void onResolve(CardContext& ctx, const std::vector<GameObjectId>&) override {
         KeywordSet kw;
+        // CR 187.4: a Mech token has 3 Might and the Mech tag.
         ctx.executor.createToken(ctx.controller, CardType::Unit, "Mech",
-                                  /*might=*/3, /*tags=*/{}, kw,
+                                  /*might=*/3, /*tags=*/{"Mech"}, kw,
                                   BaseLocation{ctx.controller},
                                   /*exhausted=*/false);
         ctx.executor.drawCards(ctx.controller, 1);

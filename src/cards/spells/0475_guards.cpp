@@ -23,8 +23,9 @@ public:
         auto& self = ctx.state.getObject(ctx.source);
         // Create the token once (survives the confirmOptional resume loop).
         if (!self.card_counters.count("__guards_token")) {
+            // CR 187.3: a Sand Soldier token has 2 Might and the Shurima tag.
             auto tok = ctx.executor.createToken(ctx.controller, CardType::Unit,
-                "Sand Soldier", 2, {"Sand Soldier"}, KeywordSet{},
+                "Sand Soldier", 2, {"Shurima"}, KeywordSet{},
                 LocationId{BaseLocation{ctx.controller}}, /*enter_ready=*/false);
             self.card_counters["__guards_token"] = static_cast<int>(tok);
             ctx.events.logTrace("GUARDS!: play 2[M] Sand Soldier token");

@@ -3,6 +3,7 @@
 #include "core/game_state.h"
 #include "core/events.h"
 #include "engine/effect_executor.h"
+#include "cards/card_helpers.h"
 #include <algorithm>
 #include <memory>
 #include <string>
@@ -19,8 +20,10 @@ public:
     TriggerType equippedTriggerType() const override { return TriggerType::WhenIConquer; }
     void onEquippedTrigger(CardContext& ctx, GameObjectId unit,
                             const std::vector<GameObjectId>& targets) override {
-        auto loc = ctx.state.getObject(unit).location.value_or(BaseLocation{ctx.controller});
-        ctx.executor.createToken(ctx.controller, CardType::Gear, "Gold", 0, {}, {}, loc);
+        // CR 149.2: gear is played to its controller's Base unless an effect
+        // says otherwise — not to the battlefield the equipped unit conquered.
+        // createGoldExhausted: exhausted, in base, as the Gold card (CR 187.5).
+        createGoldExhausted(ctx);
     }
 private:
     const CardDef def_ = [] {

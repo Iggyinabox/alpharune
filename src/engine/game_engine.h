@@ -185,6 +185,17 @@ public:
     void testHook_drawCards(PlayerId p, int n) { drawCards(p, n); }
     void testHook_processLethalDamage() { processLethalDamage(); }
     void testHook_cleanup() { cleanup(); }
+    EffectExecutor& testHook_executor() { return *effect_executor_; }
+    bool testHook_canAfford(PlayerId p, GameObjectId card) const { return canAfford(p, card); }
+    bool testHook_payCardCost(PlayerId p, GameObjectId card) { return payCardCost(p, card); }
+    bool testHook_canPayAdditionalCost(PlayerId p, int energy, int power, Domain d) const {
+        return canPayAdditionalCost(p, energy, power, d);
+    }
+    bool testHook_payAdditionalCost(PlayerId p, int energy, int power, Domain d) {
+        return payAdditionalCost(p, energy, power, d);
+    }
+    void testHook_beginningStep() { beginningStep(); }
+    void testHook_scoringStep() { scoringStep(); }
     void testHook_executeStandardMove(const Intent& i) { executeStandardMove(i); }
     void testHook_drawPhase() { drawPhase(); }
     void testHook_endingStep() { endingStep(); }
@@ -244,6 +255,7 @@ private:
     // restart loop), leftover subscribers from the prior engine would
     // dereference a dead `this` when the new engine emits a reveal.
     boost::signals2::connection card_revealed_conn_;
+    boost::signals2::connection trace_stderr_conn_;
 
     // Phase 2-3 subsystems
     std::unique_ptr<ChainManager> chain_manager_;
@@ -561,7 +573,9 @@ private:
 
     // ── Cost payment ──
     /// Check if a player can afford a card's cost with available runes.
-    bool canAfford(PlayerId player, GameObjectId card_obj) const;
+    /// `extra_any_power`: [A] owed on top of everything else (a battlefield's
+    /// pay-to-play-here cost).
+    bool canAfford(PlayerId player, GameObjectId card_obj, int extra_any_power = 0) const;
 
     /// Auto-pay a card's cost by exhausting/recycling runes.
     /// Returns false if payment failed (shouldn't happen if canAfford was checked).
@@ -576,10 +590,40 @@ private:
     /// interaction. The caller is responsible for any other side effects
     /// (e.g. flipping `is_exhausted` on a unit that paid Accelerate to
     /// enter ready — that's resolvePermanent's job).
+    /// Energy + power affordability / payment for an activated ability whose
+    /// cost has a power component (honors ActivationCost::power_any_domain).
+    bool canPayActivationResources(PlayerId player, int energy,
+                                   const ActivationCost& cost, bool for_unit = false) const;
+    bool payActivationResources(PlayerId player, int energy, const ActivationCost& cost,
+                                bool for_unit = false);
+    /// Apply `assigned` combat damage to a unit through the replacement
+    /// effects that govern it (CR 467.2.c.5).
+    void applyCombatDamage(GameObjectId target, int assigned);
+    /// Whether `damager`'s damage kills in any amount (CR 142.4.c).
+    bool anyDamageIsLethalFor(PlayerId damager) const;
+    int activationEnergyReduction(const Card& card, PlayerId player,
+                                  GameObjectId source, int index) const;
+    /// Make the choices the rules place at finalization for `item` (targets).
+    void chooseTargetsAtFinalize(ChainItem& item);
+    void runFinalizePass(ChainItem& item);
+    /// "You may make new choices for it" (CR 750-755).
+    void makeNewChoicesFor(ChainItemId item_id);
+    /// One agent decision among `options` for `player`, logged like any other.
+    Intent decideNow(PlayerId player, const std::vector<Intent>& options, const std::string& what);
+    /// Pay an activated ability's costs and add it to the chain (no chain run).
+    bool payAndQueueAbility(const Intent& intent);
+    /// CR 323.6: recall unattached gear at battlefields and permanents / runes
+    /// sitting in a base other than their controller's.
+    void recallMisplacedObjects();
+    /// (Re)create the chain manager, effect executor and trigger manager bound
+    /// to state_ / events_.
+    void initSubsystems();
+    /// Rebuild the standing [Flow] play-from-trash grants (called from recalculateAuras).
+    void refreshFlowGrants();
     bool canPayAdditionalCost(PlayerId player, int energy, int power,
-                                Domain domain) const;
+                                Domain domain, bool for_unit = false) const;
     bool payAdditionalCost(PlayerId player, int energy, int power,
-                            Domain domain);
+                            Domain domain, bool for_unit = false);
 
     /// Pays the matching PlayerState::TrashReplayGrant's override cost for
     /// `card_id` (auto-spends via payAdditionalCost; an [A] grant picks the
@@ -616,7 +660,7 @@ private:
     void maybePayOptionalAdditionalCost(PlayerId player, GameObjectId card_id);
 
     /// Count available Energy from ready runes (exhaust potential).
-    int availableEnergy(PlayerId player) const;
+    int availableEnergy(PlayerId player, bool for_unit = false) const;
 
     /// Count available Power of a specific domain (recycle potential).
     int availablePower(PlayerId player, Domain domain) const;

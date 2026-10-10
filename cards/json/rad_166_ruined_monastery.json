@@ -1,0 +1,21 @@
+{
+  "id": "rad-166-167",
+  "name": "Ruined Monastery",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 166,
+  "public_code": "RAD-166/167",
+  "card_type": "battlefield",
+  "super_type": null,
+  "domains": [],
+  "tags": [],
+  "energy_cost": null,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "When you conquer here, you may discard 1 and channel 1 rune exhausted.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/2d756c5198dafb151f51cceca4f11824575960cd-1039x744.png",
+  "artist": "Grafit Studio"
+}

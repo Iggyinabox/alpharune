@@ -76,6 +76,18 @@ public:
     using PayCost = std::function<bool(PlayerId, GameObjectId)>;
     void setPayCost(PayCost pay) { pay_cost_ = std::move(pay); }
 
+    /// Activating an ability while the chain is open ([Reaction] abilities:
+    /// a rune's Add, Gold, legends). Pays the cost and adds the item; returns
+    /// true if an item was added.
+    /// Called for each item as it is finalized, before anyone gets priority:
+    /// the engine makes the choices the rules place at finalization (CR 355 —
+    /// targets are chosen as the card or ability is played, and Deflect is
+    /// paid then).
+    using FinalizeChoices = std::function<void(ChainItem&)>;
+    void setFinalizeChoices(FinalizeChoices fn) { finalize_choices_ = std::move(fn); }
+    using ActivateAbility = std::function<bool(const Intent&)>;
+    void setActivateAbility(ActivateAbility fn) { activate_ability_ = std::move(fn); }
+
     /// Inject the EffectExecutor so stepResolve can detect mid-resolution
     /// pending choices published by Card::onResolve / onTrigger via
     /// `requestChoice`. Required before processFEPR runs.
@@ -90,6 +102,8 @@ private:
     const CardDB& card_db_;
     AffordCheck can_afford_;
     PayCost pay_cost_;
+    ActivateAbility activate_ability_;
+    FinalizeChoices finalize_choices_;
     EffectExecutor* executor_ = nullptr;
 
     /// Step 1: Finalize all pending items in order.

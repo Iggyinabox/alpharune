@@ -1,0 +1,23 @@
+{
+  "id": "rad-071-167",
+  "name": "Nazuman Ntofo",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 71,
+  "public_code": "RAD-071/167",
+  "card_type": "gear",
+  "super_type": null,
+  "domains": [
+    "order"
+  ],
+  "tags": [],
+  "energy_cost": 1,
+  "power_cost": null,
+  "might": 0,
+  "might_bonus": 0,
+  "rarity": "common",
+  "ability_text": "Equip [1] ([1]: Attach this to a unit you control.)",
+  "effect_text": "[Shield 2] (+2 [M] while I'm a defender.)",
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/9d518a6db3ae174096b09cf80cece2997f685ede-744x1039.png",
+  "artist": null
+}

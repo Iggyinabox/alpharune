@@ -1,0 +1,26 @@
+{
+  "id": "rad-147-167",
+  "name": "Pride of Nazumah",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 147,
+  "public_code": "RAD-147/167",
+  "card_type": "legend",
+  "super_type": null,
+  "domains": [
+    "calm",
+    "body"
+  ],
+  "tags": [
+    "K'Sante"
+  ],
+  "energy_cost": null,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "rare",
+  "ability_text": "[1], [E]: Give a friendly unit \"I have [Assault] equal to my [Shield]\" this turn. (+1 [M] for each instance of Assault while it's an attacker.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/190a27bf844fa21105824efc19de4e71c3137df6-744x1039.png",
+  "artist": "Envar Studio"
+}

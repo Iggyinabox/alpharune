@@ -1,0 +1,23 @@
+{
+  "id": "ven-059-166",
+  "name": "Shock Blast",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 59,
+  "public_code": "VEN-059/166",
+  "card_type": "spell",
+  "super_type": null,
+  "domains": [
+    "mind"
+  ],
+  "tags": [],
+  "energy_cost": 3,
+  "power_cost": 1,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "[Action] (Play on your turn or in showdowns.)\nThis costs [2] less if you control something that's [Empowered].\nDeal 4 to a unit at a battlefield.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/a8b976725e4722dcbf327cde9f92625cb516150e-744x1039.png",
+  "artist": "Kudos Productions"
+}

@@ -1,4 +1,5 @@
 #include "cards/card.h"
+#include "cards/card_helpers.h"
 #include "cards/card_registry.h"
 #include "core/game_state.h"
 #include "core/events.h"
@@ -78,11 +79,13 @@ public:
     }
 
     TriggerType equippedTriggerType() const override { return TriggerType::WhenIConquer; }
-    void onEquippedTrigger(CardContext& ctx, GameObjectId /*unit*/,
+    void onEquippedTrigger(CardContext& ctx, GameObjectId unit,
                             const std::vector<GameObjectId>& /*targets*/) override {
-        // "if you assigned 3 or more excess damage" — excess-damage assignment
-        // isn't surfaced to the equipped trigger, so draw unconditionally on
-        // conquer (best-effort; documented in report).
+        // "if you assigned 3 or more excess damage": in the combat at the
+        // battlefield my unit just conquered.
+        if (!ctx.state.objectExists(unit)) return;
+        const auto bf = ctx.state.getObject(unit).battlefieldId();
+        if (!bf || excessCombatDamageAt(ctx.state, ctx.controller, *bf) < 3) return;
         ctx.executor.drawCards(ctx.controller, 1);
         ctx.events.logTrace("HEXTECH GAUNTLETS: conquer -> draw 1");
     }

@@ -24,7 +24,7 @@ MainDeck:
 1 Honeyfruit
 
 Battlefields:
-1 Aspirant's Climb
+1 Sunken Temple
 1 Forgotten Monument
 1 Rockfall Path
 

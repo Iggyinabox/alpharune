@@ -575,6 +575,10 @@ TEST_F(AuditFix1Test, Deceiver_CreatesCopyTokenWithTemporary) {
     state.getObject(legend).is_exhausted = false;
     // P1 controls BF 0 and has a unit there to copy.
     state.battlefields[0].controller = P1;
+    // The conquered battlefield's card: a conquer / hold trigger's subject.
+    auto scored_bf = state.createObject();
+    state.getObject(scored_bf).card_type = CardType::Battlefield;
+    state.battlefields[0].card_object_id = scored_bf;
     auto model = addUnit(P1, kUnitScorch, /*might=*/5, /*at_bf=*/0);
     // A card to discard.
     auto discard_me = addToHand(P1, kSpellCleave);
@@ -586,8 +590,13 @@ TEST_F(AuditFix1Test, Deceiver_CreatesCopyTokenWithTemporary) {
 
     driveResumableTrigger(kDeceiver, P1, legend,
         /*picker=*/[](const std::vector<Intent>& legal) {
-            return legal.empty() ? Intent{} : legal.front();  // discard first
-        }, exec, TriggerType::WhenIConquerOrHold);
+            // "You MAY discard 1 and exhaust me" is a choice (CR 383.3.a):
+            // answer yes to it, then take the first option of the others
+            // (card to discard, unit to copy).
+            for (const auto& i : legal)
+                if (i.chosen_value.has_value() && *i.chosen_value == 1) return i;
+            return legal.empty() ? Intent{} : legal.front();
+        }, exec, TriggerType::WhenIConquerOrHold, scored_bf);
 
     // Legend exhausted (cost paid).
     EXPECT_TRUE(state.getObject(legend).is_exhausted);
@@ -600,7 +609,7 @@ TEST_F(AuditFix1Test, Deceiver_CreatesCopyTokenWithTemporary) {
     GameObjectId token = kInvalidId;
     for (auto& [id, obj] : state.objects) {
         if (id == model) continue;
-        if (obj.super_type != SuperType::Token) continue;
+        if (!obj.isToken()) continue;
         if (!obj.isUnit()) continue;
         if (obj.battlefieldId() == 0u) { token = id; break; }
     }
@@ -611,8 +620,8 @@ TEST_F(AuditFix1Test, Deceiver_CreatesCopyTokenWithTemporary) {
     EXPECT_EQ(tk.base_might, card_db.get(kUnitScorch).might);
     // Keeps [Temporary] after the copy overwrote keywords.
     EXPECT_TRUE(tk.keywords.has(Keyword::Temporary));
-    // Token stays super_type Token.
-    EXPECT_EQ(tk.super_type, SuperType::Token);
+    // CR 185.1: it is still a token (intrinsic), whatever supertype it copied.
+    EXPECT_TRUE(tk.isToken());
 }
 
 TEST_F(AuditFix1Test, Deceiver_NoOpWhenLegendExhausted) {
@@ -659,6 +668,10 @@ TEST_F(AuditFix1Test, Deceiver_NoUnitToCopyStillMakesTemporaryToken) {
     state.getObject(legend).card_type = CardType::Legend;
     state.getObject(legend).is_exhausted = false;
     state.battlefields[0].controller = P1;
+    // The conquered battlefield's card: a conquer / hold trigger's subject.
+    auto scored_bf = state.createObject();
+    state.getObject(scored_bf).card_type = CardType::Battlefield;
+    state.battlefields[0].card_object_id = scored_bf;
     auto discard_me = addToHand(P1, kSpellCleave);
 
     EffectExecutor exec(state, events, card_db);
@@ -666,14 +679,19 @@ TEST_F(AuditFix1Test, Deceiver_NoUnitToCopyStillMakesTemporaryToken) {
 
     driveResumableTrigger(kDeceiver, P1, legend,
         /*picker=*/[](const std::vector<Intent>& legal) {
+            // "You MAY discard 1 and exhaust me" is a choice (CR 383.3.a):
+            // answer yes to it, then take the first option of the others
+            // (card to discard, unit to copy).
+            for (const auto& i : legal)
+                if (i.chosen_value.has_value() && *i.chosen_value == 1) return i;
             return legal.empty() ? Intent{} : legal.front();
-        }, exec, TriggerType::WhenIConquerOrHold);
+        }, exec, TriggerType::WhenIConquerOrHold, scored_bf);
 
     EXPECT_TRUE(inTrash(P1, discard_me));
     // Token exists at BF 0, still a Reflection token with Temporary.
     GameObjectId token = kInvalidId;
     for (auto& [id, obj] : state.objects) {
-        if (obj.super_type != SuperType::Token || !obj.isUnit()) continue;
+        if (!obj.isToken() || !obj.isUnit()) continue;
         if (obj.battlefieldId() == 0u) { token = id; break; }
     }
     ASSERT_NE(token, kInvalidId);

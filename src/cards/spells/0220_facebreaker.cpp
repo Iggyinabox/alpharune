@@ -14,6 +14,7 @@ namespace {
 class Facebreaker : public SpellCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeResolve; }
     TargetRequirements getTargetRequirements() const override {
         // Two targets — friendly first, enemy second; the same-battlefield
         // pairing is enforced in pickTargetPair's legal_b_fn below.
@@ -74,6 +75,7 @@ public:
 
         auto [friendly, enemy] = pickTargetPair(ctx, "Facebreaker",
                                                   legal_friendly, enemy_fn);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         bool suspending = (friendly == kInvalidId || enemy == kInvalidId) &&
                           ctx.state.chain.resuming.has_value() &&
                           (ctx.state.chain.resuming->resume_point == 10 ||

@@ -12,7 +12,7 @@
 namespace riftbound {
 namespace {
 
-class SealOfFocus : public GearCard {
+class SealOfFocus_538 : public GearCard {
 public:
     const CardDef& def() const override { return def_; }
     bool hasActivatedAbility() const override { return true; }
@@ -52,7 +52,7 @@ private:
 }  // anonymous namespace
 
 void register_card_538(CardRegistry& r) {
-    r.registerCard(538, std::make_unique<SealOfFocus>());
+    r.registerCard(538, std::make_unique<SealOfFocus_538>());
 }
 
 } // namespace riftbound

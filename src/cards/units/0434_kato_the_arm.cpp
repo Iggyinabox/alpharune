@@ -17,6 +17,7 @@ namespace {
 class KatoTheArm : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenIMoveToFB; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         if (!ctx.state.objectExists(ctx.source)) return;
@@ -28,6 +29,7 @@ public:
             others.push_back(id);
         }
         GameObjectId tgt = pickTarget(ctx, "Kato: give another friendly unit my keywords + Might", others);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (tgt == kInvalidId || !ctx.state.objectExists(tgt)) return;
         auto& self = ctx.state.getObject(ctx.source);
         // Grant my current keywords (this turn).

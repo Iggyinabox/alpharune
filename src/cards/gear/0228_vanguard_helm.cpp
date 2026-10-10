@@ -14,10 +14,16 @@ namespace {
 class VanguardHelm : public GearCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // "When a buffed friendly unit dies, buff another friendly unit."
-    // NOTE: the dying unit's buffed status isn't surfaced at resolution time
-    // (it's already gone), so the "buffed" precondition can't be enforced
-    // here. Core effect (buff another friendly unit) implemented.
+    // The condition is on the unit that died, as it last existed on the board
+    // (CR 383.2.c.3.b).
+    bool triggerCondition(const GameState& state, GameObjectId, PlayerId, TriggerType,
+                          GameObjectId subject) const override {
+        if (subject == kInvalidId || !state.objectExists(subject)) return false;
+        const auto& dead = state.getObject(subject);
+        return (dead.last_known.valid ? dead.last_known.buff_count : dead.buff_count) > 0;
+    }
     TriggerType triggerType() const override { return TriggerType::WhenAFriendlyUnitDies; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         // Prefer to buff a friendly unit ("if it doesn't have a buff, +1").
@@ -29,6 +35,7 @@ public:
         }
         if (targets.empty()) return;
         GameObjectId picked = pickTarget(ctx, "Vanguard Helm (buff a friendly unit)", targets);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (picked == kInvalidId && ctx.state.chain.resuming.has_value() &&
             ctx.state.chain.resuming->resume_point == 7) {
             return;  // suspended for agent decision

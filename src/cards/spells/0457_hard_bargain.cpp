@@ -32,7 +32,7 @@ public:
                 return;
             }
             auto& top = ctx.state.chain.items.back();
-            if (!top.is_spell) {
+            if (!top.is_spell || isUncounterable(ctx, top)) {
                 ctx.events.logTrace("HARD BARGAIN: top of chain isn't a spell — no-op");
                 return;
             }
@@ -63,9 +63,7 @@ public:
                     ctx.events.logTrace("HARD BARGAIN: countered " + obj.name +
                                          " (" + toString(target_controller) +
                                          " can't afford 2E to save)");
-                    obj.zone = ZoneType::Trash;
-                    obj.location = std::nullopt;
-                    ctx.state.player(obj.owner).trash.push_back(target_source);
+                    disposeCounteredCard(ctx, target_source);
                 }
                 return;
             }
@@ -135,9 +133,7 @@ public:
                 auto& obj = ctx.state.getObject(target_source);
                 ctx.events.logTrace("HARD BARGAIN: countered " + obj.name +
                                      " (controller declined to pay)");
-                obj.zone = ZoneType::Trash;
-                obj.location = std::nullopt;
-                ctx.state.player(obj.owner).trash.push_back(target_source);
+                disposeCounteredCard(ctx, target_source);
             }
             return;
         }

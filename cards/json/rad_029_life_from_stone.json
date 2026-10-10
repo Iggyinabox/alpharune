@@ -1,0 +1,23 @@
+{
+  "id": "rad-029-167",
+  "name": "Life from Stone",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 29,
+  "public_code": "RAD-029/167",
+  "card_type": "spell",
+  "super_type": null,
+  "domains": [
+    "calm"
+  ],
+  "tags": [],
+  "energy_cost": 1,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "[Reaction] (Play any time, even before spells and abilities resolve.)\nAs an additional cost to play this, exhaust a friendly unit.\nDraw 1 and channel 1 rune exhausted.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/6a849c0425f0fecb8d00e1b9494e975c4dbbba75-744x1039.png",
+  "artist": "Kudos Productions"
+}

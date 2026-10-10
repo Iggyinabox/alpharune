@@ -22,6 +22,7 @@ namespace {
 class FioraWorthy : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override {
         return TriggerType::WhenAUnitBecomesMighty;
     }
@@ -34,6 +35,7 @@ public:
         };
         int conf = confirmOptional(ctx, "Fiora, Worthy: pay [Y] to ready it?",
                                    still_legal);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (conf == -1) return;   // waiting for agent
         if (conf < 1) return;     // declined / invalid
         if (!payOnePower(ctx, ctx.controller, Domain::Order)) return;

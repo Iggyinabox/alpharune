@@ -1,0 +1,26 @@
+{
+  "id": "ven-149-166",
+  "name": "Defender of Tomorrow",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 149,
+  "public_code": "VEN-149/166",
+  "card_type": "legend",
+  "super_type": null,
+  "domains": [
+    "mind",
+    "body"
+  ],
+  "tags": [
+    "Jayce"
+  ],
+  "energy_cost": null,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "rare",
+  "ability_text": "[Empower] [2][A][A] ([2][A][A]: Empower me. Use only if not Empowered.)\n[1], [E]: Ready a gear.\n[Empowered][>] [1], [E]: Ready 2 gear.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/670b7efd367a42beba11c18fb59e240a7c574a57-744x1039.png",
+  "artist": "Envar Studio"
+}

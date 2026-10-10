@@ -15,6 +15,7 @@ namespace {
 class Challenge : public SpellCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeResolve; }
     TargetRequirements getTargetRequirements() const override {
         // Two targets — generic count=2 unit; actual side filters
         // applied per-pick in pickTargetPair's legal_a/legal_b_fn
@@ -54,6 +55,7 @@ public:
         auto [friendly, enemy] = pickTargetPair(ctx, "Challenge",
                                                   legal_friendly,
                                                   enemy_fn);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         bool suspending = (friendly == kInvalidId || enemy == kInvalidId) &&
                           ctx.state.chain.resuming.has_value() &&
                           (ctx.state.chain.resuming->resume_point == 10 ||

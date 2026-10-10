@@ -16,7 +16,7 @@
   "might": null,
   "might_bonus": null,
   "rarity": "common",
-  "ability_text": "[Hidden] (Hide now for [A] to react with later for .)\n[Action] (Play on your turn or in showdowns.)\nMove a unit from a battlefield to its base.",
+  "ability_text": "[Hidden] (Hide now for [A] to react with later for [0].)\n[Action] (Play on your turn or in showdowns.)\nMove a unit from a battlefield to its base.",
   "effect_text": null,
   "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/2e7c7ad72889878e2dd5932d203814b185e74a87-744x1039.png",
   "artist": "Kudos Productions"

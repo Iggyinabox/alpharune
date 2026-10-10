@@ -1,0 +1,26 @@
+{
+  "id": "ven-138-166",
+  "name": "Shen, Leader of the Kinkou Order",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 138,
+  "public_code": "VEN-138/166",
+  "card_type": "unit",
+  "super_type": "champion",
+  "domains": [
+    "order"
+  ],
+  "tags": [
+    "Shen",
+    "Ionia"
+  ],
+  "energy_cost": 6,
+  "power_cost": 2,
+  "might": 7,
+  "might_bonus": null,
+  "rarity": "epic",
+  "ability_text": "[Shield] (+1 [M] while I'm a defender.)\nWhen I hold, if there is exactly one other unit you control here, you score 1 point.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/b227d9f9abc6f165beffba4eaf3b5819cf06eab4-744x1039.png",
+  "artist": "Pandart Studio"
+}

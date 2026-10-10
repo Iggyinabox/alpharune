@@ -1,0 +1,25 @@
+{
+  "id": "rad-024-167",
+  "name": "Blossoming Dreamroot",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 24,
+  "public_code": "RAD-024/167",
+  "card_type": "gear",
+  "super_type": null,
+  "domains": [
+    "chaos"
+  ],
+  "tags": [
+    "Device"
+  ],
+  "energy_cost": 2,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "[Deploy] (Play this only to a battlefield. When an opponent holds here, kill this.)\nWhen you win a combat here, draw 1.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/5b819cc232389f3ef1438350d68c7801e181961c-744x1039.png",
+  "artist": "Fish Art Studio"
+}

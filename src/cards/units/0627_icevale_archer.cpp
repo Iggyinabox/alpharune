@@ -15,6 +15,7 @@ namespace {
 class IcevaleArcher : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // "When I attack, you may pay [1] to give a unit here -1 [M] this turn."
     TriggerType triggerType() const override { return TriggerType::WhenIAttack; }
 
@@ -34,16 +35,24 @@ public:
 
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         if (!ctx.state.objectExists(ctx.source)) return;
-        auto& ps = ctx.state.player(ctx.controller);
-        auto still_legal = [&]() { return ps.rune_pool.energy >= 1 && !unitsHere(ctx).empty(); };
+        // CR 445.2 / 164.2.a: the [1] may come from floating Energy or from
+        // exhausting a ready rune (payableEnergy / payEnergy).
+        auto still_legal = [&]() {
+            return payableEnergy(ctx.state, ctx.controller) >= 1 && !unitsHere(ctx).empty();
+        };
         int conf = confirmOptional(ctx, "Icevale Archer: pay [1] to give a unit here -1 [M]?",
                                    still_legal);
         if (conf == -1) return;  // waiting for agent
         if (conf < 1) return;    // declined / can't
-        ps.rune_pool.energy -= 1;
         GameObjectId tgt = pickTarget(ctx, "Icevale Archer: choose a unit here",
                                       unitsHere(ctx));
+        // pickTarget returns kInvalidId while it waits on the agent and this
+        // trigger is re-entered afterwards (confirmOptional then answers 1
+        // again), so the [1] is paid only here, once the target is known —
+        // paying before pickTarget charged it on every entry.
         if (tgt == kInvalidId || !ctx.state.objectExists(tgt)) return;
+        if (costDueNow(ctx) && !payEnergy(ctx, ctx.controller, 1)) return;
+        if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
         ctx.executor.giveTemporaryMight(tgt, -1);
         ctx.events.logTrace("ICEVALE ARCHER: paid [1] -> gave a unit here -1 [M] this turn");
     }

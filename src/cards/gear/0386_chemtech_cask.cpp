@@ -15,6 +15,7 @@ namespace {
 class ChemtechCask : public GearCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
 
     // "When you play a spell on an opponent's turn, you may exhaust me to
     // play a Gold gear token exhausted."
@@ -33,7 +34,8 @@ public:
                                    still_legal);
         if (conf == -1) return;  // waiting for agent
         if (conf == 0) return;   // declined / not legal
-        ctx.executor.exhaustObject(ctx.source);  // pay the cost
+        if (costDueNow(ctx)) ctx.executor.exhaustObject(ctx.source);  // pay the cost
+        if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
         createGoldExhausted(ctx);
         ctx.events.logTrace("CHEMTECH CASK: exhausted -> Gold gear token (exhausted)");
     }

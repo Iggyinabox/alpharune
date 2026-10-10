@@ -175,6 +175,25 @@ enum class TriggerType : uint8_t {
     WhenAFriendlyUnitMovesFromMyLocation, // Stealthy Pursuer
     WhenAFriendlyUnitChosenHere, // The Dreaming Tree (BF-scoped, first/turn -> draw 1)
     WhenYouKillAUnitWithASpell,  // Immortal Phoenix (play from trash)
+
+    // ── Vendetta ──
+    WhenIBecomeEmpowered,        // "When I become [Empowered]," — fires on the empowered object
+    WhenYouEmpower,              // "When you empower something else," — fires on OTHER friendly
+                                 // cards/legend; triggering_subject = the empowered object
+    WhenYouBurn,                 // "When you burn ..." — fires on the burning player's cards
+    WhenYouBanishACard,          // "When you banish a card you own," (Master of Shadows)
+    WhenACombatIWasInEnds,       // "When a combat that I was in ends," (Affectionate Poro)
+    WhenCombatStartsHere,        // battlefield: "When combat starts here," (Threshold of the Gray)
+    WhenOpponentPlaysAGear,      // "When an opponent plays a gear," (Ravenbloom Prefect)
+    WhenYouPlayACardNotFromHand, // "When you play a card from anywhere other than your hand,"
+    WhenIAmDiscarded,            // "When you discard me," (Mask Mother) — fires from trash
+    WhenYouPlayACard,            // "When you play a card," / "your first card each turn"
+    WhenAnEnemyUnitDiesHere,     // "when an enemy unit here dies," (Nasus, Guardian of Knowledge)
+    WhenIBecomeReady,            // "When I become ready," — any readying, including the
+                                 // Awaken phase (WhenIAmReadied only covers "you ready me" effects)
+    WhenYouActivateAnAbility,    // "When you play ... an activated ability" (Curator of the
+                                 // Sands); triggering_subject = the ability's source, and the
+                                 // ability's Energy cost rides in triggering_spell_energy_spent
 };
 
 // ─── Conditions ─────────────────────────────────────────────────────────────
@@ -263,6 +282,12 @@ struct ActivationCost {
     bool discard = false;       // "Discard 1,"
     int discard_count = 0;
     int xp_cost = 0;            // "Spend N XP" (deducts from controller's PlayerState.xp)
+    bool power_any_domain = false;   // the `power` above is [A] (any domain), not power_domain
+    bool disempower_self = false;    // "Disempower this/me," — source must be Empowered
+    // Discard-cost type filter for `discard` ("Discard a spell" / "Discard a
+    // gear"): 0 = any card, else 1 + static_cast<int>(CardType).
+    int discard_type_filter = 0;
+    bool kill_friendly_unit = false; // "Kill a friendly unit" as a cost (Escaped Grayback)
 };
 
 // ─── Complete effect script ─────────────────────────────────────────────────
@@ -320,6 +345,10 @@ struct ActivatedAbility {
     // targets and the card's onActivate uses pickTarget() at resolve
     // time. Fixes the same vocab-collision class we fixed for Play.
     bool needs_activation_time_target = false;
+    // This ability is the card's [Empower] (CR 827): "[Cost]: Empower this.
+    // Play only if not Empowered." The generator gates it on the source's
+    // Empowered state and resolution empowers the source.
+    bool is_empower = false;
 };
 
 } // namespace riftbound

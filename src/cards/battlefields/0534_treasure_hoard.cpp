@@ -15,32 +15,29 @@ namespace {
 class TreasureHoard : public BattlefieldCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouConquerHere; }
 
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
-        auto& ps = ctx.state.player(ctx.controller);
-        auto still_legal = [&ps]() { return ps.rune_pool.energy >= 1; };
-        if (!still_legal()) return;
+        // CR 445.2 / 164.2.a: the [1] may come from floating Energy or from
+        // exhausting a ready rune (payableEnergy / payEnergy).
+        auto still_legal = [&ctx]() {
+            return payableEnergy(ctx.state, ctx.controller) >= 1;
+        };
+        if (!costAlreadyPaid(ctx) && !still_legal()) return;
         int conf = confirmOptional(ctx,
             "Treasure Hoard: pay [1] for a Gold token?", still_legal);
         if (conf == -1) return;
         if (conf < 1) return;
-        ps.rune_pool.energy -= 1;
+        if (costDueNow(ctx) && !payEnergy(ctx, ctx.controller, 1)) return;
+        if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
 
-        // "here" = the battlefield this card lives at; place the token there.
-        LocationId loc{BaseLocation{ctx.controller}};
-        for (auto& bf : ctx.state.battlefields) {
-            if (bf.card_object_id == ctx.source) {
-                loc = LocationId{BattlefieldLocation{bf.id}};
-                break;
-            }
-        }
-        auto tok = ctx.executor.createToken(ctx.controller, CardType::Gear, "Gold",
-                                             0, {}, {}, loc, /*enter_ready=*/false);
-        // "exhausted" — gear normally enters ready, so force-exhaust.
-        if (ctx.state.objectExists(tok)) {
-            ctx.state.getObject(tok).is_exhausted = true;
-        }
+        // CR 149.2: gear can only be played to a player's Base unless an effect
+        // says otherwise, and "play a Gold gear token exhausted" names no
+        // location ("here" only says where the conquer happened). The helper
+        // plays it exhausted, in the controller's base, as the Gold card
+        // (CR 187.5).
+        createGoldExhausted(ctx);
         ctx.events.logTrace("TREASURE HOARD: paid [1] -> Gold gear token (exhausted)");
     }
 private:

@@ -1,0 +1,23 @@
+{
+  "id": "ven-022-166",
+  "name": "Endless Riches",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 22,
+  "public_code": "VEN-022/166",
+  "card_type": "gear",
+  "super_type": null,
+  "domains": [
+    "fury"
+  ],
+  "tags": [],
+  "energy_cost": 5,
+  "power_cost": 1,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "epic",
+  "ability_text": "When you play this, banish your hand and trash, then [Burn 7].\nSkip your Draw Phase.\nYou may play cards from your trash.\nIf a card would go to your trash from anywhere other than your Main Deck, banish it instead.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/e2c33bf55162086acd458775a5db3d976f137b61-744x1039.png",
+  "artist": "Kudos Productions"
+}

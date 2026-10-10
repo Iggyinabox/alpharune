@@ -37,9 +37,10 @@
 
 namespace riftbound::openspiel {
 
-/// Card def ids are 1-indexed in the registry. Highest registered id today
-/// is 787; bump this if the registry grows.
-constexpr int kNumCardDefIds = 787;
+/// Card def ids are 1-indexed in the registry. Registered ids run 1..955
+/// (through Vendetta); 956..1100 is reserved for Radiance. Must equal
+/// ml::kCardVocabSize (static_assert in riftbound_state.cpp).
+constexpr int kNumCardDefIds = 1100;
 
 /// Reserved slot count for integer-coded MakeChoice answers
 /// (Intent::chosen_value). Used by card.cpp helpers — confirmOptional

@@ -14,6 +14,7 @@ namespace {
 class AlbusFerros : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouPlayMe; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         // "spend any number of buffs. For each buff spent, channel 1 rune
@@ -25,6 +26,7 @@ public:
         }
         if (total_buffs <= 0) return;
         int x = pickXAmount(ctx, "Albus Ferros (buffs to spend)", 0, total_buffs);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (x == -1) return;  // suspended for agent decision
         if (x <= 0) return;
         // Spend x buffs from friendly units (greedy).

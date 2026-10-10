@@ -15,7 +15,7 @@
   ],
   "energy_cost": 3,
   "power_cost": null,
-  "might": null,
+  "might": 2,
   "might_bonus": 2,
   "rarity": "epic",
   "ability_text": "[Equip] \u2014 [P], Recycle 2 cards from your trash (Pay the cost: Attach this to a unit you control.)",

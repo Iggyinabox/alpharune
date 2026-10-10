@@ -1,0 +1,23 @@
+{
+  "id": "rad-088-167",
+  "name": "Staunch Survivor",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 88,
+  "public_code": "RAD-088/167",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "body"
+  ],
+  "tags": [],
+  "energy_cost": 2,
+  "power_cost": 1,
+  "might": 2,
+  "might_bonus": null,
+  "rarity": "rare",
+  "ability_text": "[Assault 2], [Shield 2] (+2 [M] while I'm an attacker or defender.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/91c4670531d7773cae9e7b4bfd5ac4e259602162-744x1039.png",
+  "artist": "Kudos Productions"
+}

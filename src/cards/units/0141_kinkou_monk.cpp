@@ -15,6 +15,7 @@ namespace {
 class KinkouMonk : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouPlayMe; }
 
     // "Buff up to two OTHER friendly units." Triggers receive empty targets;
@@ -36,6 +37,7 @@ public:
         };
         auto [a, b] = pickTargetPair(ctx, "Kinkou Monk (buff up to 2)",
                                      others, second_fn);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         bool suspending = (a == kInvalidId || b == kInvalidId) &&
                           ctx.state.chain.resuming.has_value() &&
                           (ctx.state.chain.resuming->resume_point == 10 ||

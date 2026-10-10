@@ -124,9 +124,13 @@ public:
             // playIgnoringCost does not remove the card from the banishment
             // vector, so erase it here first. Per CR 355.2.a permanents land
             // at base by default.
-            auto it = std::find(bz.begin(), bz.end(), banished);
-            if (it != bz.end()) bz.erase(it);
-            ctx.executor.playIgnoringCost(ctx.controller, banished);
+            // The text does not waive the cost (CR 356.1.b.2): pay it, or the
+            // card simply stays banished.
+            if (ctx.executor.canPlayPayingCost(ctx.controller, banished)) {
+                auto it = std::find(bz.begin(), bz.end(), banished);
+                if (it != bz.end()) bz.erase(it);
+                ctx.executor.playPayingCost(ctx.controller, banished);
+            }
         }
         if (!rest.empty()) {
             ctx.executor.recycleCards(ctx.controller, rest);

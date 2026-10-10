@@ -415,7 +415,8 @@ protected:
                                 GameObjectId source,
                                 std::function<Intent(const std::vector<Intent>&)> picker,
                                 EffectExecutor& exec,
-                                TriggerType firing = TriggerType::None) {
+                                TriggerType firing = TriggerType::None,
+                                GameObjectId subject = kInvalidId) {
         ChainItem ri;
         ri.id = state.chain.allocateId();
         ri.controller = controller;
@@ -425,6 +426,7 @@ protected:
         ri.source = source;
         ri.card_def_id = def_id;
         ri.fired_trigger = firing;
+        ri.triggering_subject = subject;   // the event's object, as TriggerManager records it
         state.chain.resuming = ri;
 
         Card* card = card_registry.get(def_id);

@@ -29,6 +29,7 @@ namespace {
 class StalkingWolf : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouPlayMe; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         std::vector<GameObjectId> legal;
@@ -44,6 +45,7 @@ public:
         if (legal.empty()) return;
         GameObjectId victim = pickTarget(ctx, "Stalking Wolf: kill a Bird/Cat/Dog/Poro you control",
                                          legal);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (victim == kInvalidId && ctx.state.chain.resuming.has_value() &&
             ctx.state.chain.resuming->resume_point == 7) {
             return;  // suspended
@@ -73,7 +75,7 @@ private:
         d.keywords.set(Keyword::Ambush);
         d.keywords.set(Keyword::Reaction);
         d.ability_text = R"RB([Ambush] (You may play me as a [Reaction] to a battlefield where you have units.)
-As an additional cost to play me, kill a Bird, Cat, Dog, or Poro you control. You may play me to its battlefield (even if you don't have other units there).)RB";
+As an additional cost to play me, kill a Bird, Cat, Dog, or Poro you control. You may [Ambush] me to its battlefield, even if you don't have other units there.)RB";
         d.image_url = R"RB(https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/5f5f66caad21d59bf966ddc501bb4f9c84a595c6-744x1039.png)RB";
         return d;
     }();

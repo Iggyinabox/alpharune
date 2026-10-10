@@ -1,0 +1,23 @@
+{
+  "id": "ven-018-166",
+  "name": "Rage Amplifier",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 18,
+  "public_code": "VEN-018/166",
+  "card_type": "gear",
+  "super_type": null,
+  "domains": [
+    "fury"
+  ],
+  "tags": [],
+  "energy_cost": 4,
+  "power_cost": 1,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "rare",
+  "ability_text": "[Empower] [6][R] ([6][R]: Empower this. Use only if not Empowered.)\nYour units have +1 [M]. If I'm [Empowered], they have +2 [M] instead.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/83a7cd497dd42f535f8f0adc72c3c4324f9aec14-744x1039.png",
+  "artist": "Kudos Productions"
+}

@@ -39,6 +39,13 @@ public:
     /// Connect to all event bus signals. Call once after construction.
     void subscribe();
 
+    /// Put `source`'s triggered ability for `trigger` on the chain as if the
+    /// event had happened (EffectExecutor::queueTriggeredAbility).
+    void queueTrigger(GameObjectId source, PlayerId controller, TriggerType trigger,
+                      GameObjectId subject = kInvalidId) {
+        fireTrigger(source, controller, 0, trigger, subject);
+    }
+
 private:
     GameState& state_;
     EventBus& events_;
@@ -65,6 +72,7 @@ private:
     /// Fires WhenYouPlayMe triggers for the card that was just played.
     /// Also fires WhenYouPlayAUnit/WhenYouPlayASpell for other objects.
     void onCardPlayed(const CardPlayedEvent& e);
+    void onSpellResolved(const SpellResolvedEvent& e);
 
     /// Fires WhenYouPlayThis for gear entering the board.
     void onEnteredBoard(const EnteredBoardEvent& e);
@@ -132,7 +140,8 @@ private:
     /// per-handler logic can still scope semantics by passing only the
     /// relevant player's id — e.g. scoring events pass the scoring player).
     void fireLegendTrigger(TriggerType t, PlayerId relevant_player,
-                           int triggering_spell_energy_spent = 0);
+                           int triggering_spell_energy_spent = 0,
+                           GameObjectId subject = kInvalidId);
 };
 
 } // namespace riftbound

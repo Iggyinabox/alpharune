@@ -1,0 +1,25 @@
+{
+  "id": "rad-060-167",
+  "name": "The Empyrean",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 60,
+  "public_code": "RAD-060/167",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "mind"
+  ],
+  "tags": [
+    "Dragon"
+  ],
+  "energy_cost": 8,
+  "power_cost": null,
+  "might": 8,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "[Show Off] a card. (As you play me, you may reveal a card from hand or pick another friendly one.)\nWhen you play me, if you showed off a card, [Predict] equal to its Power cost, then draw 2. (Look at that many cards from your Main Deck. Recycle any of them and put the rest back in any order.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/b7cd2e475834863bf4e66994118a835ba4377d16-744x1039.png",
+  "artist": "Six More Vodka"
+}

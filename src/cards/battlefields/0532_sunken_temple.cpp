@@ -3,6 +3,7 @@
 #include "core/game_state.h"
 #include "core/events.h"
 #include "engine/effect_executor.h"
+#include "cards/card_helpers.h"
 #include <algorithm>
 #include <memory>
 #include <string>
@@ -14,6 +15,7 @@ namespace {
 class SunkenTemple : public BattlefieldCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouConquerHere; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         // For a battlefield card the trigger fires from the BF card object;
@@ -32,13 +34,17 @@ public:
             if (obj.current_might >= 5) { has_mighty = true; break; }
         }
         if (!has_mighty) return;
-        auto& ps = ctx.state.player(ctx.controller);
-        auto still_legal = [&]() { return ps.rune_pool.energy >= 1; };
-        if (!still_legal()) return;
+        // CR 445.2 / 164.2.a: the [1] may come from floating Energy or from
+        // exhausting a ready rune (payableEnergy / payEnergy).
+        auto still_legal = [&]() {
+            return payableEnergy(ctx.state, ctx.controller) >= 1;
+        };
+        if (!costAlreadyPaid(ctx) && !still_legal()) return;
         int conf = confirmOptional(ctx, "Sunken Temple: pay [1] to draw 1?",
                                    still_legal);
         if (conf < 1) return;
-        ps.rune_pool.energy -= 1;
+        if (costDueNow(ctx) && !payEnergy(ctx, ctx.controller, 1)) return;
+        if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
         ctx.executor.drawCards(ctx.controller, 1);
         ctx.events.logTrace("SUNKEN TEMPLE: paid [1] -> draw 1");
     }

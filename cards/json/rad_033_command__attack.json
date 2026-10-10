@@ -1,0 +1,23 @@
+{
+  "id": "rad-033-167",
+  "name": "Command: Attack",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 33,
+  "public_code": "RAD-033/167",
+  "card_type": "spell",
+  "super_type": null,
+  "domains": [
+    "calm"
+  ],
+  "tags": [],
+  "energy_cost": 1,
+  "power_cost": 1,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "Choose one \u2014\nMove a friendly gear with [Deploy] to a battlefield.Look at the top 5 cards of your Main Deck. You may reveal a gear from among them and draw it. Recycle the rest.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/b025756992e22af480902e13b01e25acbc747221-744x1039.png",
+  "artist": null
+}

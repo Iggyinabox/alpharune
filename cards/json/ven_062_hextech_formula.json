@@ -1,0 +1,23 @@
+{
+  "id": "ven-062-166",
+  "name": "Hextech Formula",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 62,
+  "public_code": "VEN-062/166",
+  "card_type": "gear",
+  "super_type": null,
+  "domains": [
+    "mind"
+  ],
+  "tags": [],
+  "energy_cost": 2,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "rare",
+  "ability_text": "This enters exhausted.\n[E]: Empower another gear. (It becomes Empowered if it's not already.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/95f4ee0625dda4213847e6649465397be03c8bd1-744x1039.png",
+  "artist": "Kudos Productions"
+}

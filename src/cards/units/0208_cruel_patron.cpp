@@ -15,6 +15,7 @@ namespace {
 class CruelPatron : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // "As an additional cost to play me, kill a friendly unit."
     // NOTE: there is no engine hook for a "kill a unit" additional play cost,
     // so this can't gate playability. Modeled as a WhenYouPlayMe effect that
@@ -29,6 +30,7 @@ public:
         }
         if (friendly.empty()) return;
         GameObjectId picked = pickTarget(ctx, "Cruel Patron (kill a friendly unit)", friendly);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (picked == kInvalidId && ctx.state.chain.resuming.has_value() &&
             ctx.state.chain.resuming->resume_point == 7) {
             return;  // suspended for agent decision

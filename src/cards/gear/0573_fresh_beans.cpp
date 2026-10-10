@@ -15,6 +15,7 @@ namespace {
 class FreshBeans : public GearCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouPlayAUnit; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         bool in_showdown = false;
@@ -28,7 +29,8 @@ public:
                        !ctx.state.getObject(ctx.source).is_exhausted;
             });
         if (conf != 1) return;
-        ctx.executor.exhaustObject(ctx.source);
+        if (costDueNow(ctx)) ctx.executor.exhaustObject(ctx.source);
+        if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
         ctx.executor.drawCards(ctx.controller, 1);
         ctx.events.logTrace("FRESH BEANS: exhaust to draw 1");
     }

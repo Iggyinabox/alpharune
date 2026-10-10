@@ -1,0 +1,23 @@
+{
+  "id": "rad-117-167",
+  "name": "For Demacia!",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 117,
+  "public_code": "RAD-117/167",
+  "card_type": "spell",
+  "super_type": null,
+  "domains": [
+    "order"
+  ],
+  "tags": [],
+  "energy_cost": 3,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "[Reaction] (Play any time, even before spells and abilities resolve.)\nChoose a battlefield. Give friendly units there [Shield 2] this turn. (+2 [M] while they're defenders.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/5d119653fcba423c150815de3a412922c4e481e8-744x1039.png",
+  "artist": "Original Force"
+}

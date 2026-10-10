@@ -1,0 +1,23 @@
+{
+  "id": "rad-095-167",
+  "name": "Momentary Companion",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 95,
+  "public_code": "RAD-095/167",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "chaos"
+  ],
+  "tags": [],
+  "energy_cost": 4,
+  "power_cost": null,
+  "might": 4,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "[Hidden] (Hide now for [A] to react with later for [0].)\nWhen you play me, if it's not your turn, give me [Temporary]. (Kill me at the start of my controller's Beginning Phase, before scoring.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/aea67209470e47ec876a11ae9b3eacda00df7be1-744x1039.png",
+  "artist": "Kudos Productions"
+}

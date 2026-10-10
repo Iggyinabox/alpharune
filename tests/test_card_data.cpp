@@ -1,6 +1,7 @@
 /// @file test_card_data.cpp
 /// Data-integrity tests on the loaded card database:
-///   - Banned cards are actually marked CardDef::banned (from cards/ban-list.csv).
+///   - Banned cards are actually marked CardDef::banned (official Standard ban list,
+///     Rules Hub "Constructed Format Legality", last updated 2026-09-18).
 ///     (The --wild flag lets you PLAY banned cards; this verifies they're still
 ///     flagged on the card object.)
 ///   - Errata'd cards carry their corrected ability_text (from apply_errata.py
@@ -29,10 +30,15 @@ protected:
 
 // ── Banned cards ──────────────────────────────────────────────────────────
 TEST_F(CardDataTest, BannedCardsAreMarkedBanned) {
-    // Every name on cards/ban-list.csv must be flagged on its CardDef.
+    // Every name on the Standard ban list must be flagged on its CardDef.
     const char* banned[] = {
         "Called Shot", "Draven, Vanquisher", "Fight or Flight",
         "Scrapheap", "The Dreaming Tree", "Obelisk of Power",
+        "Reaver's Row",
+        // 2026-07-24
+        "Stealthy Pursuer", "The Arena's Greatest", "Aspirant's Climb",
+        // 2026-09-18
+        "Ekko, Recurrent", "Stacked Deck",
     };
     for (const char* name : banned) {
         const CardDef* c = db.findByName(name);
@@ -50,8 +56,10 @@ TEST_F(CardDataTest, NonBannedCardIsNotBanned) {
 TEST_F(CardDataTest, BannedCountMatchesList) {
     int n = 0;
     for (const auto& [id, def] : db.all()) if (def.banned) ++n;
-    // 6 distinct banned names; alt-art printings (if any) also flagged, so >= 6.
-    EXPECT_GE(n, 6) << "expected at least the 6 ban-list names flagged";
+    // Exactly the 12 Standard ban-list names: a card banned by mistake is as
+    // wrong as a missed ban. (Master Yi, Wuju Bladesman is 2v2-only; this
+    // engine is 1v1, so he stays legal.)
+    EXPECT_EQ(n, 12) << "banned-card count must match the Standard ban list";
 }
 
 // ── Errata adherence ──────────────────────────────────────────────────────

@@ -15,6 +15,7 @@ namespace {
 class GuardianOfThePassage : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
 
     // "When I hold, you may return a unit or gear from your trash to your hand."
     TriggerType triggerType() const override { return TriggerType::WhenIHold; }
@@ -36,6 +37,7 @@ public:
 
         GameObjectId pick = pickTarget(ctx,
             "Guardian: choose a unit or gear from trash", candidates());
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (pick == kInvalidId || !ctx.state.objectExists(pick)) return;
         auto& ps = ctx.state.player(ctx.controller);
         auto it = std::find(ps.trash.begin(), ps.trash.end(), pick);

@@ -7,13 +7,12 @@ Champion:
 MainDeck:
 3 Stupefy
 3 Gust
-3 Stacked Deck
 3 Plundering Poro
 3 Bewitching Spirit
 3 The List
-2 Singularity
-2 Pack of Wonders
-2 Wages of Pain
+3 Singularity
+3 Pack of Wonders
+3 Wages of Pain
 2 Bellows Breath
 2 Arcane Shift
 2 Deadly Flourish
@@ -25,7 +24,7 @@ MainDeck:
 3 Fizz, Trickster
 
 Battlefields:
-1 Aspirant's Climb
+1 Sunken Temple
 1 Sigil of the Storm
 1 Void Gate
 

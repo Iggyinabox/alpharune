@@ -680,6 +680,10 @@ TEST_F(AuditFix0Test, Evelynn_TriggerType) {
 TEST_F(AuditFix0Test, Evelynn_PullsEnemyToMyBattlefield) {
     auto eve   = addUnit(P1, kEvelynn, /*might=*/2, /*at_bf=*/0);
     auto enemy = addUnit(P2, kInvalidId, /*might=*/3, /*at_bf=*/1);  // different BF
+    // Her text is "When you play me from face down on your turn": the engine
+    // marks a face-down play on the card, and it must be P1's turn.
+    state.getObject(eve).card_counters["__played_from_facedown"] = 1;
+    state.turn.turn_player = P1;
 
     EffectExecutor exec(state, events, card_db);
     driveResumableTrigger(kEvelynn, P1, eve,
@@ -759,7 +763,7 @@ TEST_F(AuditFix0Test, BashfulBloom_CreatesReadyTemporarySprite) {
     // Find the created Sprite token.
     GameObjectId sprite = kInvalidId;
     for (auto& [id, obj] : state.objects) {
-        if (obj.name == "Sprite" && obj.super_type == SuperType::Token) sprite = id;
+        if (obj.name == "Sprite" && obj.isToken()) sprite = id;
     }
     ASSERT_NE(sprite, kInvalidId) << "a Sprite token must be created";
     auto& s = state.getObject(sprite);

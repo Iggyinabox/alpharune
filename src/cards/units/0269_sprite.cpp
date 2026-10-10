@@ -11,7 +11,7 @@
 namespace riftbound {
 namespace {
 
-class Sprite : public UnitCard {
+class Sprite_269 : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
 private:
@@ -38,7 +38,7 @@ private:
 }  // anonymous namespace
 
 void register_card_269(CardRegistry& r) {
-    r.registerCard(269, std::make_unique<Sprite>());
+    r.registerCard(269, std::make_unique<Sprite_269>());
 }
 
 } // namespace riftbound

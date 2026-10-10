@@ -11,8 +11,8 @@ MainDeck:
 3 Plundering Poro
 3 Downstage Dramatics
 3 Curtain Call
-2 Thousand-Tailed Watcher
-2 Hextech Anomaly
+3 Thousand-Tailed Watcher
+3 Hextech Anomaly
 2 Lotus Trap
 2 Deadly Flourish
 1 Singularity
@@ -23,7 +23,6 @@ MainDeck:
 1 Sprite Burst
 3 Jhin, Meticulous Killer
 2 Kai'Sa, Survivor
-2 Ekko, Recurrent
 
 Battlefields:
 1 Vilemaw's Lair

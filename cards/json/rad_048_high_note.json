@@ -1,0 +1,23 @@
+{
+  "id": "rad-048-167",
+  "name": "High Note",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 48,
+  "public_code": "RAD-048/167",
+  "card_type": "spell",
+  "super_type": null,
+  "domains": [
+    "mind"
+  ],
+  "tags": [],
+  "energy_cost": 3,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "[Reaction] (Play any time, even before spells and abilities resolve.)\nGive a unit \u2013[M] this turn equal to the number of exhausted units you control.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/afba3669ea1063dafb0e4c2c766694e00540eb13-744x1039.png",
+  "artist": "Kudos Productions"
+}

@@ -1,0 +1,25 @@
+{
+  "id": "ven-005-166",
+  "name": "Forsaken Baccai",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 5,
+  "public_code": "VEN-005/166",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "fury"
+  ],
+  "tags": [
+    "Shurima"
+  ],
+  "energy_cost": 2,
+  "power_cost": null,
+  "might": 2,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "If you control fewer runes than an opponent at the start of your Beginning Phase, give me +1 [M] this turn.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/33d3e7840280e2780687057f08f30312a56d230f-744x1039.png",
+  "artist": "Kudos Productions"
+}

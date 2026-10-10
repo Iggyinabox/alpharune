@@ -1,0 +1,27 @@
+{
+  "id": "rad-132-167",
+  "name": "Heimerdinger, Academy Instructor",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 132,
+  "public_code": "RAD-132/167",
+  "card_type": "unit",
+  "super_type": "champion",
+  "domains": [
+    "order"
+  ],
+  "tags": [
+    "Yordle",
+    "Heimerdinger",
+    "Piltover"
+  ],
+  "energy_cost": 6,
+  "power_cost": 1,
+  "might": 5,
+  "might_bonus": null,
+  "rarity": "rare",
+  "ability_text": "If you would play a unit token to a location while I'm at a battlefield, you may play a 3 [M] Mech unit token to that same location instead.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/1795e905171c74b84b4b7f84a57fecbb4bbd6f75-744x1039.png",
+  "artist": "Polar Engine Studio"
+}

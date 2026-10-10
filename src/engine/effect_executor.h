@@ -22,6 +22,22 @@ namespace riftbound {
 
 class CardRegistry;
 
+/// Which parts of a card's cost an effect-driven play still charges
+/// (EffectExecutor::playPayingCost).
+struct EffectPlayCost {
+    bool ignore_energy = false;   // "ignoring its Energy cost"
+    bool ignore_power = false;
+    int energy_reduction = 0;     // "reducing its Energy cost by [N]"
+};
+
+// State-only queries shared by the executor, the action generators and
+// Card::enumerateLegalTargets (which has no executor to ask).
+/// [A] an opponent must pay to choose `target` (CR 808 Deflect); 0 if
+/// `chooser` controls it or Deflect is ignored at its battlefield.
+int deflectCostFor(const GameState& state, PlayerId chooser, GameObjectId target);
+/// Power of any Domain `player` could pay right now.
+int payableAnyPower(const GameState& state, PlayerId player);
+
 class EffectExecutor {
 public:
     EffectExecutor(GameState& state, EventBus& events, const CardDB& card_db,
@@ -47,9 +63,24 @@ public:
     using AgentChoiceQuery = std::function<Intent(PlayerId, const std::vector<Intent>&)>;
     void setAgentQuery(AgentChoiceQuery query) { agent_query_ = std::move(query); }
 
+    /// Ask `player` to choose one of `objects` right now, for an effect that
+    /// is not resolving from the chain and so cannot suspend (an Equip
+    /// attaching). Returns the first object when there is no agent to ask, and
+    /// kInvalidId when `objects` is empty.
+    GameObjectId chooseObjectNow(PlayerId player, const std::vector<GameObjectId>& objects);
+
+    /// "You may make new choices for it" (CR 750-755): the item's controller
+    /// re-chooses its targets. Costs already paid are unaffected (755.1).
+    using RechooseFn = std::function<void(ChainItemId)>;
+    void setRechoose(RechooseFn fn) { rechoose_ = std::move(fn); }
+    void makeNewChoices(ChainItemId item) { if (rechoose_) rechoose_(item); }
+
     // ── Atomic game operations ──
     void dealDamage(GameObjectId target, int amount, GameObjectId source);
     void killObject(GameObjectId target);
+    /// Fill GameObject::last_known from the object's current state (called by
+    /// the kill paths just before it dies).
+    void snapshotLastKnown(GameObjectId id);
     void drawCards(PlayerId player, int count);
     void bounceToHand(GameObjectId target);
     void giveTemporaryMight(GameObjectId target, int amount, int minimum = 0);
@@ -82,6 +113,25 @@ public:
     void applyDiscard(PlayerId player, GameObjectId card_id);
     void recycleCards(PlayerId player, const std::vector<GameObjectId>& cards);
     void banishObject(GameObjectId target);
+
+    // ── Vendetta game actions ──
+    /// Empower (CR 442): give `target` an Empowered status if it has room
+    /// (binary unless its Card::maxEmpower() allows stacking). Returns true if
+    /// a status was added; emits ObjectStateChangedEvent "empowered".
+    bool empower(GameObjectId target);
+    /// Disempower (CR 443): remove one Empowered status. Returns false (and
+    /// does nothing) if the object wasn't Empowered.
+    bool disempower(GameObjectId target);
+    /// Burn X (CR 441): move the top `count` cards of `player`'s Main Deck to
+    /// their trash, burning out if the deck runs dry. Returns the burned
+    /// cards (in burn order); emits ObjectStateChangedEvent "burned" per card.
+    std::vector<GameObjectId> burn(PlayerId player, int count);
+    /// One Burn Out (CR 432.2): recycle `player`'s trash into their Main Deck
+    /// (possibly nothing) and give the opponent 1 point. Returns true if the
+    /// deck now has cards and the game is still going.
+    bool burnOut(PlayerId player);
+    /// Burn out repeatedly until the deck has a card or the game ends (CR 432.3).
+    bool burnOutUntilDeckHasCards(PlayerId player);
     void healObject(GameObjectId target);
     void exhaustObject(GameObjectId target);
     void channelRunes(PlayerId player, int count, bool enter_exhausted = false);
@@ -101,10 +151,40 @@ public:
     // These helpers are called directly from Card::onTrigger / onActivate
     // bodies; no chain bookkeeping required.
     void addFloatingEnergy(PlayerId player, int amount);
+    /// Energy that can only pay for units and activated abilities of units.
+    void addUnitOnlyEnergy(PlayerId player, int amount);
     void addFloatingPower(PlayerId player, Domain domain, int amount);
     /// Universal power ([A]). Counted separately from domain-specific power
     /// and spendable for any cost.
     void addFloatingUniversalPower(PlayerId player, int amount);
+
+    // ── Paying inside an effect ──
+    /// Power of any Domain ([A]) `player` could pay now: floating power of
+    /// every kind plus runes in base (CR 164.2.b — recycle, ready or exhausted).
+    int payableAnyPower(PlayerId player) const;
+    /// Pay `amount` [A]: floating power first, then recycle runes (exhausted
+    /// ones first). Pays nothing and returns false if it can't be covered.
+    bool payAnyPower(PlayerId player, int amount);
+
+    // ── Scoring by an effect (CR 471 "score N points" outside Conquer/Hold) ──
+    /// Give `player` `amount` points from an effect: honours "can't gain/score
+    /// points" locks and ends the game at once if this reaches the Victory
+    /// Score with more points than every opponent. Returns points gained.
+    int scorePoints(PlayerId player, int amount);
+    /// Victory Score in effect right now (mode score plus modifiers).
+    int effectiveVictoryScore() const;
+
+    // ── Deflect (CR: "Opponents must pay [A] to choose me") ──
+    /// [A] an opponent must pay to choose `target` with a spell or ability.
+    /// 0 when `chooser` controls it, it has no Deflect, or Deflect is ignored
+    /// at its battlefield.
+    int deflectCostFor(PlayerId chooser, GameObjectId target) const;
+
+    /// Ask the engine to recompute continuous effects now (auras, Might) —
+    /// for an effect that changes what feeds them and then reads the result
+    /// in the same resolution (Lacerate: disempower, then check Might).
+    void setAuraRecalc(std::function<void()> fn) { aura_recalc_ = std::move(fn); }
+    void recalculateContinuousEffects() { if (aura_recalc_) aura_recalc_(); }
 
     // Phase 6q+ — take control of a unit (CR 416 + "take control of").
     // Mutates GameObject::controller. If `until_end_of_turn` is true,
@@ -146,9 +226,12 @@ public:
     /// with `super_type=Token`. The original is recorded in
     /// `replaced_card`/`was_replaced` so swap-back works on score.
     /// Used by Green Father to install the Brush BF token.
+    /// `token_def`: the card whose abilities the token battlefield has (the
+    /// Brush card for a Brush token), so they work like any battlefield's.
     void replaceBattlefieldWithToken(BattlefieldId target_bf,
                                       const std::string& token_name,
-                                      PlayerId controller);
+                                      PlayerId controller,
+                                      CardDefId token_def = kInvalidId);
 
     // ── Copy effects ──
     /// Make a token become a copy of another unit (base traits only, not buffs/auras).
@@ -166,6 +249,44 @@ public:
     /// agent and pass the result here (see Dazzling Aurora).
     void playIgnoringCost(PlayerId player, GameObjectId card,
                            std::optional<LocationId> location = std::nullopt);
+
+    using EffectPlayCost = ::riftbound::EffectPlayCost;
+    /// Whether `player` could pay for `card` under `cost` right now.
+    bool canPlayPayingCost(PlayerId player, GameObjectId card,
+                           EffectPlayCost cost = {}) const;
+    /// Play `card` by an effect that does NOT ignore all of its costs
+    /// (CR 356.1.b.2): the rest is paid through the normal cost path (cost
+    /// modifiers, floating pool, rune choices). Payment is optional (CR 445.2):
+    /// if it can't or won't be paid the card is not played and this returns
+    /// false — the caller leaves the card where it was. `card` must already be
+    /// out of the zone it is played from (as with playIgnoringCost).
+    bool playPayingCost(PlayerId player, GameObjectId card,
+                        std::optional<LocationId> location = std::nullopt,
+                        EffectPlayCost cost = {});
+    /// The engine's cost path, injected so effect-driven plays pay like any
+    /// other play.
+    using CanAffordFn = std::function<bool(PlayerId, GameObjectId)>;
+    using PayCostFn = std::function<bool(PlayerId, GameObjectId)>;
+    /// Puts a spell played by an effect onto the chain so it resolves like any
+    /// other spell (injected by the engine: the executor has no chain access).
+    using QueueSpellFn = std::function<void(PlayerId, GameObjectId)>;
+    void setQueueSpell(QueueSpellFn fn) { queue_spell_ = std::move(fn); }
+
+    /// Put `source`'s triggered ability for `trigger` on the chain as if the
+    /// event had happened ("activate the conquer effects of units here").
+    /// Goes through TriggerManager::fireTrigger, so the usual suppression and
+    /// trigger conditions apply. No-op without an engine (bare executor).
+    using QueueTriggerFn = std::function<void(GameObjectId, PlayerId, TriggerType, GameObjectId)>;
+    void setQueueTrigger(QueueTriggerFn fn) { queue_trigger_ = std::move(fn); }
+    bool canQueueTriggers() const { return static_cast<bool>(queue_trigger_); }
+    void queueTriggeredAbility(GameObjectId source, PlayerId controller, TriggerType trigger,
+                               GameObjectId subject = kInvalidId) {
+        if (queue_trigger_) queue_trigger_(source, controller, trigger, subject);
+    }
+    void setPlayCostFns(CanAffordFn can, PayCostFn pay) {
+        can_afford_ = std::move(can);
+        pay_cost_ = std::move(pay);
+    }
 
     /// Predict N: look at top N cards, agent chooses which to recycle (put back on bottom).
     void predict(PlayerId player, int count);
@@ -231,6 +352,12 @@ private:
     GameState& state_;
     EventBus& events_;
     const CardDB& card_db_;
+    std::function<void()> aura_recalc_;
+    CanAffordFn can_afford_;
+    QueueSpellFn queue_spell_;
+    QueueTriggerFn queue_trigger_;
+    RechooseFn rechoose_;
+    PayCostFn pay_cost_;
     const CardRegistry* card_registry_ = nullptr;  // optional; needed for playIgnoringCost onPlay dispatch
     std::mt19937_64* rng_ = nullptr;
     AgentChoiceQuery agent_query_;

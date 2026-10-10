@@ -11,17 +11,18 @@
 
 namespace riftbound {
 namespace {
-// COVERAGE-OK: engine-handled: Accelerate/Assault keywords + from-non-hand Accelerate aura (game_engine.cpp:4804)
 
 class RekSaiBreacher : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
-    // All three clauses are engine-handled — no card code required:
-    //   - "[Accelerate]" + "[Assault]": engine keywords (set in def below).
-    //   - "Friendly units played from anywhere other than a player's hand have
-    //     [Accelerate].": engine-handled in GameEngine cost path, which checks
-    //     for a friendly on-board Rek'Sai (card_def_id 352) and auto-applies
-    //     Accelerate when current_play_source != Hand.
+    // "[Accelerate]" and "[Assault]" are keywords (set in def below).
+    // "Friendly units played from anywhere other than a player's hand have
+    // [Accelerate]."
+    bool grantsAccelerateTo(const GameState& state, GameObjectId self, const GameObject& played,
+                            bool played_from_hand) const override {
+        return !played_from_hand && state.objectExists(self) &&
+               played.controller == state.getObject(self).controller;
+    }
 private:
     const CardDef def_ = [] {
         CardDef d;

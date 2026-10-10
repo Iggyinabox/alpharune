@@ -15,6 +15,7 @@ namespace {
 class SinisterPoro : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // "When I attack, you may pay [1] to move an enemy unit here to its base."
     TriggerType triggerType() const override { return TriggerType::WhenIAttack; }
 
@@ -35,16 +36,24 @@ public:
 
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         if (!ctx.state.objectExists(ctx.source)) return;
-        auto& ps = ctx.state.player(ctx.controller);
-        auto still_legal = [&]() { return ps.rune_pool.energy >= 1 && !enemiesHere(ctx).empty(); };
+        // CR 445.2 / 164.2.a: the [1] may come from floating Energy or from
+        // exhausting a ready rune (payableEnergy / payEnergy).
+        auto still_legal = [&]() {
+            return payableEnergy(ctx.state, ctx.controller) >= 1 && !enemiesHere(ctx).empty();
+        };
         int conf = confirmOptional(ctx, "Sinister Poro: pay [1] to move an enemy unit here?",
                                    still_legal);
         if (conf == -1) return;  // waiting for agent
         if (conf < 1) return;    // declined / can't
-        ps.rune_pool.energy -= 1;
         GameObjectId tgt = pickTarget(ctx, "Sinister Poro: choose an enemy unit here",
                                       enemiesHere(ctx));
+        // pickTarget returns kInvalidId while it waits on the agent and this
+        // trigger is re-entered afterwards (confirmOptional then answers 1
+        // again), so the [1] is paid only here, once the target is known —
+        // paying before pickTarget charged it on every entry.
         if (tgt == kInvalidId || !ctx.state.objectExists(tgt)) return;
+        if (costDueNow(ctx) && !payEnergy(ctx, ctx.controller, 1)) return;
+        if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
         ctx.executor.moveToBase(tgt);
         ctx.events.logTrace("SINISTER PORO: paid [1] -> moved an enemy unit to its base");
     }

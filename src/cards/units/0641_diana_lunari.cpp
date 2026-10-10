@@ -3,6 +3,7 @@
 #include "core/game_state.h"
 #include "core/events.h"
 #include "engine/effect_executor.h"
+#include "cards/card_helpers.h"
 #include <algorithm>
 #include <memory>
 #include <string>
@@ -14,18 +15,24 @@ namespace {
 class DianaLunari : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // "When a showdown begins here, ..." — now fires on the real event
     // (was approximated by WhenIAttackOrDefend).
     TriggerType triggerType() const override { return TriggerType::WhenAShowdownBeginsHere; }
 
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         auto& ps = ctx.state.player(ctx.controller);
-        auto still_legal = [&ps]() { return ps.rune_pool.energy >= 1; };
-        if (!still_legal()) return;
+        // CR 445.2 / 164.2.a: the [1] may come from floating Energy or from
+        // exhausting a ready rune (payableEnergy / payEnergy).
+        auto still_legal = [&ctx]() {
+            return payableEnergy(ctx.state, ctx.controller) >= 1;
+        };
+        if (!costAlreadyPaid(ctx) && !still_legal()) return;
         int conf = confirmOptional(ctx, "Diana Lunari: pay [1] to Predict + reveal?",
                                    still_legal);
         if (conf < 1) return;
-        ps.rune_pool.energy -= 1;
+        if (costDueNow(ctx) && !payEnergy(ctx, ctx.controller, 1)) return;
+        if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
 
         // [Predict] — look at top card, agent may recycle it.
         ctx.executor.predict(ctx.controller, 1);
@@ -73,7 +80,7 @@ private:
         d.might = 3;
         d.rarity = Rarity::Rare;
         d.keywords.set(Keyword::Predict);
-        d.ability_text = R"RB(When a showdown begins here, you may pay [1]. If you do, [Predict], then reveal the top card of your Main Deck. If it's a spell, draw it. (To Predict, look at the top card of your Main Deck. You may recycle it.))RB";
+        d.ability_text = R"RB(When a showdown begins here, you may pay [1] to [Predict], then reveal the top card of your Main Deck. If it's a spell, draw it. (To Predict, look at the top card of your Main Deck. You may recycle it.))RB";
         d.image_url = R"RB(https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/3e284397713abb21d2c8d9b85202ab65d21689e9-744x1039.png?accountingTag=RB)RB";
         return d;
     }();

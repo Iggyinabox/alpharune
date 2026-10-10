@@ -1,0 +1,23 @@
+{
+  "id": "ven-r06",
+  "name": "Order Rune",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 6,
+  "public_code": "VEN-R06",
+  "card_type": "rune",
+  "super_type": null,
+  "domains": [
+    "order"
+  ],
+  "tags": [],
+  "energy_cost": null,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": null,
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/71e7d71ebadb81ccad7ca4cb8b3fb85d2f5fd4bf-744x1039.png",
+  "artist": "Greg Ghielmetti & Leah Chen"
+}

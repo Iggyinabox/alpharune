@@ -14,6 +14,7 @@ namespace {
 class SunDisc : public GearCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
 
     // "[E]: [Legion] — The next unit you play this turn enters ready."
     // The activated ability ARMS a one-shot; the WhenYouPlayAUnit trigger
@@ -36,7 +37,6 @@ public:
         auto it = self.card_counters.find("__sundisc_arm_turn");
         if (it == self.card_counters.end()) return;
         if (it->second != ctx.state.turn.turn_number) return;  // stale arm
-        self.card_counters.erase(it);  // one-shot
         // Ready the just-played unit. The trigger carries no event object,
         // so pick among freshly-played (exhausted) friendly units.
         std::vector<GameObjectId> legal;
@@ -48,7 +48,9 @@ public:
         }
         if (legal.empty()) return;
         GameObjectId pick = pickTarget(ctx, "Sun Disc: ready the played unit", legal);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (pick == kInvalidId || !ctx.state.objectExists(pick)) return;
+        self.card_counters.erase("__sundisc_arm_turn");  // one-shot
         ctx.executor.readyObject(pick);
         ctx.events.logTrace("SUN DISC: next unit entered ready");
     }

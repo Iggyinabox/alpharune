@@ -1,0 +1,23 @@
+{
+  "id": "rad-081-167",
+  "name": "Elnuk Herd",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 81,
+  "public_code": "RAD-081/167",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "fury"
+  ],
+  "tags": [],
+  "energy_cost": 6,
+  "power_cost": null,
+  "might": 5,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "[Hidden] (Hide now for [A] to react with later for [0].)\nWhen you play me, give another friendly unit +3 [M] this turn, then recycle me if I was played from face down.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/1799cd4c46fcf0243b4022de2d427b15e67a15ad-744x1039.png",
+  "artist": "Six More Vodka"
+}

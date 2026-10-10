@@ -1,0 +1,21 @@
+{
+  "id": "rad-162-167",
+  "name": "Firelights' Hideout",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 162,
+  "public_code": "RAD-162/167",
+  "card_type": "battlefield",
+  "super_type": null,
+  "domains": [],
+  "tags": [],
+  "energy_cost": null,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "When you conquer here, the next unit you play this turn has [Accelerate]. (You may pay [1] and a Power of its Domain as an additional cost to have it enter ready.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/f8e2d555ff0dc250de38a1c8924a199dc121f036-1039x744.png",
+  "artist": "Grafit Studio"
+}

@@ -15,6 +15,7 @@ namespace {
 class BloodRose : public GearCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
 
     // ── Trigger: WhenYouPlayAUnit, optionally pay 1 for 1 XP ──
     TriggerType triggerType() const override { return TriggerType::WhenYouPlayAUnit; }
@@ -23,12 +24,17 @@ public:
         auto& ps = ctx.state.player(ctx.controller);
         // confirmOptional pattern (Phase 5f). still_legal closure validates
         // BOTH at prompt-time and after the agent says yes.
-        auto still_legal = [&ps]() { return ps.rune_pool.energy >= 1; };
-        if (!still_legal()) return;
+        // CR 445.2 / 164.2.a: the [1] may come from floating Energy or from
+        // exhausting a ready rune (payableEnergy / payEnergy).
+        auto still_legal = [&ctx]() {
+            return payableEnergy(ctx.state, ctx.controller) >= 1;
+        };
+        if (!costAlreadyPaid(ctx) && !still_legal()) return;
         auto conf = confirmOptional(ctx,
             "Blood Rose: pay [1] to gain 1 XP?", still_legal);
         if (conf < 1) return;
-        ps.rune_pool.energy -= 1;
+        if (costDueNow(ctx) && !payEnergy(ctx, ctx.controller, 1)) return;
+        if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
         ps.xp += 1;
         ctx.events.logTrace("BLOOD ROSE: paid [1] -> +1 XP (now " +
                              std::to_string(ps.xp) + ")");
