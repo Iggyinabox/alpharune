@@ -148,6 +148,8 @@ struct PlayerState {
         bool this_turn_only = true;        // expires at end of turn
         bool next_spell_only = false;      // expires after next spell played
         bool next_unit_only = false;       // expires after next unit played
+        bool next_card_only = false;       // expires after the next card of ANY type (Astral Heron)
+        int power_reduction = 0;           // power component of the discount ([A] less)
         bool affects_non_token_only = false; // restricts the modifier to non-token cards
         // Combat-active scope (Vex Cheerless: "While I'm in combat,
         // friendly spells cost [1] less and enemy spells cost [1] more").
@@ -175,6 +177,7 @@ struct PlayerState {
         int power = 0;
         Domain power_domain = Domain::Fury;
         bool any_domain = false;          // [A] — power may be any single domain
+        bool banish_after = false;        // granted [Flow]: banish the spell after it's played
     };
     std::vector<TrashReplayGrant> trash_replay_grants;
 
@@ -209,7 +212,38 @@ struct PlayerState {
     // Consumed by Rek'Sai Breacher's auto-Accelerate path.
     Intent::PlaySource current_play_source = Intent::PlaySource::Hand;
 
+    // ── Vendetta ─────────────────────────────────────────────────────────
+    int cards_burned_this_turn = 0;       // cards this player Burned this turn (CR 441)
+    int cards_banished_this_turn = 0;     // owned cards banished this turn
+    bool chose_enemy_unit_this_turn = false;   // Hungry Wolf
+    bool played_nontoken_unit_this_turn = false;  // Swain, Visionary
+    bool played_nontoken_gear_this_turn = false;
+    bool played_spell_this_turn = false;
+    int cards_played_not_from_hand_this_turn = 0;
+    int spells_played_this_turn = 0;      // Crumbling Sands
+    // Continuous-effect flags/counters below are recomputed by
+    // recalculateAuras (reset there, then set by cards' applyPassiveAura).
+    bool skip_draw_phase = false;         // Endless Riches: "Skip your Draw Phase."
+    bool may_play_from_trash = false;     // Endless Riches: "You may play cards from your trash."
+    bool trash_goes_to_banish = false;    // Endless Riches: non-deck cards headed to trash are banished
+    int flow_cost_reduction = 0;          // Stargazer: Flow plays cost [N] less (min [1])
+    int spell_tax_energy = 0;             // Helm of Suppression: THIS player's spells cost more
+    int spell_tax_power = 0;
+    int spell_discount_energy = 0;        // Applied Researchers: your spells cost less (min [1])
+    int spell_discount_power = 0;
+    bool spells_cant_be_countered = false;  // Mel, Newly Awakened
+    int extra_minus_might = 0;            // Mel, Newly Awakened: your -[M] effects give extra
+    std::vector<std::string> locked_spell_names;  // Fallen Feline: this player can't play these
+
     void resetTurnTracking() {
+        cards_burned_this_turn = 0;
+        cards_banished_this_turn = 0;
+        chose_enemy_unit_this_turn = false;
+        played_nontoken_unit_this_turn = false;
+        played_nontoken_gear_this_turn = false;
+        played_spell_this_turn = false;
+        cards_played_not_from_hand_this_turn = 0;
+        spells_played_this_turn = 0;
         cards_played_this_turn = 0;
         equipment_played_this_turn = 0;
         gears_played_this_turn = 0;
@@ -247,6 +281,12 @@ struct BattlefieldState {
     GameObjectId card_object_id = kInvalidId;  // the battlefield card itself
 
     std::optional<PlayerId> controller;
+    // ── Vendetta battlefield continuous effects (recomputed each recalculateAuras) ──
+    bool ignore_tank[2] = {false, false};   // Dune Surfer: this player ignores [Tank] assigning here
+    bool ignore_deflect_here = false;       // Heisho: players ignore [Deflect] choosing something here
+    int reaction_tax_power = 0;             // Mystic Vortex: [Reaction] cards cost [A] more in showdowns here
+    int friendly_spell_discount_power = 0;  // Sandswept Tomb: spells choosing friendly units here cost [A] less
+    int empower_cost_reduction[2] = {0, 0}; // Risen Altar: per-player [Empower] discount for units here
     bool is_contested = false;
     PlayerId contested_by = PlayerId::None;
     PlayerId contributed_by = PlayerId::None;  // who brought this BF to the game
@@ -338,6 +378,14 @@ struct TurnState {
     // True once any unit has died during the current turn (reset each runTurn).
     // Read by cards like Towering Pairofant ("if a unit died this turn, ...").
     bool any_unit_died_this_turn = false;
+
+    // Sandstone Chimera: "players only channel 1 rune at the start of their
+    // Channel Phase." 0 = no cap. Recomputed each recalculateAuras.
+    int channel_phase_cap = 0;
+    // Otterpus: "If a player would score 1 point from conquering or holding
+    // during their first or second turn, they draw 1 instead." Recomputed each
+    // recalculateAuras.
+    bool early_score_draws_instead = false;
 
     // Per-turn decision counters (reset each turn)
     int turn_decisions_p1 = 0;

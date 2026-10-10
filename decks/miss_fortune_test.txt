@@ -11,20 +11,19 @@ MainDeck:
 3 Catalyst of Aeons
 3 Dazzling Aurora
 3 Gust
-3 Stacked Deck
 3 Mindsplitter
 3 Lunar Boon
 3  Elder Dragon
-2 Hard Bargain
-2 Repulse
+3 Hard Bargain
+3 Repulse
 1 Sabotage
 1 Bullet Time
-1 Last Rites
+2 Last Rites
 1 Abandon
 1 Baron Nashor
 
 Battlefields:
-1 Aspirant's Climb
+1 Sunken Temple
 1 Vilemaw's Lair
 1 Rockfall Path
 

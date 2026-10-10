@@ -23,7 +23,7 @@ MainDeck:
 
 Battlefields:
 1 Startipped Peak
-1 The Arena's Greatest
+1 Sunken Temple
 1 Star Spring
 
 Runes:

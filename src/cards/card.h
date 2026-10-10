@@ -119,6 +119,61 @@ public:
                                         PlayerId /*controller*/,
                                         int /*ability_index*/) const { return 0; }
 
+    // ── Empower (Vendetta, CR 827) ──
+    /// "[Empower] [Cost]" — "[Cost]: Empower this. Play only if not Empowered."
+    /// A card that prints Empower returns its cost here (valid = true). The
+    /// DEFAULT activatedAbilities() appends it as the LAST ability (after the
+    /// legacy single ability, if any) and the default indexed onActivate
+    /// empowers the source for that index — so a plain Empower card overrides
+    /// only this (plus applyPassiveAura for its [Empowered] text). Cards that
+    /// override activatedAbilities() themselves append `empowerAbility()`.
+    struct EmpowerSpec {
+        bool valid = false;
+        ActivationCost cost;
+    };
+    virtual EmpowerSpec empowerSpec() const { return {}; }
+    /// The Empower ability descriptor built from empowerSpec().
+    ActivatedAbility empowerAbility() const;
+    /// Index of the Empower ability within activatedAbilities(), or -1.
+    int empowerAbilityIndex() const;
+    /// How many Empowered statuses this object may hold (Kayle, Justified: 3).
+    virtual int maxEmpower() const { return 1; }
+
+    /// Per-ability, per-instance activation gate. Consulted by the action
+    /// generator after canActivateAbility. The default implements the Empower
+    /// rule ("Play only if not Empowered") and the disempower_self cost
+    /// ("Disempower this" requires being Empowered).
+    virtual bool canActivateAbilityAt(const GameState& state, PlayerId controller,
+                                      GameObjectId source, int ability_index) const;
+
+    /// Instance-aware variant of activationCostReduction (knows the source
+    /// object). Default: activationCostReduction(...) plus, for the Empower
+    /// ability, the source's aura-computed empower_cost_reduction.
+    virtual int activationCostReductionFor(const GameState& state, PlayerId controller,
+                                           GameObjectId source, int ability_index) const;
+
+    // ── Flow (Vendetta) ──
+    /// "[Flow] [Cost]" — the spell may be played from its owner's trash for
+    /// this cost, then banished. valid = false for cards without Flow.
+    struct FlowCost {
+        bool valid = false;
+        int energy = 0;
+        int power = 0;
+        Domain power_domain = Domain::Fury;
+        bool any_domain = false;        // power is [A]
+    };
+    virtual FlowCost flowCost() const { return {}; }
+
+    /// "This can't be countered." Counter effects leave such a spell on the chain.
+    virtual bool cantBeCountered() const { return false; }
+
+    /// "This enters exhausted." (gear normally enters ready, CR 149.1).
+    virtual bool entersExhausted() const { return false; }
+
+    /// Play-legality gate independent of cost/targets ("I can't be played on
+    /// your first, second, or third turns" — Ol' Poro). Default: playable.
+    virtual bool canBePlayed(const GameState& /*state*/, PlayerId /*player*/) const { return true; }
+
     /// Cost to activate the (single, legacy) ability.
     virtual ActivationCost getActivationCost() const { return {}; }
 

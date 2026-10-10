@@ -27,7 +27,7 @@ MainDeck:
 Battlefields:
 1 Grove of the God-Willow
 1 Startipped Peak
-1 The Arena's Greatest
+1 Sunken Temple
 
 Runes:
 7 Mind Rune

@@ -23,7 +23,7 @@ MainDeck:
 1 Elder Dragon
 
 Battlefields:
-1 Aspirant's Climb
+1 Rockfall Path
 1 Sigil of the Storm
 1 Sunken Temple
 

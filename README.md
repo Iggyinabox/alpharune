@@ -4,9 +4,7 @@ A high-performance C++20 game engine that simulates 1v1 Riftbound TCG matches
 end-to-end. Drop-in compatible with [OpenSpiel](https://github.com/google-deepmind/open_spiel)
 so any tree-search algorithm (MCTS, ISMCTS, CFR, …) can plug straight in.
 
-> **Disclaimer.** This codebase was largely *vibe-coded* — built rapidly with
-> heavy AI-assisted iteration, prioritising "works on the test decks today" over
-> "production-grade everywhere." Released **as-is** for research and hobby use.
+> **Disclaimer.** Released **as-is** for research and hobby use.
 > Expect rough edges in: card coverage (~240 of 787 cards manually implemented;
 > rest are auto-generated stubs of varying fidelity), edge-case rules
 > interactions, performance on stress workloads, and corners of the OpenSpiel

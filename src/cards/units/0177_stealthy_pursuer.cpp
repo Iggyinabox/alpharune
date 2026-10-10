@@ -57,6 +57,7 @@ private:
         d.might = 4;
         d.ability_text = R"RB(When a friendly unit moves from my location, I may be moved with it.)RB";
         d.image_url = R"RB(https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/ab23fd84badd67e9981512acbe6c3e9a8f97f42d-744x1039.png)RB";
+        d.banned = true;  // tournament ban (2026-07-24)
         return d;
     }();
 };

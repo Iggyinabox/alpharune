@@ -32,7 +32,7 @@ public:
                 return;
             }
             auto& top = ctx.state.chain.items.back();
-            if (!top.is_spell) {
+            if (!top.is_spell || isUncounterable(ctx, top)) {
                 ctx.events.logTrace("HARD BARGAIN: top of chain isn't a spell — no-op");
                 return;
             }

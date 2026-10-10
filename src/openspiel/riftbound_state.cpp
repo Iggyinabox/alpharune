@@ -6,6 +6,9 @@
 #include "ml/cfr_util.h"
 #include "ml/feature_extractor.h"
 
+static_assert(::riftbound::openspiel::kNumCardDefIds == ::riftbound::ml::kCardVocabSize,
+              "action vocab and state-feature card id spaces must match");
+
 #include "open_spiel/spiel_utils.h"
 
 #include <algorithm>

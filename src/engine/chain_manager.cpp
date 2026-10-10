@@ -359,14 +359,26 @@ void ChainManager::stepResolve(
         // Spell goes to controller's trash after resolving (CR 359.3)
         if (state_.objectExists(resolved.source)) {
             auto& spell_obj = state_.getObject(resolved.source);
-            spell_obj.zone = ZoneType::Trash;
+            // [Flow] / "then banish this": banished instead of trashed as it
+            // leaves the chain (a replacement effect, Vendetta rules update).
+            const bool to_banish = spell_obj.banish_on_leave_chain;
+            spell_obj.banish_on_leave_chain = false;
+            const ZoneType dest = to_banish ? ZoneType::Banishment : ZoneType::Trash;
+            spell_obj.zone = dest;
             spell_obj.location = std::nullopt;
-            state_.player(resolved.controller).trash.push_back(resolved.source);
+            if (to_banish) {
+                state_.player(spell_obj.owner).banishment.push_back(resolved.source);
+                state_.player(spell_obj.owner).cards_banished_this_turn++;
+            } else {
+                state_.player(resolved.controller).trash.push_back(resolved.source);
+            }
 
             events_.emit(SpellResolvedEvent{resolved.source, resolved.controller});
             events_.emit(LeftBoardEvent{resolved.source, resolved.controller,
                 CardType::Spell, BaseLocation{resolved.controller},
-                ZoneType::Trash, false});
+                dest, false});
+            if (to_banish)
+                events_.emit(ObjectStateChangedEvent{resolved.source, "banished_owned"});
         }
     }
     // Triggered/activated abilities leave their source on the board — no

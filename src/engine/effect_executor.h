@@ -82,6 +82,24 @@ public:
     void applyDiscard(PlayerId player, GameObjectId card_id);
     void recycleCards(PlayerId player, const std::vector<GameObjectId>& cards);
     void banishObject(GameObjectId target);
+
+    // ── Vendetta game actions ──
+    /// Empower (CR 442): give `target` an Empowered status if it has room
+    /// (binary unless its Card::maxEmpower() allows stacking). Returns true if
+    /// a status was added; emits ObjectStateChangedEvent "empowered".
+    bool empower(GameObjectId target);
+    /// Disempower (CR 443): remove one Empowered status. Returns false (and
+    /// does nothing) if the object wasn't Empowered.
+    bool disempower(GameObjectId target);
+    /// Burn X (CR 441): move the top `count` cards of `player`'s Main Deck to
+    /// their trash, burning out if the deck runs dry. Returns the burned
+    /// cards (in burn order); emits ObjectStateChangedEvent "burned" per card.
+    std::vector<GameObjectId> burn(PlayerId player, int count);
+    /// Burn Out (CR 432): shuffle `player`'s trash into their empty Main Deck
+    /// and give the opponent 1 point. Returns true if the deck now has cards
+    /// and the game is still going (the caller can finish its action); false
+    /// if there was nothing to recycle or the point ended the game.
+    bool burnOut(PlayerId player);
     void healObject(GameObjectId target);
     void exhaustObject(GameObjectId target);
     void channelRunes(PlayerId player, int count, bool enter_exhausted = false);

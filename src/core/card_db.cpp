@@ -27,6 +27,20 @@ void CardDB::buildFromClasses(const CardRegistry& registry) {
                 if (name_index_.find(alias) == name_index_.end())
                     name_index_[alias].push_back(def.id);
             }
+            // Proving Grounds legends are named "<Title> - Starter" here, but
+            // players (and the official ban list) call them by the bare title:
+            // "Master Yi, Wuju Bladesman". Index "<Title>" and "<Tag>, <Title>"
+            // too, without displacing a real card of that name.
+            const std::string suffix = " - Starter";
+            if (def.name.size() > suffix.size() &&
+                def.name.compare(def.name.size() - suffix.size(), suffix.size(), suffix) == 0) {
+                const std::string title = def.name.substr(0, def.name.size() - suffix.size());
+                std::vector<std::string> aliases = {toLower(title)};
+                for (const auto& tag : def.tags) aliases.push_back(toLower(tag + ", " + title));
+                for (const auto& alias : aliases)
+                    if (name_index_.find(alias) == name_index_.end())
+                        name_index_[alias].push_back(def.id);
+            }
         }
         cards_[def.id] = std::move(def);
     }

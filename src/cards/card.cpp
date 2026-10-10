@@ -331,6 +331,12 @@ GameObjectId Card::pickTarget(CardContext& ctx, const std::string& label,
             : std::string("?");
         ctx.events.logTrace("TGT_PICKED: " + label + " = " + name +
                              " (id=" + std::to_string(t) + ")");
+        // "If you've chosen an enemy unit this turn" (Hungry Wolf).
+        if (ctx.state.objectExists(t)) {
+            const auto& tobj = ctx.state.getObject(t);
+            if (tobj.isUnit() && tobj.controller != ctx.controller)
+                ctx.state.player(ctx.controller).chose_enemy_unit_this_turn = true;
+        }
         while (ri.resume_data.size() < 3) ri.resume_data.push_back(0);
         ri.resume_data[2] = static_cast<int32_t>(t);
         ri.resume_point = 8;
@@ -529,9 +535,54 @@ bool Card::hasLegalTargets(const GameState& state,
 // Multi-ability default: wrap the legacy single-ability surface into a
 // one-element vector when hasActivatedAbility() is true. Cards with N
 // activated abilities override this directly. (Phase 6r)
+ActivatedAbility Card::empowerAbility() const {
+    ActivatedAbility ab;
+    ab.cost = empowerSpec().cost;
+    ab.is_empower = true;
+    // "[Empower] — Kill a friendly unit": the unit to kill is the target.
+    if (ab.cost.kill_friendly_unit)
+        ab.targets = TargetRequirements{.count = 1, .must_be_unit = true,
+                                        .must_be_friendly = true};
+    return ab;
+}
+
+int Card::empowerAbilityIndex() const {
+    auto abs = activatedAbilities();
+    for (size_t i = 0; i < abs.size(); ++i)
+        if (abs[i].is_empower) return static_cast<int>(i);
+    return -1;
+}
+
+bool Card::canActivateAbilityAt(const GameState& state, PlayerId /*controller*/,
+                                GameObjectId source, int ability_index) const {
+    auto abs = activatedAbilities();
+    if (ability_index < 0 || ability_index >= static_cast<int>(abs.size())) return true;
+    if (!state.objectExists(source)) return false;
+    const auto& obj = state.getObject(source);
+    const auto& ab = abs[ability_index];
+    // CR 827.1.c.1: "Play only if not Empowered" (stacking objects: until full).
+    if (ab.is_empower && obj.empowered >= maxEmpower()) return false;
+    // "Disempower this" as a cost needs an Empowered status to remove.
+    if (ab.cost.disempower_self && !obj.isEmpowered()) return false;
+    return true;
+}
+
+int Card::activationCostReductionFor(const GameState& state, PlayerId controller,
+                                     GameObjectId source, int ability_index) const {
+    int r = activationCostReduction(state, controller, ability_index);
+    auto abs = activatedAbilities();
+    if (ability_index >= 0 && ability_index < static_cast<int>(abs.size()) &&
+        abs[ability_index].is_empower && state.objectExists(source))
+        r += state.getObject(source).empower_cost_reduction;
+    return r;
+}
+
 std::vector<ActivatedAbility> Card::activatedAbilities() const {
-    if (!hasActivatedAbility()) return {};
-    return { ActivatedAbility{
+    if (!hasActivatedAbility()) {
+        if (empowerSpec().valid) return { empowerAbility() };
+        return {};
+    }
+    std::vector<ActivatedAbility> out = { ActivatedAbility{
         .cost = getActivationCost(),
         .targets = getTargetRequirements(),
         .is_action = isActionAbility(),
@@ -540,6 +591,8 @@ std::vector<ActivatedAbility> Card::activatedAbilities() const {
         // hook today; opt in by overriding activatedAbilities() directly.
         .needs_activation_time_target = false,
     } };
+    if (empowerSpec().valid) out.push_back(empowerAbility());
+    return out;
 }
 
 } // namespace riftbound

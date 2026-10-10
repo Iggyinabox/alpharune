@@ -37,6 +37,7 @@ private:
         d.rarity = Rarity::Uncommon;
         d.ability_text = R"RB(When you defend here, you may move a friendly unit here to base.)RB";
         d.image_url = R"RB(https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/7d99fe84c9b815463198b5dbad694759940cac12-1038x744.png)RB";
+        d.banned = true;  // tournament ban (first ban list; was missing here)
         return d;
     }();
 };

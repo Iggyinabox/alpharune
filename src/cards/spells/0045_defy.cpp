@@ -32,6 +32,7 @@ public:
         if (ctx.state.chain.items.empty()) return;
         auto& top = ctx.state.chain.items.back();
         if (!top.is_spell) return;
+        if (isUncounterable(ctx, top)) return;
 
         // Cost gate: "no more than [4]". Read the static energy cost of the
         // spell being countered from the CardDB.

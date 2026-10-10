@@ -69,8 +69,13 @@ The GameEngine handles game flow (phases, turns, chain FEPR loop, cleanup, scori
 - **`on_decision` callback** fires at every decision point including mulligans, combat damage, and chain priority. Trivial single-option decisions are auto-skipped in render.
 - **Logging levels**: `--debug` shows trigger firings and ability resolution. `--trace` adds every phase transition, decision, intent, effect, draw, discard, rune exhaust/recycle, damage assignment, kill, score, counter, equip, token, burn out, and mulligan with card names.
 - **HTML replay**: `--render` (legacy CLI) and `--render-html` (OpenSpiel CLI) generate `replay_gameN.html` with UUID, seed, board state + decision + trace log panels, arrow-key navigation, ★ SCORE banner on scoring snapshots, clickable card-name lookups.
-- **State features** (`src/ml/feature_extractor.cpp`): Produces a perfect-information state vector (`kStateFeatureDim = 4623`, padded to `RESERVED_STATE_DIM = 4864`). Used by `RiftboundState::ObservationTensor` to expose game state to OpenSpiel algorithms. ObservationTensor masks hidden information per perspective. **No torch dependency** — these are plain `vector<float>` for downstream ML consumers.
+- **State features** (`src/ml/feature_extractor.cpp`): Produces a perfect-information state vector (`kStateFeatureDim = 6188`, derived from `kCardVocabSize = 1100`: ids 1..955 are registered through Vendetta, 956..1100 are reserved for Radiance). `openspiel::kNumCardDefIds` must equal `kCardVocabSize` (static_assert in `riftbound_state.cpp`); changing either invalidates trainer checkpoints. Used by `RiftboundState::ObservationTensor` to expose game state to OpenSpiel algorithms. ObservationTensor masks hidden information per perspective. **No torch dependency** — these are plain `vector<float>` for downstream ML consumers.
 - **Coin toss**: `TurnState::starting_player` records who won the coin flip (CR 116).
+- **Empower / Empowered (Vendetta, CR 442-443, 827-828)**: `GameObject::empowered` is the status count (binary unless `Card::maxEmpower()` > 1). A card that prints `[Empower] [cost]` overrides `Card::empowerSpec()`; the base `activatedAbilities()` appends it as an `ActivatedAbility{is_empower}` and the engine gates it ("only if not Empowered", `Card::canActivateAbilityAt`), pays it, and resolves it via `EffectExecutor::empower`. `[Empowered][>]` passives go through `forEachEmpoweredSelf` in `applyPassiveAura`. Triggers: `WhenIBecomeEmpowered`, `WhenYouEmpower`. "Disempower this" as a cost is `ActivationCost::disempower_self`. Empowered is cleared when an object leaves the board (in `recalculateAuras`).
+- **Flow (Vendetta)**: a spell overrides `Card::flowCost()`. `GameEngine::refreshFlowGrants` (end of `recalculateAuras`) rebuilds a standing `TrashReplayGrant{banish_after}` per Flow spell in a trash, so the existing trash-replay generator/payment handles it; paying sets `GameObject::banish_on_leave_chain` and `ChainManager` banishes instead of trashing.
+- **Burn (Vendetta, CR 441)**: `EffectExecutor::burn(player, n)` moves the top N of the Main Deck to trash (burning out mid-way per CR 441.4 via `burnOut`) and emits `ObjectStateChangedEvent "burned"` → `WhenYouBurn`.
+- **String-keyed state events**: `ObjectStateChangedEvent{id, "<what>"}` is the cheap channel for new trigger sources (`"empowered"`, `"burned"`, `"banished_owned"`, `"discarded"`, `"played_not_from_hand"`, …) — dispatch lives in `TriggerManager::onObjectStateChanged`, so adding one needs no header change.
+- **Activated-ability power costs**: `ActivationCost::power` (+ `power_domain` / `power_any_domain`) is paid by the engine through `payActivationResources`. Before Vendetta only Energy was charged.
 
 ## Lessons learned / pitfalls
 
@@ -123,10 +128,12 @@ When you add a field to `GameState` / `PlayerState` that should be visible to a 
 - **Rune pools empty** at end of draw phase and end of turn.
 - **Replace (CR 438):** Original goes to Banishment, token takes its place, can swap back.
 - **Token cease-to-exist (CR 183.1):** Tokens routed to any non-board zone cease to exist immediately.
+- **Ambush (CR 822.1.b):** grants a play location (a battlefield where you control units) and [Reaction] timing while played there. It does NOT make the unit enter ready.
 
 ## Reference
 
-- `rules/core-rules.md` — full game rules (sections 000–826)
+- `rules/core-rules.md` — full game rules (2026-10-09 edition, sections 000–832; regenerate from the PDF with `scripts/rules_to_md.py`)
+- `rules/patch-notes/` — per-set core-rules patch notes, FAQs and ban announcements; `errata/` — card errata
 - `rules/tournament-rules.md` — deck construction + tournament policies
 - Sibling **riftbound-trainer** repo holds training-side docs (V*/model designs, ReBeL inference, engineering history, gamestate-dims backlog) and the trainer source.
 
@@ -139,7 +146,7 @@ materialized from those at startup (`buildFromClasses`). To add or change a card
 its `src/cards/<type>/<id>_<slug>.cpp` directly.
 
 - `scripts/fetch_cards.py` — pulls raw card metadata (art, artist, rarity) from the
-  official gallery into `cards/raw/gallery_raw.json`, for reference when authoring new
+  official gallery (playriftbound.com) into `cards/raw/gallery_raw.json`, for reference when authoring new
   cards. It does NOT feed the engine.
 - `./build/riftbound --dump-registry <path>` — exports the compiled card table to
   registry-style JSON (validation / external consumers).

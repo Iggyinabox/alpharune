@@ -20,7 +20,8 @@ public:
         auto& chain = ctx.state.chain;
         bool counter_legal = !chain.items.empty() &&
                              chain.items.back().is_spell &&
-                             chain.items.back().source != ctx.source;
+                             chain.items.back().source != ctx.source &&
+                             !isUncounterable(ctx, chain.items.back());
 
         uint32_t legal_mask = 0b10;  // mode 1 (spawn birds) always legal
         if (counter_legal) legal_mask |= 0b01;

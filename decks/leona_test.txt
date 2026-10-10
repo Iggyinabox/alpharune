@@ -26,7 +26,7 @@ MainDeck:
 
 Battlefields:
 1 Monastery of Hirana
-1 The Arena's Greatest
+1 Rockfall Path
 1 Sunken Temple
 
 Runes:

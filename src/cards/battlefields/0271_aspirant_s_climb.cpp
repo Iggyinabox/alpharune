@@ -43,6 +43,7 @@ private:
         d.rarity = Rarity::Uncommon;
         d.ability_text = R"RB(Increase the points needed to win the game by 1.)RB";
         d.image_url = R"RB(https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/9301593f3800e68427469d38181b578a672473c3-1038x744.png?accountingTag=RB)RB";
+        d.banned = true;  // tournament ban (2026-07-24)
         return d;
     }();
 };

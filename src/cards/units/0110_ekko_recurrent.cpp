@@ -55,6 +55,7 @@ private:
         d.ability_text = R"RB([Accelerate] (You may pay [1][B] as an additional cost to have me enter ready.)
 [Deathknell] — Recycle me to ready your runes. (When I die, get the effect.))RB";
         d.image_url = R"RB(https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/65da19325b6def53d33c07bc1aa8f91fd2f1e723-744x1039.png)RB";
+        d.banned = true;  // tournament ban (2026-09-18)
         return d;
     }();
 };

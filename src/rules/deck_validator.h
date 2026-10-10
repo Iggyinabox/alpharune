@@ -6,7 +6,7 @@
 ///   - Main deck exactly 40 cards (including chosen champion)
 ///   - Rune deck exactly 12 runes
 ///   - Exactly 3 battlefields with unique names
-///   - Sideboard 0-8 cards
+///   - Sideboard 0-10 cards (Tournament Rules 601.1.c.1)
 ///   - All main deck + sideboard cards match legend's domain identity
 ///   - All runes match legend's domain identity
 ///   - Max 3 copies of any named card across main deck + sideboard
@@ -24,13 +24,16 @@
 namespace riftbound {
 
 /// A deck submission to be validated before a game.
+/// Constructed sideboard limit (Tournament Rules 601.1.c.1).
+inline constexpr std::size_t kMaxSideboardSize = 10;
+
 struct DeckSubmission {
     CardDefId legend = 0;
     CardDefId chosen_champion = 0;
     std::vector<CardDefId> main_deck;     // 39 cards (champion is separate)
     std::vector<CardDefId> rune_deck;     // 12 runes
     std::vector<CardDefId> battlefields;  // 3 battlefields
-    std::vector<CardDefId> sideboard;     // 0-8 cards
+    std::vector<CardDefId> sideboard;     // 0-10 cards
 };
 
 struct ValidationResult {

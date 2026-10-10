@@ -263,6 +263,32 @@ void TriggerManager::onCardPlayed(const CardPlayedEvent& e) {
     if (!state_.objectExists(e.object)) return;
     auto& obj = state_.getObject(e.object);
 
+    // Per-turn "what have you played" tracking (Swain, Visionary).
+    {
+        auto& pps = state_.player(e.player);
+        if (e.card_type == CardType::Spell) { pps.played_spell_this_turn = true; pps.spells_played_this_turn++; }
+        if (e.card_type == CardType::Unit && !obj.isToken()) pps.played_nontoken_unit_this_turn = true;
+        if (e.card_type == CardType::Gear && !obj.isToken()) pps.played_nontoken_gear_this_turn = true;
+    }
+    // "When you play a card" (any type) on the player's other cards + legend,
+    // and "When an opponent plays a gear" on the other player's cards.
+    {
+        std::vector<std::pair<GameObjectId, TriggerType>> fires;
+        for (auto& [id, other] : state_.objects) {
+            if (id == e.object || other.card_def_id == kInvalidId) continue;
+            if (!other.location.has_value() && other.zone != ZoneType::LegendZone) continue;
+            if (other.controller == e.player &&
+                cardFiresOn(card_registry_, other.card_def_id, TriggerType::WhenYouPlayACard))
+                fires.push_back({id, TriggerType::WhenYouPlayACard});
+            if (other.controller != e.player && e.card_type == CardType::Gear &&
+                cardFiresOn(card_registry_, other.card_def_id, TriggerType::WhenOpponentPlaysAGear))
+                fires.push_back({id, TriggerType::WhenOpponentPlaysAGear});
+        }
+        for (auto& [id, t] : fires)
+            fireTrigger(id, state_.getObject(id).controller, e.energy_spent, t,
+                        /*subject=*/e.object);
+    }
+
     // Vision keyword: "When you play me, look at top card, may recycle it"
     // CR 817.1.b — the recycle decision is a "may" (optional). Phase 6q+:
     // we surface the peek via CardRevealedEvent (so observation tracking
@@ -405,6 +431,9 @@ void TriggerManager::onEnteredBoard(const EnteredBoardEvent& e) {
 void TriggerManager::onCombatStarted(const CombatStartedEvent& e) {
     auto bf_loc = BattlefieldLocation{e.battlefield};
 
+    // Battlefield cards: "When combat starts here," (Threshold of the Gray).
+    fireBattlefieldTriggers(TriggerType::WhenCombatStartsHere, e.attacker, e.battlefield);
+
     for (auto& [id, obj] : state_.objects) {
         if (!obj.isUnit() || !obj.isAtBattlefield()) continue;
         auto unit_bf = obj.battlefieldId();
@@ -508,6 +537,24 @@ void TriggerManager::onCombatStarted(const CombatStartedEvent& e) {
 }
 
 void TriggerManager::onCombatEnded(const CombatEndedEvent& e) {
+    // "When a combat that I was in ends," — fires win, lose or draw. APPROX:
+    // combat designations are already cleared here, so every unit still at
+    // the battlefield counts as having been in the combat.
+    {
+        std::vector<GameObjectId> present;
+        for (auto& [id, obj] : state_.objects) {
+            if (!obj.isUnit() || obj.card_def_id == kInvalidId) continue;
+            auto unit_bf = obj.battlefieldId();
+            if (!unit_bf || *unit_bf != e.battlefield) continue;
+            if (cardFiresOn(card_registry_, obj.card_def_id,
+                            TriggerType::WhenACombatIWasInEnds))
+                present.push_back(id);
+        }
+        for (auto uid : present)
+            fireTrigger(uid, state_.getObject(uid).controller, 0,
+                        TriggerType::WhenACombatIWasInEnds);
+    }
+
     // No fire on indecisive combat (both sides emptied, or no recall outcome).
     if (!e.winner.has_value()) return;
     PlayerId winner = *e.winner;
@@ -544,6 +591,21 @@ void TriggerManager::onCombatEnded(const CombatEndedEvent& e) {
 }
 
 void TriggerManager::onUnitDied(const UnitDiedEvent& e) {
+    // "When an enemy unit here dies," — watchers at the location it died at.
+    {
+        std::vector<GameObjectId> watchers;
+        for (auto& [id, other] : state_.objects) {
+            if (id == e.object || other.card_def_id == kInvalidId) continue;
+            if (other.controller == e.controller) continue;
+            if (!other.location.has_value() || *other.location != e.was_at) continue;
+            if (cardFiresOn(card_registry_, other.card_def_id,
+                            TriggerType::WhenAnEnemyUnitDiesHere))
+                watchers.push_back(id);
+        }
+        for (auto wid : watchers)
+            fireTrigger(wid, state_.getObject(wid).controller, 0,
+                        TriggerType::WhenAnEnemyUnitDiesHere, /*subject=*/e.object);
+    }
     if (state_.objectExists(e.object)) {
         auto& obj = state_.getObject(e.object);
 
@@ -733,6 +795,11 @@ void TriggerManager::onUnitMoved(const UnitMovedEvent& e) {
     if (!state_.objectExists(e.object)) return;
     auto& obj = state_.getObject(e.object);
 
+    // Where it moved from, for "a battlefield I moved to or from" (Akali,
+    // Deadly Weapon): battlefield id, or -1 when it left a base.
+    obj.card_counters["__moved_from_bf"] =
+        std::holds_alternative<BattlefieldLocation>(e.from)
+            ? static_cast<int>(std::get<BattlefieldLocation>(e.from).id) : -1;
     if (cardFiresOn(card_registry_, obj.card_def_id, TriggerType::WhenIMove)) {
         fireTrigger(e.object, e.controller, 0, TriggerType::WhenIMove);
     }
@@ -911,6 +978,12 @@ void TriggerManager::onUnitReadied(const UnitReadiedEvent& e) {
                     TriggerType::WhenIAmReadied)) {
         fireTrigger(e.object, e.controller, 0, TriggerType::WhenIAmReadied);
     }
+    // "When I become ready" — effect readies here; Awaken-phase readies arrive
+    // as ObjectStateChangedEvent "became_ready".
+    if (cardFiresOn(card_registry_, state_.getObject(e.object).card_def_id,
+                    TriggerType::WhenIBecomeReady)) {
+        fireTrigger(e.object, e.controller, 0, TriggerType::WhenIBecomeReady);
+    }
     // "When you ready a friendly unit" — fires on the controller's OTHER on-board
     // cards (e.g. Pirate's Haven), with the readied unit as the subject.
     const PlayerId controller = e.controller;
@@ -990,6 +1063,80 @@ void TriggerManager::onObjectStateChanged(const ObjectStateChangedEvent& e) {
 
     // "When you attach an Equipment to me" — fires on the equipped unit itself
     // (attachGearToUnit / attachFree emit "equipped"). (Aphelios, Exalted 372.)
+    if (e.what_changed == "became_ready") {
+        if (state_.getObject(e.object).card_def_id != kInvalidId &&
+            cardFiresOn(card_registry_, state_.getObject(e.object).card_def_id,
+                        TriggerType::WhenIBecomeReady))
+            fireTrigger(e.object, controller, 0, TriggerType::WhenIBecomeReady);
+        return;
+    }
+
+    if (e.what_changed == "discarded") {
+        // "When you discard me," — the card is already in its owner's trash.
+        const auto& dobj = state_.getObject(e.object);
+        if (dobj.card_def_id != kInvalidId &&
+            cardFiresOn(card_registry_, dobj.card_def_id, TriggerType::WhenIAmDiscarded))
+            fireTrigger(e.object, dobj.owner, 0, TriggerType::WhenIAmDiscarded);
+        return;
+    }
+
+    if (e.what_changed == "played_not_from_hand") {
+        // "When you play a card from anywhere other than your hand," (trash via
+        // Flow, face down, Champion Zone).
+        state_.player(controller).cards_played_not_from_hand_this_turn++;
+        std::vector<GameObjectId> watchers;
+        for (auto& [id, obj] : state_.objects) {
+            if (id == e.object || obj.controller != controller) continue;
+            if (!obj.location.has_value() && obj.zone != ZoneType::LegendZone) continue;
+            if (obj.card_def_id == kInvalidId) continue;
+            if (cardFiresOn(card_registry_, obj.card_def_id,
+                            TriggerType::WhenYouPlayACardNotFromHand))
+                watchers.push_back(id);
+        }
+        for (auto wid : watchers)
+            fireTrigger(wid, controller, 0, TriggerType::WhenYouPlayACardNotFromHand,
+                        /*subject=*/e.object);
+        return;
+    }
+
+    if (e.what_changed == "empowered") {
+        // "When I become [Empowered]" on the object itself, then "When you
+        // empower something else" on the controller's other cards + legend.
+        if (state_.getObject(e.object).card_def_id != kInvalidId &&
+            cardFiresOn(card_registry_, state_.getObject(e.object).card_def_id,
+                        TriggerType::WhenIBecomeEmpowered))
+            fireTrigger(e.object, controller, 0, TriggerType::WhenIBecomeEmpowered);
+        std::vector<GameObjectId> watchers;
+        for (auto& [id, obj] : state_.objects) {
+            if (id == e.object || obj.controller != controller) continue;
+            if (!obj.location.has_value() && obj.zone != ZoneType::LegendZone) continue;
+            if (obj.card_def_id == kInvalidId) continue;
+            if (cardFiresOn(card_registry_, obj.card_def_id, TriggerType::WhenYouEmpower))
+                watchers.push_back(id);
+        }
+        for (auto wid : watchers)
+            fireTrigger(wid, controller, 0, TriggerType::WhenYouEmpower,
+                        /*subject=*/e.object);
+        return;
+    }
+
+    if (e.what_changed == "burned" || e.what_changed == "banished_owned") {
+        // Fires for the card's OWNER ("When you burn ...", "When you banish a
+        // card you own"); subject = the burned / banished card.
+        const PlayerId owner = state_.getObject(e.object).owner;
+        const TriggerType t = e.what_changed == "burned"
+            ? TriggerType::WhenYouBurn : TriggerType::WhenYouBanishACard;
+        std::vector<GameObjectId> watchers;
+        for (auto& [id, obj] : state_.objects) {
+            if (obj.controller != owner) continue;
+            if (!obj.location.has_value() && obj.zone != ZoneType::LegendZone) continue;
+            if (obj.card_def_id == kInvalidId) continue;
+            if (cardFiresOn(card_registry_, obj.card_def_id, t)) watchers.push_back(id);
+        }
+        for (auto wid : watchers) fireTrigger(wid, owner, 0, t, /*subject=*/e.object);
+        return;
+    }
+
     if (e.what_changed == "equipped") {
         if (cardFiresOn(card_registry_, state_.getObject(e.object).card_def_id,
                         TriggerType::WhenEquipmentAttachedToMe))

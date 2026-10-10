@@ -1,0 +1,68 @@
+#include "cards/card.h"
+#include "cards/card_helpers.h"
+#include "cards/card_registry.h"
+#include "core/game_state.h"
+#include "core/events.h"
+#include "engine/effect_executor.h"
+#include <algorithm>
+#include <memory>
+#include <string>
+#include <vector>
+
+namespace riftbound {
+namespace {
+
+class NasusAscended : public UnitCard {
+public:
+    const CardDef& def() const override { return def_; }
+    // [Deflect 2] is data (def_.deflect_value).
+    // "[Empower] [8]"
+    EmpowerSpec empowerSpec() const override { return empowerCost(8); }
+    // "[Empowered][>] When I conquer, you score 1 point."
+    TriggerType triggerType() const override { return TriggerType::WhenIConquer; }
+    void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
+        if (!ctx.state.objectExists(ctx.source)) return;
+        if (!ctx.state.getObject(ctx.source).isEmpowered()) return;
+        auto& ps = ctx.state.player(ctx.controller);
+        if (ps.cannot_gain_points) return;  // Tianna Crownguard
+        ps.score += 1;
+        ctx.events.logTrace("NASUS, ASCENDED: Empowered conquer -> score 1 point -> " +
+                            std::to_string(ps.score));
+    }
+private:
+    const CardDef def_ = [] {
+        CardDef d;
+        d.id = 833;
+        d.def_id = R"RB(ven-046-166)RB";
+        d.name = R"RB(Nasus, Ascended)RB";
+        d.set_code = R"RB(VEN)RB";
+        d.set_name = R"RB(Vendetta)RB";
+        d.public_code = R"RB(VEN-046/166)RB";
+        d.collector_number = 46;
+        d.artist = R"RB(Six More Vodka)RB";
+        d.card_type = CardType::Unit;
+        d.super_type = SuperType::Champion;
+        d.domains = {Domain::Calm};
+        d.tags = {R"RB(Dog)RB", R"RB(Shurima)RB", R"RB(Nasus)RB"};
+        d.energy_cost = 8;
+        d.power_cost = 1;
+        d.might = 8;
+        d.rarity = Rarity::Epic;
+        d.keywords.set(Keyword::Deflect);
+        d.deflect_value = 2;
+        d.keywords.set(Keyword::Empower);
+        d.ability_text = R"RB([Deflect 2] (Opponents must pay [A][A] to choose me with a spell or ability.)
+[Empower] [8] ([8]: Empower me. Use only if not Empowered.)
+[Empowered][>] When I conquer, you score 1 point.)RB";
+        d.image_url = R"RB(https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/4d9e9cc17be6aebf33ee1db42b515ad87ba8ee8c-744x1039.png)RB";
+        return d;
+    }();
+};
+
+}  // anonymous namespace
+
+void register_card_833(CardRegistry& r) {
+    r.registerCard(833, std::make_unique<NasusAscended>());
+}
+
+}  // namespace riftbound

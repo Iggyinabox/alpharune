@@ -71,7 +71,7 @@ private:
         d.might = 4;
         d.rarity = Rarity::Rare;
         d.ability_text = R"RB(When I win a combat, play a Gold gear token exhausted.
-When I attack or defend, you may pay [R]. If you do, give me +2 [M] this turn.)RB";
+When I attack or defend, you may pay [R] to give me +2 [M] this turn.)RB";
         d.image_url = R"RB(https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/8e49e0b83df68f37a15bf704b83475144fd9ef92-744x1039.png)RB";
         d.banned = true;  // tournament ban (formerly cards/ban-list.csv)
         return d;

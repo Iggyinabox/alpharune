@@ -24,7 +24,7 @@ MainDeck:
 2 Jayce, Man of Progress
 
 Battlefields:
-1 Aspirant's Climb
+1 Sunken Temple
 1 Sigil of the Storm
 1 Vilemaw's Lair
 

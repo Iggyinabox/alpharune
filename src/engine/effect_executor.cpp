@@ -35,6 +35,14 @@ void EffectExecutor::dealDamage(GameObjectId target, int amount,
     // it would be dealt damage this turn, prevent it." Consumes the flag and
     // prevents this damage instance entirely. Checked before Unyielding Spirit
     // and the actual damage application.
+    // Counted prevention (Ki Barrier: "prevent the next 7 damage").
+    if (amount > 0 && obj.prevent_damage_remaining > 0) {
+        int prevented = std::min(amount, obj.prevent_damage_remaining);
+        obj.prevent_damage_remaining -= prevented;
+        amount -= prevented;
+        events_.logTrace("PREVENT: " + std::to_string(prevented) + " damage to " + obj.name);
+        if (amount <= 0) return;
+    }
     if (amount > 0 && obj.prevent_next_damage_this_turn) {
         obj.prevent_next_damage_this_turn = false;
         events_.logTrace("PREVENT: next damage to " + obj.name +
@@ -66,6 +74,14 @@ void EffectExecutor::dealDamage(GameObjectId target, int amount,
             // ability damage.
             (state_.chain.resuming.has_value() &&
              state_.chain.resuming->source == source);
+        // Esteemed Hierophant: "prevent all damage that enemy spells and
+        // abilities would deal to me."
+        if (from_spell_or_ability && amount > 0 &&
+            obj.prevent_enemy_spell_ability_damage &&
+            src_obj.controller != obj.controller) {
+            events_.logTrace("PREVENT: enemy spell/ability damage to " + obj.name);
+            return;
+        }
         if (from_spell_or_ability) {
             // Check both players' prevention flags (the spell is
             // global, so whichever side cast it sets BOTH? Today the
@@ -119,6 +135,7 @@ void EffectExecutor::dealDamage(GameObjectId target, int amount,
                      std::to_string(obj.damage_marked) + "/" +
                      std::to_string(obj.current_might) + "M)");
     obj.damage_marked += dealt;
+    obj.damage_taken_this_turn += dealt;
     events_.emit(DamageDealtEvent{target, dealt, source, false});
 }
 
@@ -127,6 +144,10 @@ void EffectExecutor::killObject(GameObjectId target) {
     auto& obj = state_.getObject(target);
     if (obj.zone == ZoneType::Trash) return; // already dead
     events_.logTrace("EFFECT: kill " + obj.name + " (id=" + std::to_string(target) + ")");
+    // Last-known information for "When I die" (CR: death abilities use state
+    // from before the source died). Empowered is cleared once off the board,
+    // so "[Empowered][>][Deathknell]" reads this snapshot.
+    obj.card_counters["__died_empowered"] = obj.empowered;
 
     auto was_at = obj.location;
     auto controller = obj.controller;
@@ -215,38 +236,10 @@ void EffectExecutor::drawCards(PlayerId player, int count) {
     int drawn = 0;
     for (int i = 0; i < count; ++i) {
         if (ps.main_deck.empty()) {
-            // Burn Out (CR 431.2): recycle trash into deck, then opponent
-            // gains 1 point (CR 431.2.c — burning-out player chooses an
-            // opponent; in 1v1 there is exactly one). CR 431.3: if this
-            // gain puts opponent at or past victory score with more
-            // points than us, they win immediately.
-            if (ps.trash.empty()) break;
-            ps.burned_out = true;
-            for (auto cid : ps.trash) {
-                state_.getObject(cid).zone = ZoneType::MainDeck;
-                ps.main_deck.push_back(cid);
+            if (!burnOut(player)) {
+                if (state_.game_over) return;
+                break;
             }
-            ps.trash.clear();
-            if (rng_) {
-                std::shuffle(ps.main_deck.begin(), ps.main_deck.end(), *rng_);
-            }
-            PlayerId opp_id = opponent(player);
-            auto& opp_ps = state_.player(opp_id);
-            opp_ps.score++;
-            events_.logTrace(std::string("BURN_OUT: ") + toString(player) +
-                             " deck empty, shuffled trash; " +
-                             toString(opp_id) + " gains 1 point (CR 431.2.c) -> " +
-                             std::to_string(opp_ps.score));
-            if (opp_ps.score >= state_.mode.victory_score &&
-                opp_ps.score > ps.score) {
-                state_.game_over = true;
-                state_.winner = opp_id;
-                state_.game_over_reason = std::string(toString(opp_id)) +
-                                           " wins via burn-out point (CR 431.3)";
-                events_.emit(GameOverEvent{opp_id, state_.game_over_reason});
-                return;
-            }
-            if (ps.main_deck.empty()) break;
         }
         auto card_id = ps.main_deck.back();
         ps.main_deck.pop_back();
@@ -260,6 +253,92 @@ void EffectExecutor::drawCards(PlayerId player, int count) {
         state_.player(player).draws_this_turn += drawn;
         events_.emit(CardsDrawnEvent{player, drawn});
     }
+}
+
+bool EffectExecutor::burnOut(PlayerId player) {
+    auto& ps = state_.player(player);
+    // Burn Out (CR 431.2): recycle trash into deck, then opponent
+    // gains 1 point (CR 431.2.c — burning-out player chooses an
+    // opponent; in 1v1 there is exactly one). CR 431.3: if this
+    // gain puts opponent at or past victory score with more
+    // points than us, they win immediately.
+    if (ps.trash.empty()) return false;
+    ps.burned_out = true;
+    for (auto cid : ps.trash) {
+        state_.getObject(cid).zone = ZoneType::MainDeck;
+        ps.main_deck.push_back(cid);
+    }
+    ps.trash.clear();
+    if (rng_) {
+        std::shuffle(ps.main_deck.begin(), ps.main_deck.end(), *rng_);
+    }
+    PlayerId opp_id = opponent(player);
+    auto& opp_ps = state_.player(opp_id);
+    opp_ps.score++;
+    events_.logTrace(std::string("BURN_OUT: ") + toString(player) +
+                     " deck empty, shuffled trash; " +
+                     toString(opp_id) + " gains 1 point (CR 431.2.c) -> " +
+                     std::to_string(opp_ps.score));
+    if (opp_ps.score >= state_.mode.victory_score &&
+        opp_ps.score > ps.score) {
+        state_.game_over = true;
+        state_.winner = opp_id;
+        state_.game_over_reason = std::string(toString(opp_id)) +
+                                   " wins via burn-out point (CR 431.3)";
+        events_.emit(GameOverEvent{opp_id, state_.game_over_reason});
+        return false;
+    }
+    return !ps.main_deck.empty();
+}
+
+bool EffectExecutor::empower(GameObjectId target) {
+    if (!state_.objectExists(target)) return false;
+    auto& obj = state_.getObject(target);
+    // Empowered is a status of objects on the board / in the Legend Zone (CR 442.2).
+    if (!obj.location.has_value() && obj.zone != ZoneType::LegendZone) return false;
+    int cap = 1;
+    if (card_registry_ && obj.card_def_id != kInvalidId)
+        if (const Card* c = card_registry_->get(obj.card_def_id)) cap = c->maxEmpower();
+    if (obj.empowered >= cap) return false;   // CR 442.1.c: nothing additional happens
+    obj.empowered++;
+    events_.logTrace("EFFECT: empower " + obj.name + " (id=" + std::to_string(target) +
+                     ") -> " + std::to_string(obj.empowered));
+    events_.emit(ObjectStateChangedEvent{target, "empowered"});
+    return true;
+}
+
+bool EffectExecutor::disempower(GameObjectId target) {
+    if (!state_.objectExists(target)) return false;
+    auto& obj = state_.getObject(target);
+    if (obj.empowered <= 0) return false;     // CR 443.1.a.1
+    obj.empowered--;
+    events_.logTrace("EFFECT: disempower " + obj.name + " (id=" + std::to_string(target) +
+                     ") -> " + std::to_string(obj.empowered));
+    events_.emit(ObjectStateChangedEvent{target, "disempowered"});
+    return true;
+}
+
+std::vector<GameObjectId> EffectExecutor::burn(PlayerId player, int count) {
+    auto& ps = state_.player(player);
+    std::vector<GameObjectId> burned;
+    for (int i = 0; i < count; ++i) {
+        // CR 441.4: burn as many as possible, burn out, then burn the rest.
+        // The just-burned cards are in the trash, so a burn out reshuffles them.
+        if (ps.main_deck.empty() && !burnOut(player)) break;
+        auto card_id = ps.main_deck.back();
+        ps.main_deck.pop_back();
+        auto& card = state_.getObject(card_id);
+        card.zone = ZoneType::Trash;
+        card.location = std::nullopt;
+        ps.trash.push_back(card_id);
+        ps.cards_burned_this_turn++;
+        burned.push_back(card_id);
+        events_.logTrace(std::string("  BURNED: ") + toString(player) + " " + card.name +
+                         " (id=" + std::to_string(card_id) + ")");
+    }
+    // "When you burn" abilities execute after burning has occurred (CR 441.1.a).
+    for (auto cid : burned) events_.emit(ObjectStateChangedEvent{cid, "burned"});
+    return burned;
 }
 
 void EffectExecutor::bounceToHand(GameObjectId target) {
@@ -314,6 +393,12 @@ void EffectExecutor::bounceToHand(GameObjectId target) {
 void EffectExecutor::giveTemporaryMight(GameObjectId target, int amount, int minimum) {
     if (!state_.objectExists(target)) return;
     auto& obj = state_.getObject(target);
+
+    // Mel, Newly Awakened: "If a spell or ability you control would give -[M]
+    // to a unit it chooses, it gives an additional -1 [M]."
+    if (amount < 0 && state_.chain.resuming.has_value()) {
+        amount -= state_.player(state_.chain.resuming->controller).extra_minus_might;
+    }
 
     // This-turn temporary might only — does NOT touch buff_count (permanent
     // buff counters). Expires at the expiration step (temp_might_bonus zeroed).
@@ -422,6 +507,12 @@ void EffectExecutor::unattachGear(GameObjectId gear) {
 void EffectExecutor::moveToBase(GameObjectId target) {
     if (!state_.objectExists(target)) return;
     auto& obj = state_.getObject(target);
+    // Jagged Cutlass: "can't be moved by enemy spells and abilities."
+    if (obj.cant_be_moved_by_enemy && state_.chain.resuming.has_value() &&
+        state_.chain.resuming->controller != obj.controller) {
+        events_.logTrace("MOVE_BLOCKED: " + obj.name + " can't be moved by enemy effects");
+        return;
+    }
     auto old_loc = obj.location;
 
     LocationId dest = BaseLocation{obj.controller};
@@ -435,6 +526,12 @@ void EffectExecutor::moveToBase(GameObjectId target) {
 void EffectExecutor::moveToBattlefield(GameObjectId target, BattlefieldId bf) {
     if (!state_.objectExists(target)) return;
     auto& obj = state_.getObject(target);
+    // Jagged Cutlass: "can't be moved by enemy spells and abilities."
+    if (obj.cant_be_moved_by_enemy && state_.chain.resuming.has_value() &&
+        state_.chain.resuming->controller != obj.controller) {
+        events_.logTrace("MOVE_BLOCKED: " + obj.name + " can't be moved by enemy effects");
+        return;
+    }
     auto old_loc = obj.location;
 
     LocationId dest = BattlefieldLocation{bf};
@@ -524,6 +621,7 @@ void EffectExecutor::discardCards(PlayerId player, int count) {
     if (!discarded.empty()) {
         ps.has_discarded_this_turn = true;
         events_.emit(CardsDiscardedEvent{player, discarded});
+        for (auto did : discarded) events_.emit(ObjectStateChangedEvent{did, "discarded"});
     }
 }
 
@@ -546,6 +644,7 @@ void EffectExecutor::applyDiscard(PlayerId player, GameObjectId card_id) {
     ps.trash.push_back(card_id);
     ps.has_discarded_this_turn = true;
     events_.emit(CardsDiscardedEvent{player, {card_id}});
+    events_.emit(ObjectStateChangedEvent{card_id, "discarded"});
 }
 
 void EffectExecutor::recycleCards(PlayerId /*effect_controller*/,
@@ -615,12 +714,30 @@ void EffectExecutor::banishObject(GameObjectId target) {
     auto was_at = obj.location;
     auto controller = obj.controller;
 
+    // Leaving from a non-board zone: drop it from that zone's list.
+    {
+        auto& ops = state_.player(obj.owner);
+        auto drop = [&](std::vector<GameObjectId>& v) {
+            v.erase(std::remove(v.begin(), v.end(), target), v.end());
+        };
+        if (obj.zone == ZoneType::Trash) drop(ops.trash);
+        else if (obj.zone == ZoneType::Hand) drop(ops.hand);
+        else if (obj.zone == ZoneType::MainDeck) drop(ops.main_deck);
+    }
+    const bool is_token = obj.isToken();
     obj.zone = ZoneType::Banishment;
     obj.location = std::nullopt;
-    state_.player(obj.owner).banishment.push_back(target);
+    // CR 183.1: a token ceases to exist instead of sitting in banishment.
+    if (!is_token) {
+        state_.player(obj.owner).banishment.push_back(target);
+        state_.player(obj.owner).cards_banished_this_turn++;
+    }
 
-    events_.emit(LeftBoardEvent{target, controller, obj.card_type,
-        was_at.value_or(BaseLocation{controller}), ZoneType::Banishment, false});
+    if (was_at.has_value())
+        events_.emit(LeftBoardEvent{target, controller, obj.card_type,
+            *was_at, ZoneType::Banishment, false});
+    // "When you banish a card you own" (Master of Shadows).
+    if (!is_token) events_.emit(ObjectStateChangedEvent{target, "banished_owned"});
 }
 
 void EffectExecutor::healObject(GameObjectId target) {

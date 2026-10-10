@@ -75,7 +75,7 @@ private:
         d.artist = R"RB(Kudos Productions)RB";
         d.card_type = CardType::Battlefield;
         d.rarity = Rarity::Uncommon;
-        d.ability_text = R"RB(When you conquer here, you may pay [1] and return a unit you control here to its owner's hand. If you do, play a 2 [M] Sand Soldier unit token here.)RB";
+        d.ability_text = R"RB(When you conquer here, you may pay [1] and return a unit you control here to its owner's hand to play a 2 [M] Sand Soldier unit token here.)RB";
         d.image_url = R"RB(https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/c1ea4f6f58a62fc2b62647aa3459109e3d10297a-1039x744.png)RB";
         return d;
     }();

@@ -73,7 +73,7 @@ private:
         d.might = 3;
         d.rarity = Rarity::Rare;
         d.keywords.set(Keyword::Predict);
-        d.ability_text = R"RB(When a showdown begins here, you may pay [1]. If you do, [Predict], then reveal the top card of your Main Deck. If it's a spell, draw it. (To Predict, look at the top card of your Main Deck. You may recycle it.))RB";
+        d.ability_text = R"RB(When a showdown begins here, you may pay [1] to [Predict], then reveal the top card of your Main Deck. If it's a spell, draw it. (To Predict, look at the top card of your Main Deck. You may recycle it.))RB";
         d.image_url = R"RB(https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/3e284397713abb21d2c8d9b85202ab65d21689e9-744x1039.png?accountingTag=RB)RB";
         return d;
     }();

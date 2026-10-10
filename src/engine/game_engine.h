@@ -576,6 +576,13 @@ private:
     /// interaction. The caller is responsible for any other side effects
     /// (e.g. flipping `is_exhausted` on a unit that paid Accelerate to
     /// enter ready — that's resolvePermanent's job).
+    /// Energy + power affordability / payment for an activated ability whose
+    /// cost has a power component (honors ActivationCost::power_any_domain).
+    bool canPayActivationResources(PlayerId player, int energy,
+                                   const ActivationCost& cost) const;
+    bool payActivationResources(PlayerId player, int energy, const ActivationCost& cost);
+    /// Rebuild the standing [Flow] play-from-trash grants (called from recalculateAuras).
+    void refreshFlowGrants();
     bool canPayAdditionalCost(PlayerId player, int energy, int power,
                                 Domain domain) const;
     bool payAdditionalCost(PlayerId player, int energy, int power,

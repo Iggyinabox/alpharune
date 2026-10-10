@@ -111,6 +111,7 @@ private:
         d.ability_text = R"RB([Action] (Play on your turn or in showdowns.)
 Look at the top 3 cards of your Main Deck. Put 1 into your hand and recycle the rest.)RB";
         d.image_url = R"RB(https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/fdcb22cb620a4c1c37920d6b744edb615647cbd4-744x1039.png)RB";
+        d.banned = true;  // tournament ban (2026-09-18)
         return d;
     }();
 };

@@ -73,7 +73,7 @@ private:
         d.power_cost = 1;
         d.might = 3;
         d.rarity = Rarity::Rare;
-        d.ability_text = R"RB(When you play me, you may play a spell from your trash with Energy cost no more than [3], ignoring its Energy cost. Recycle that spell after you play it. (You must still pay its Power cost.))RB";
+        d.ability_text = R"RB(When you play me, you may play a spell from your trash with Energy cost no more than [3], ignoring its Energy cost. Then recycle it. (You must still pay its Power cost.))RB";
         d.image_url = R"RB(https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/6d1c6615fb6ef5fb520a35b2ce76f8feee9167dc-744x1039.png)RB";
         return d;
     }();

@@ -35,7 +35,7 @@ public:
             // (Abandon itself is now in `resuming`, not on `items`).
             if (!ctx.state.chain.items.empty()) {
                 auto& top = ctx.state.chain.items.back();
-                if (top.is_spell) {
+                if (top.is_spell && !isUncounterable(ctx, top)) {
                     auto countered_source = top.source;
                     revertCounteredPlay(ctx, top);  // CR 425.1.b
                     ctx.state.chain.items.pop_back();
