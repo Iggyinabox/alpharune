@@ -253,6 +253,7 @@ add_library(riftbound_core
     src/core/intent.cpp
     src/core/game_state.cpp
     src/core/card_db.cpp
+    src/core/events.cpp
     src/rules/deck_validator.cpp
     src/engine/game_engine.cpp
     src/engine/chain_manager.cpp
@@ -274,6 +275,27 @@ add_library(riftbound_core
 )
 
 target_include_directories(riftbound_core PUBLIC src)
+
+# ─── Precompiled header ───────────────────────────────────────────────────────
+# Every card is its own translation unit and each one parses the same engine
+# headers; that parse was ~80% of a card file's compile time. src/pch.h holds
+# those headers. A change to one of them still rebuilds every file, but each
+# file then costs code generation only.
+#
+# With ccache as the compiler launcher, GCC needs -fpch-preprocess and ccache
+# needs `sloppiness = pch_defines,time_macros` (set it on the build dir's
+# launcher, e.g.
+#   -DCMAKE_CXX_COMPILER_LAUNCHER="env;CCACHE_SLOPPINESS=pch_defines,time_macros;ccache"
+# ) or it will not cache compilations that use the PCH.
+option(RIFTBOUND_USE_PCH "Precompile the common engine headers (src/pch.h)" ON)
+if(RIFTBOUND_USE_PCH)
+    target_precompile_headers(riftbound_core PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/pch.h)
+    if(CMAKE_CXX_COMPILER_LAUNCHER MATCHES "ccache" AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        target_compile_options(riftbound_core PRIVATE -fpch-preprocess)
+    endif()
+endif()
+
 target_link_libraries(riftbound_core PUBLIC
     Boost::boost
     Boost::system
@@ -356,6 +378,20 @@ target_link_libraries(riftbound_tests PRIVATE
     riftbound_core
     GTest::gtest_main
 )
+
+# The tests parse the same engine headers plus GoogleTest and the shared card
+# fixture; they get their own PCH (different include paths and definitions
+# from riftbound_core, so the library's cannot be reused).
+if(RIFTBOUND_USE_PCH)
+    target_precompile_headers(riftbound_tests PRIVATE
+        <gtest/gtest.h>
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/pch.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/cards/card_test_fixture.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/engine/game_engine.h)
+    if(CMAKE_CXX_COMPILER_LAUNCHER MATCHES "ccache" AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        target_compile_options(riftbound_tests PRIVATE -fpch-preprocess)
+    endif()
+endif()
 
 include(GoogleTest)
 gtest_discover_tests(riftbound_tests)
