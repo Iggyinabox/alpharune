@@ -1,0 +1,25 @@
+{
+  "id": "ven-080-166",
+  "name": "Noxian Demolitionist",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 80,
+  "public_code": "VEN-080/166",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "body"
+  ],
+  "tags": [
+    "Noxus"
+  ],
+  "energy_cost": 2,
+  "power_cost": null,
+  "might": 1,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "When I conquer, you may kill a gear with Energy cost no more than my Might.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/a8c9a1b0eefc89106aa154ce3958c82d86e70940-744x1039.png",
+  "artist": "Dao Trong Le"
+}

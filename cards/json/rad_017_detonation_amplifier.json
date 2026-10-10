@@ -1,0 +1,25 @@
+{
+  "id": "rad-017-167",
+  "name": "Detonation Amplifier",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 17,
+  "public_code": "RAD-017/167",
+  "card_type": "gear",
+  "super_type": null,
+  "domains": [
+    "chaos"
+  ],
+  "tags": [
+    "Device"
+  ],
+  "energy_cost": 4,
+  "power_cost": 1,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "rare",
+  "ability_text": "[Deploy] (Play this only to a battlefield. When an opponent holds here, kill this.)\nWhen you play this, you may kill another friendly unit or gear to draw 1.\nFriendly [Deathknell] effects here trigger an additional time.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/0cd07e77e69a53b78486b07dd7610183c953d581-744x1039.png",
+  "artist": "Fish Art Studio"
+}

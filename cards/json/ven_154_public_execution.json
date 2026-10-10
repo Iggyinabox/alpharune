@@ -1,0 +1,26 @@
+{
+  "id": "ven-154-166",
+  "name": "Public Execution",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 154,
+  "public_code": "VEN-154/166",
+  "card_type": "spell",
+  "super_type": "signature",
+  "domains": [
+    "body",
+    "order"
+  ],
+  "tags": [
+    "Ambessa"
+  ],
+  "energy_cost": 2,
+  "power_cost": 1,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "epic",
+  "ability_text": "Choose a friendly unit. Kill an enemy unit with less Might than it.\n[Flow] [5][A][A] (You may play this from your trash for its Flow cost. Then banish it.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/c8348e2aef6bad5a38d4f71b1b1c277598670286-744x1039.png",
+  "artist": "Polar Engine Studio"
+}

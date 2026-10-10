@@ -1,0 +1,25 @@
+{
+  "id": "ven-053-166",
+  "name": "Otterpus",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 53,
+  "public_code": "VEN-053/166",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "mind"
+  ],
+  "tags": [
+    "Bandle City"
+  ],
+  "energy_cost": 2,
+  "power_cost": null,
+  "might": 2,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "If a player would score 1 point from conquering or holding during their first or second turn, they draw 1 instead.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/62f77b80a6d8f28a92c039595baf5943c4e055f0-744x1039.png",
+  "artist": "Kudos Productions"
+}

@@ -1,0 +1,23 @@
+{
+  "id": "ven-075-166",
+  "name": "Platewyrm Egg",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 75,
+  "public_code": "VEN-075/166",
+  "card_type": "gear",
+  "super_type": null,
+  "domains": [
+    "body"
+  ],
+  "tags": [],
+  "energy_cost": 3,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "This enters exhausted.\n[Empower] \u2014 [1], [E] (Pay the cost: Empower this. Use only if not Empowered.)\n[Reaction][>] [E]: [Add] [1]. If this is [Empowered], [Add] [2] instead.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/f6a3940440a38e34fe306947d663018dd2df7ca8-744x1039.png",
+  "artist": "Kudos Productions"
+}

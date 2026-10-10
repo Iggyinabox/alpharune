@@ -1,0 +1,26 @@
+{
+  "id": "ven-017-166",
+  "name": "Morgana, Vindictive",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 17,
+  "public_code": "VEN-017/166",
+  "card_type": "unit",
+  "super_type": "champion",
+  "domains": [
+    "fury"
+  ],
+  "tags": [
+    "Demacia",
+    "Morgana"
+  ],
+  "energy_cost": 5,
+  "power_cost": 1,
+  "might": 5,
+  "might_bonus": null,
+  "rarity": "rare",
+  "ability_text": "[Ambush] (You may play me as a [Reaction] to a battlefield where you have units.)\nWhen you play me, deal damage to a unit equal to the damage marked on it.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/04f3ff3a25b08c9af33090e7a533396583f5e433-744x1039.png",
+  "artist": "Envar Studio"
+}

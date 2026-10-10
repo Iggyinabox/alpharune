@@ -1,0 +1,23 @@
+{
+  "id": "rad-001-167",
+  "name": "Amateur Demolitionist",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 1,
+  "public_code": "RAD-001/167",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "chaos"
+  ],
+  "tags": [],
+  "energy_cost": 2,
+  "power_cost": null,
+  "might": 1,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "When you play me, play a Bomb gear token to a battlefield. (It has [Deploy]. When it dies, deal 2 to an enemy there and kill your other Bombs there.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/3dca5e04ff8dff983993f87d5a82a7fd56d7bc9c-744x1039.png",
+  "artist": "Kudos Productions"
+}

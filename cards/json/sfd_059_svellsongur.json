@@ -15,7 +15,7 @@
   ],
   "energy_cost": 3,
   "power_cost": 1,
-  "might": null,
+  "might": 0,
   "might_bonus": 0,
   "rarity": "epic",
   "ability_text": "[Equip] [1][G] ([1][G]: Attach this to a unit you control.)\nAs this is attached to a unit, copy that unit's text to this Equipment's effect text for as long as this is attached to it.",

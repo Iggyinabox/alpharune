@@ -1,0 +1,23 @@
+{
+  "id": "rad-099-167",
+  "name": "Suave Negotiator",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 99,
+  "public_code": "RAD-099/167",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "chaos"
+  ],
+  "tags": [],
+  "energy_cost": 3,
+  "power_cost": null,
+  "might": 3,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "When you play me, choose an opponent. You and that player each draw 1.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/20e2752ddf0af274d26a3c25c737ccea2c353e39-744x1039.png",
+  "artist": "Kudos Productions"
+}

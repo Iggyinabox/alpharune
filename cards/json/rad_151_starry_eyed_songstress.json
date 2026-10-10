@@ -1,0 +1,26 @@
+{
+  "id": "rad-151-167",
+  "name": "Starry-Eyed Songstress",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 151,
+  "public_code": "RAD-151/167",
+  "card_type": "legend",
+  "super_type": null,
+  "domains": [
+    "mind",
+    "order"
+  ],
+  "tags": [
+    "Seraphine"
+  ],
+  "energy_cost": null,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "rare",
+  "ability_text": "As an additional cost to play a spell, you may exhaust me and three friendly units to reduce the cost of that spell by [2].",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/399262205b15aa3b6306eb1d80a308791dcbe2ca-744x1039.png",
+  "artist": "Naifan Zhang"
+}

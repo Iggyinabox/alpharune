@@ -1,0 +1,27 @@
+{
+  "id": "rad-146-167",
+  "name": "The Ball",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 146,
+  "public_code": "RAD-146/167",
+  "card_type": "gear",
+  "super_type": "signature",
+  "domains": [
+    "calm",
+    "mind"
+  ],
+  "tags": [
+    "Device",
+    "Orianna"
+  ],
+  "energy_cost": 5,
+  "power_cost": 1,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "epic",
+  "ability_text": "[Deploy] (Play this only to a battlefield. When an opponent holds here, kill this.)\n[Ganking] (While this is a unit, it can move from battlefield to battlefield.)\nWhen you play or move this, choose one \u2014\nDraw 1.Deal 2 to enemy units here.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/4b11f36bd5ce2b08677959664cda3906a04d234c-744x1040.png",
+  "artist": null
+}

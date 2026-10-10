@@ -1,0 +1,26 @@
+{
+  "id": "ven-064-166",
+  "name": "Plaza Guardian",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 64,
+  "public_code": "VEN-064/166",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "mind"
+  ],
+  "tags": [
+    "Mech",
+    "Piltover"
+  ],
+  "energy_cost": 10,
+  "power_cost": null,
+  "might": 8,
+  "might_bonus": null,
+  "rarity": "rare",
+  "ability_text": "I cost [1] less for each gear you control.\n[Deflect] (Opponents must pay [A] to choose me with a spell or ability.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/3fc86ed4d23604dbb3c7de211eb6a9c36bd9176d-744x1039.png",
+  "artist": "Six More Vodka"
+}

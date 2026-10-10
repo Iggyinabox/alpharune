@@ -1,0 +1,23 @@
+{
+  "id": "rad-131-167",
+  "name": "Demacian Illuminators",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 131,
+  "public_code": "RAD-131/167",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "order"
+  ],
+  "tags": [],
+  "energy_cost": 3,
+  "power_cost": 1,
+  "might": 3,
+  "might_bonus": null,
+  "rarity": "rare",
+  "ability_text": "When one or more friendly units die, [Buff] a friendly unit. (Give it a +1 [M] buff if it doesn't have one.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/127c2700ee4e2557dfd463ed84c45f4600ad9723-744x1039.png",
+  "artist": "Six More Vodka"
+}

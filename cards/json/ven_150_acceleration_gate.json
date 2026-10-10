@@ -1,0 +1,26 @@
+{
+  "id": "ven-150-166",
+  "name": "Acceleration Gate",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 150,
+  "public_code": "VEN-150/166",
+  "card_type": "spell",
+  "super_type": "signature",
+  "domains": [
+    "mind",
+    "body"
+  ],
+  "tags": [
+    "Jayce"
+  ],
+  "energy_cost": 3,
+  "power_cost": 1,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "epic",
+  "ability_text": "Ready up to 4 units, gear, and/or runes.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/31b71a16ee85cf30124fdaa2c575e709a4c83771-744x1039.png",
+  "artist": "\u5c0f\u725b\u8bbe\u8ba1/Kudos Productions"
+}

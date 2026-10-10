@@ -19,7 +19,7 @@
   "might": 2,
   "might_bonus": null,
   "rarity": "epic",
-  "ability_text": "[Hidden] (Hide now for [A] to react with later for .)\n[Ganking] (I can move from battlefield to battlefield.)\nYou may pay [R] as an additional cost to play me.\nWhen you play me, if you paid the additional cost, ready me and give me +2 [M] this turn.",
+  "ability_text": "[Hidden] (Hide now for [A] to react with later for [0].)\n[Ganking] (I can move from battlefield to battlefield.)\nYou may pay [R] as an additional cost to play me.\nWhen you play me, if you paid the additional cost, ready me and give me +2 [M] this turn.",
   "effect_text": null,
   "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/e0ce05148d7368070bcc8c0a43f66ece0834653a-744x1039.png",
   "artist": "Six More Vodka"

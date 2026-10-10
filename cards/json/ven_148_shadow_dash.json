@@ -1,0 +1,26 @@
+{
+  "id": "ven-148-166",
+  "name": "Shadow Dash",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 148,
+  "public_code": "VEN-148/166",
+  "card_type": "spell",
+  "super_type": "signature",
+  "domains": [
+    "calm",
+    "order"
+  ],
+  "tags": [
+    "Shen"
+  ],
+  "energy_cost": 2,
+  "power_cost": 1,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "epic",
+  "ability_text": "Move an enemy unit to a battlefield where you have units. If you have exactly two units there, they each get +1 [M] this turn.\n[Flow] [5][A][A] (You may play this from your trash for its Flow cost. Then banish it.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/c95a4862c3af5f3ec1cee1f1ae7291c8724df7a1-744x1039.png",
+  "artist": "Polar Engine Studio"
+}

@@ -1,0 +1,23 @@
+{
+  "id": "rad-040-167",
+  "name": "Heartening Soul",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 40,
+  "public_code": "RAD-040/167",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "calm"
+  ],
+  "tags": [],
+  "energy_cost": 7,
+  "power_cost": 1,
+  "might": 7,
+  "might_bonus": null,
+  "rarity": "rare",
+  "ability_text": "When you play me, ready a friendly legend.\nFriendly legends have \"[E]: Give a unit +3 [M] this turn.\"",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/0a5f9ab3216462356f6ddf8f172284dca6be21e9-744x1039.png",
+  "artist": "Dao Trong Le"
+}

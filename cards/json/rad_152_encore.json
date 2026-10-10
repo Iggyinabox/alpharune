@@ -1,0 +1,26 @@
+{
+  "id": "rad-152-167",
+  "name": "Encore",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 152,
+  "public_code": "RAD-152/167",
+  "card_type": "spell",
+  "super_type": "signature",
+  "domains": [
+    "mind",
+    "order"
+  ],
+  "tags": [
+    "Seraphine"
+  ],
+  "energy_cost": 3,
+  "power_cost": 1,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "epic",
+  "ability_text": "Choose two \u2014\nDeal 2 to a unit.Play two 1 [M] Recruit unit tokens.Give up to two units each +1 [M] this turn.Look at the top 2 cards of your Main Deck, draw 1 and recycle the other.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/0200aeca5d0a1cca4b8ab5b3f3910207118ee4e4-744x1040.png",
+  "artist": "Luscinia Studio"
+}

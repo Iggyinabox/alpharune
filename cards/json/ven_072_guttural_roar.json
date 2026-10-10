@@ -1,0 +1,23 @@
+{
+  "id": "ven-072-166",
+  "name": "Guttural Roar",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 72,
+  "public_code": "VEN-072/166",
+  "card_type": "spell",
+  "super_type": null,
+  "domains": [
+    "body"
+  ],
+  "tags": [],
+  "energy_cost": 2,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "[Action] (Play on your turn or in showdowns.)\nGive a unit +2 [M] this turn. If it's [Empowered], give it +4 [M] this turn instead.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/891f0f85b039b16593865c74b90b0640a312e59b-744x1039.png",
+  "artist": "Kudos Productions"
+}

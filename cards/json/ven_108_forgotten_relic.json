@@ -1,0 +1,23 @@
+{
+  "id": "ven-108-166",
+  "name": "Forgotten Relic",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 108,
+  "public_code": "VEN-108/166",
+  "card_type": "gear",
+  "super_type": null,
+  "domains": [
+    "chaos"
+  ],
+  "tags": [],
+  "energy_cost": 5,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "rare",
+  "ability_text": "When you play this or at the start of your Beginning Phase, [Burn 1]. When you burn a unit this way, do this: Give a friendly unit +[M] equal to the burned card's Might this turn. (To Burn 1, put the top card of your Main Deck into your trash.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/e249b3c2a7f652dfb7549604f600792df11835b4-744x1039.png",
+  "artist": "Wild Blue Studios"
+}

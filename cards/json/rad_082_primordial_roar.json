@@ -1,0 +1,23 @@
+{
+  "id": "rad-082-167",
+  "name": "Primordial Roar",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 82,
+  "public_code": "RAD-082/167",
+  "card_type": "spell",
+  "super_type": null,
+  "domains": [
+    "body"
+  ],
+  "tags": [],
+  "energy_cost": 4,
+  "power_cost": 2,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "[Show Off] a unit. (As you play this, you may reveal a unit from hand or pick a friendly unit.)\nIf you showed off a unit, deal damage equal to that unit's Might to a unit.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/945633b0c2ed7f303245c917ffbcdb80dcfb524e-744x1039.png",
+  "artist": "Polar Engine Studio"
+}

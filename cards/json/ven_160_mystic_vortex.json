@@ -1,0 +1,21 @@
+{
+  "id": "ven-160-166",
+  "name": "Mystic Vortex",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 160,
+  "public_code": "VEN-160/166",
+  "card_type": "battlefield",
+  "super_type": null,
+  "domains": [],
+  "tags": [],
+  "energy_cost": null,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "During showdowns here, cards with [Reaction] cost [A] more to play. (Hidden cards have [Reaction].)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/55f6fec944c489010464cb554c4661d94518fa75-1039x744.png",
+  "artist": "Caravan Studio"
+}

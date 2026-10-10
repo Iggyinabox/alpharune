@@ -1,0 +1,26 @@
+{
+  "id": "ven-038-166",
+  "name": "Akali, Silent",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 38,
+  "public_code": "VEN-038/166",
+  "card_type": "unit",
+  "super_type": "champion",
+  "domains": [
+    "calm"
+  ],
+  "tags": [
+    "Ionia",
+    "Akali"
+  ],
+  "energy_cost": 4,
+  "power_cost": 1,
+  "might": 4,
+  "might_bonus": null,
+  "rarity": "rare",
+  "ability_text": "I can't be chosen by enemy spells and abilities unless I'm in combat.\nWhen I move to a battlefield, give me +2 [M] this turn.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/f1a4d73853194a3dde02c51b083d197af89d2bda-744x1039.png",
+  "artist": "League Splash Team"
+}

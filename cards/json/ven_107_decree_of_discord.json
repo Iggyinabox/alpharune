@@ -1,0 +1,23 @@
+{
+  "id": "ven-107-166",
+  "name": "Decree of Discord",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 107,
+  "public_code": "VEN-107/166",
+  "card_type": "spell",
+  "super_type": null,
+  "domains": [
+    "chaos"
+  ],
+  "tags": [],
+  "energy_cost": 1,
+  "power_cost": 1,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "rare",
+  "ability_text": "Return any number of enemy Order ([Y]) units with total Might 5 or less to their owners' hands.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/b0e82842acddb99c47af6793dab48164caf498c2-744x1039.png",
+  "artist": "Envar Studio"
+}

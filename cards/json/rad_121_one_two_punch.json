@@ -1,0 +1,21 @@
+{
+  "id": "rad-121-167",
+  "name": "One-Two Punch",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 121,
+  "public_code": "RAD-121/167",
+  "card_type": "spell",
+  "super_type": null,
+  "domains": [],
+  "tags": [],
+  "energy_cost": 3,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "[Action] (Play on your turn or in showdowns.)\n[Buff] a friendly unit and [Stun] an enemy unit. (Give the friendly unit a +1 [M] buff if it doesn't have one. The enemy unit doesn't deal combat damage this turn.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/1f246286c658d44dc4e7d51c158b2f822da39825-744x1039.png",
+  "artist": "Kudos Productions"
+}

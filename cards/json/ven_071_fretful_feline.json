@@ -1,0 +1,26 @@
+{
+  "id": "ven-071-166",
+  "name": "Fretful Feline",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 71,
+  "public_code": "VEN-071/166",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "body"
+  ],
+  "tags": [
+    "Cat",
+    "Piltover"
+  ],
+  "energy_cost": 6,
+  "power_cost": null,
+  "might": 5,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "When I become ready, give me +2 [M] this turn.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/24370c9e33705b393c40f426e221ae851a65dd05-744x1039.png",
+  "artist": "Six More Vodka"
+}

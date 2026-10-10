@@ -1,0 +1,27 @@
+{
+  "id": "ven-065-166",
+  "name": "Swain, Visionary",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 65,
+  "public_code": "VEN-065/166",
+  "card_type": "unit",
+  "super_type": "champion",
+  "domains": [
+    "mind"
+  ],
+  "tags": [
+    "Noxus",
+    "Swain",
+    "Demon"
+  ],
+  "energy_cost": 6,
+  "power_cost": 1,
+  "might": 6,
+  "might_bonus": null,
+  "rarity": "rare",
+  "ability_text": "[Vision] (When you play me, look at the top card of your Main Deck. You may recycle it.)\nWhen I conquer, if you've played a non-token unit, a non-token gear, and a spell this turn, you score 1 point.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/66d8ec4322d6734719451bb3e004b7d2ec71af87-744x1039.png",
+  "artist": "Six More Vodka"
+}

@@ -1,0 +1,23 @@
+{
+  "id": "ven-t04",
+  "name": "Recruit",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 4,
+  "public_code": "VEN-T04",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [],
+  "tags": [
+    "Recruit"
+  ],
+  "energy_cost": null,
+  "power_cost": null,
+  "might": 1,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": null,
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/08b9ccf225fc2ae9eb9b5668e5361b09789210ee-744x1039.png",
+  "artist": "Six More Vodka"
+}

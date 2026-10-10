@@ -1,0 +1,26 @@
+{
+  "id": "ven-021-166",
+  "name": "Akali, Deadly Weapon",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 21,
+  "public_code": "VEN-021/166",
+  "card_type": "unit",
+  "super_type": "champion",
+  "domains": [
+    "fury"
+  ],
+  "tags": [
+    "Ionia",
+    "Akali"
+  ],
+  "energy_cost": 3,
+  "power_cost": null,
+  "might": 3,
+  "might_bonus": null,
+  "rarity": "epic",
+  "ability_text": "[Empower] [2][R] ([2][R]: Empower me. Use only if not Empowered.)\nWhen I move, you may deal 1 to a unit at a battlefield I moved to or from. If I'm [Empowered], deal 2 instead.\n[Empowered][>] I have +1 [M].",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/564e5f35ae39b6604290e83f39ffb61c2b2b9175-744x1039.png",
+  "artist": "\u83ba\u4e4b\u6b4c"
+}

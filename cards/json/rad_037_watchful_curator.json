@@ -1,0 +1,23 @@
+{
+  "id": "rad-037-167",
+  "name": "Watchful Curator",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 37,
+  "public_code": "RAD-037/167",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "calm"
+  ],
+  "tags": [],
+  "energy_cost": 3,
+  "power_cost": 1,
+  "might": 4,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "Your gear have [Deflect]. (Opponents must pay [A] to choose each with a spell or ability.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/5081f81341bb02dfd26c970c09651fcf64a18a04-744x1039.png",
+  "artist": "Envar Studio"
+}

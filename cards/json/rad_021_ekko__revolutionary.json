@@ -1,0 +1,26 @@
+{
+  "id": "rad-021-167",
+  "name": "Ekko, Revolutionary",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 21,
+  "public_code": "RAD-021/167",
+  "card_type": "unit",
+  "super_type": "champion",
+  "domains": [
+    "fury"
+  ],
+  "tags": [
+    "Ekko",
+    "Zaun"
+  ],
+  "energy_cost": 5,
+  "power_cost": 1,
+  "might": 4,
+  "might_bonus": null,
+  "rarity": "epic",
+  "ability_text": "I enter ready.\n[Assault] (+1 [M] while I'm an attacker.)\n[Action][>] Discard 1, [1][R]: Banish me, then play me to your base, ignoring my cost.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/d13964c46506f9f36430dfe91ee02d258a304908-744x1039.png",
+  "artist": null
+}

@@ -1,0 +1,23 @@
+{
+  "id": "rad-008-167",
+  "name": "War Scout",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 8,
+  "public_code": "RAD-008/167",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "fury"
+  ],
+  "tags": [],
+  "energy_cost": 3,
+  "power_cost": null,
+  "might": 2,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "[Accelerate] (You may pay [1][R] as an additional cost to have me enter ready.)\nWhen you play me, give a unit +2 [M] this turn.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/3adae96f4731752074cf2145507a175dee800411-744x1039.png",
+  "artist": "Six More Vodka"
+}

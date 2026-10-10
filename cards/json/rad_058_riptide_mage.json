@@ -1,0 +1,23 @@
+{
+  "id": "rad-058-167",
+  "name": "Riptide Mage",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 58,
+  "public_code": "RAD-058/167",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "mind"
+  ],
+  "tags": [],
+  "energy_cost": 4,
+  "power_cost": 1,
+  "might": 3,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "[Accelerate] (You may pay [1][B] as an additional cost to have me enter ready.)\nWhen you play me, give an enemy unit -3 [M] this turn.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/4e3c24c1c315656772d0bfd8d100bc7893e94994-744x1039.png",
+  "artist": "Kudos Productions"
+}

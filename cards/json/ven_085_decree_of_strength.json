@@ -1,0 +1,23 @@
+{
+  "id": "ven-085-166",
+  "name": "Decree of Strength",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 85,
+  "public_code": "VEN-085/166",
+  "card_type": "spell",
+  "super_type": null,
+  "domains": [
+    "body"
+  ],
+  "tags": [],
+  "energy_cost": 1,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "rare",
+  "ability_text": "Choose an opponent. They reveal their hand and you choose a Mind ([B]) card from it. They recycle that card.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/12106889f9f76914421f38e8958a248462637a22-744x1039.png",
+  "artist": "Envar Studio"
+}

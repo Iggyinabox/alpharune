@@ -1,0 +1,25 @@
+{
+  "id": "ven-006-166",
+  "name": "Oasis Raider",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 6,
+  "public_code": "VEN-006/166",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "fury"
+  ],
+  "tags": [
+    "Shurima"
+  ],
+  "energy_cost": 4,
+  "power_cost": null,
+  "might": 4,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "If you control fewer runes than an opponent at the start of your Beginning Phase, give me +2 [M] and [Ganking] this turn. (I can move from battlefield to battlefield.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/d44355b9b129054e63b6f2c8de30518fe87b6295-744x1039.png",
+  "artist": "JiHun Lee"
+}

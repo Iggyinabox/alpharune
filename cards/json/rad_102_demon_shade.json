@@ -1,0 +1,23 @@
+{
+  "id": "rad-102-167",
+  "name": "Demon Shade",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 102,
+  "public_code": "RAD-102/167",
+  "card_type": "spell",
+  "super_type": null,
+  "domains": [
+    "fury"
+  ],
+  "tags": [],
+  "energy_cost": 3,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "[Hidden] (Hide now for [A] to react with later for [0].)\nChoose a friendly unit, then choose one \u2014\nMove it to an open battlefield.Give it [Ganking] this turn if there are no open battlefields. (It can move from battlefield to battlefield.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/e9dd313886624aafc7e0c7f9e1689225c042b484-744x1039.png",
+  "artist": "Luscinia Studio"
+}

@@ -1,0 +1,23 @@
+{
+  "id": "rad-057-167",
+  "name": "Piltovan Guidebot",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 57,
+  "public_code": "RAD-057/167",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "mind"
+  ],
+  "tags": [],
+  "energy_cost": 4,
+  "power_cost": null,
+  "might": 3,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "When you play a card, you may have my base Might become equal to that card's Energy cost this turn.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/9558ced7593f5a26911eb6e1393aae3289842e20-744x1039.png",
+  "artist": "Kudos Productions"
+}

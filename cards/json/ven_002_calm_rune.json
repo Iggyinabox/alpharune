@@ -1,0 +1,23 @@
+{
+  "id": "ven-r02",
+  "name": "Calm Rune",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 2,
+  "public_code": "VEN-R02",
+  "card_type": "rune",
+  "super_type": null,
+  "domains": [
+    "calm"
+  ],
+  "tags": [],
+  "energy_cost": null,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": null,
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/9b70aa1b334728a3e8beeea0c9154a2d0f79b1eb-744x1039.png",
+  "artist": "Greg Ghielmetti & Leah Chen"
+}

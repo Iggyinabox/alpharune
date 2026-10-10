@@ -1,0 +1,26 @@
+{
+  "id": "rad-145-167",
+  "name": "Lady of Clockwork",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 145,
+  "public_code": "RAD-145/167",
+  "card_type": "legend",
+  "super_type": null,
+  "domains": [
+    "calm",
+    "mind"
+  ],
+  "tags": [
+    "Orianna"
+  ],
+  "energy_cost": null,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "rare",
+  "ability_text": "At the start of your Main Phase, you may pay [1] to choose a friendly gear. It becomes a unit gear with Might equal to its Energy cost until you choose another gear with me.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/d1f940425d4d913d8f56c017254343bc898f4892-744x1039.png",
+  "artist": "Envar Studio"
+}

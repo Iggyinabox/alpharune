@@ -15,7 +15,7 @@
   ],
   "energy_cost": 2,
   "power_cost": null,
-  "might": null,
+  "might": 2,
   "might_bonus": 2,
   "rarity": "common",
   "ability_text": "When you play this, gain 1 XP.\n[Equip] \u2014 Spend 1 XP (Pay the cost: Attach this to a unit you control.)",

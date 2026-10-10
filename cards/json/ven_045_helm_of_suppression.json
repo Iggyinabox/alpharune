@@ -1,0 +1,23 @@
+{
+  "id": "ven-045-166",
+  "name": "Helm of Suppression",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 45,
+  "public_code": "VEN-045/166",
+  "card_type": "gear",
+  "super_type": null,
+  "domains": [
+    "calm"
+  ],
+  "tags": [],
+  "energy_cost": 4,
+  "power_cost": 1,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "epic",
+  "ability_text": "[Empower] [4][G] ([4][G]: Empower this. Use only if not Empowered.)\nOpponents' spells cost [1] more. If this is [Empowered], they cost [1][A] more instead.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/ecfe67bbdc04f5c16a845ccc7a1b8d534195ca70-744x1039.png",
+  "artist": "Kudos Productions"
+}

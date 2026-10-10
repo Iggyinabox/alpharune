@@ -1,0 +1,25 @@
+{
+  "id": "ven-079-166",
+  "name": "Dame the Despoiler",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 79,
+  "public_code": "VEN-079/166",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "body"
+  ],
+  "tags": [
+    "Noxus"
+  ],
+  "energy_cost": 5,
+  "power_cost": null,
+  "might": 5,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "[Empower] [5][O] ([5][O]: Empower me. Use only if not Empowered.)\n[Empowered][>] When I attack or defend, choose a unit here. Increase my Might to its Might this turn, then give me +1 [M] this turn.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/7c45dc79e72efc8ddf8c5b20d83474e23dc66e5e-744x1039.png",
+  "artist": "Kudos Productions"
+}

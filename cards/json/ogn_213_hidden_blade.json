@@ -16,7 +16,7 @@
   "might": null,
   "might_bonus": null,
   "rarity": "common",
-  "ability_text": "[Hidden] (Hide now for [A] to react with later for .)\n[Action] (Play on your turn or in showdowns.)\nKill a unit at a battlefield. Its controller draws 2.",
+  "ability_text": "[Hidden] (Hide now for [A] to react with later for [0].)\n[Action] (Play on your turn or in showdowns.)\nKill a unit at a battlefield. Its controller draws 2.",
   "effect_text": null,
   "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/0437ab8a0b67f43ef5483a103bbae9e57fd05822-744x1039.png",
   "artist": "Rafael Zanchetin"

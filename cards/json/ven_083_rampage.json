@@ -1,0 +1,23 @@
+{
+  "id": "ven-083-166",
+  "name": "Rampage",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 83,
+  "public_code": "VEN-083/166",
+  "card_type": "spell",
+  "super_type": null,
+  "domains": [
+    "body"
+  ],
+  "tags": [],
+  "energy_cost": 3,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "As you play this, you may pay [O] as an additional cost.\nChoose a friendly unit and an enemy unit. If you paid the additional cost, give the friendly unit +2 [M] this turn. They deal damage equal to their Mights to each other.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/3c85ae2c6bd5b2644651564fad0f86ad19c5709a-744x1039.png",
+  "artist": "Kudos Productions"
+}

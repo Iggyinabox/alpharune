@@ -1,0 +1,23 @@
+{
+  "id": "rad-005-167",
+  "name": "Lingering Animus",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 5,
+  "public_code": "RAD-005/167",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "fury"
+  ],
+  "tags": [],
+  "energy_cost": 2,
+  "power_cost": null,
+  "might": 2,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "I enter ready if a friendly unit or gear died this turn.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/5453008d27b3bb4f00941cb5a0d9ca52e4eb0245-744x1039.png",
+  "artist": "Six More Vodka"
+}

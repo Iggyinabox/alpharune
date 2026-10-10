@@ -1,0 +1,23 @@
+{
+  "id": "ven-015-166",
+  "name": "Decree of Rage",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 15,
+  "public_code": "VEN-015/166",
+  "card_type": "spell",
+  "super_type": null,
+  "domains": [
+    "fury"
+  ],
+  "tags": [],
+  "energy_cost": 1,
+  "power_cost": 1,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "rare",
+  "ability_text": "[Action] (Play on your turn or in showdowns.)\nThis can't be countered.\nDeal 4 to an enemy Calm ([G]) unit.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/320d9f52a4f22fa3405bb9da82c4d02451d7c133-744x1039.png",
+  "artist": "Envar Studio"
+}

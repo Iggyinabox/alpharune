@@ -1,0 +1,23 @@
+{
+  "id": "rad-055-167",
+  "name": "Clanging Sentry",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 55,
+  "public_code": "RAD-055/167",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "mind"
+  ],
+  "tags": [],
+  "energy_cost": 3,
+  "power_cost": null,
+  "might": 2,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "Your Mechs have [Disarm]. (When each of us attacks, give an enemy unit there -1 [M] this turn.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/5d4c22ef863e041887a00d34b2dae1f3ce658326-744x1039.png",
+  "artist": "Kudos Productions"
+}

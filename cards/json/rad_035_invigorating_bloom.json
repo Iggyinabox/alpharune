@@ -1,0 +1,23 @@
+{
+  "id": "rad-035-167",
+  "name": "Invigorating Bloom",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 35,
+  "public_code": "RAD-035/167",
+  "card_type": "gear",
+  "super_type": null,
+  "domains": [
+    "calm"
+  ],
+  "tags": [],
+  "energy_cost": 3,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "When you play this, give a friendly unit +3 [M] this turn.\nExhaust a friendly [Mighty] unit, [E]: Draw 1. (A unit is Mighty while it has 5+ [M].)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/66d4436ef5d7a7a81c60ee9b1b3ebae06162b7d2-744x1039.png",
+  "artist": "Kudos Productions"
+}

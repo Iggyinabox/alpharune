@@ -1,0 +1,26 @@
+{
+  "id": "ven-099-166",
+  "name": "Tornado Warrior",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 99,
+  "public_code": "VEN-099/166",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "chaos"
+  ],
+  "tags": [
+    "Yordle",
+    "Bandle City"
+  ],
+  "energy_cost": 3,
+  "power_cost": null,
+  "might": 3,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "[Hidden] (Hide now for [A] to react with later for [0].)\nWhen you play me from face down, you may empower something here. Disempower it at end of turn.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/f9b2ffecc997670713bffd3168e5578b5fb7a014-744x1039.png",
+  "artist": "Kudos Productions"
+}

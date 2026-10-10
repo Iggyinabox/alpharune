@@ -1,0 +1,23 @@
+{
+  "id": "rad-079-167",
+  "name": "Avalanche",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 79,
+  "public_code": "RAD-079/167",
+  "card_type": "spell",
+  "super_type": null,
+  "domains": [
+    "body"
+  ],
+  "tags": [],
+  "energy_cost": 5,
+  "power_cost": 2,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "Deal 3 to all units in bases.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/7b2103352935061e19cf90036a6aa4cd35ad5922-744x1039.png",
+  "artist": "Six More Vodka"
+}

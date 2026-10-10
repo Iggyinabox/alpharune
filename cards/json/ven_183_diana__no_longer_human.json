@@ -1,0 +1,26 @@
+{
+  "id": "ven-183-166",
+  "name": "Diana, No Longer Human",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 183,
+  "public_code": "VEN-183/166",
+  "card_type": "unit",
+  "super_type": "champion",
+  "domains": [
+    "chaos"
+  ],
+  "tags": [
+    "Diana",
+    "Mount Targon"
+  ],
+  "energy_cost": 4,
+  "power_cost": 1,
+  "might": 3,
+  "might_bonus": null,
+  "rarity": "showcase",
+  "ability_text": "[Ambush]\nWhen you play a spell, give me +2 [M] this turn.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/d5a7071e4f1af712c9bf5342ba70fbb2e359483f-744x1039.png",
+  "artist": "Naifan Zhang"
+}

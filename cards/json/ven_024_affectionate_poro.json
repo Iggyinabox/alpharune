@@ -1,0 +1,26 @@
+{
+  "id": "ven-024-166",
+  "name": "Affectionate Poro",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 24,
+  "public_code": "VEN-024/166",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "calm"
+  ],
+  "tags": [
+    "Poro",
+    "Noxus"
+  ],
+  "energy_cost": 3,
+  "power_cost": null,
+  "might": 3,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "When a combat that I was in ends, if I haven't been dealt damage this turn, draw 1.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/aa5fdc995322af38f540629fcf695f1080a14afb-744x1039.png",
+  "artist": "Six More Vodka"
+}

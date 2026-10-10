@@ -1,0 +1,26 @@
+{
+  "id": "ven-097-166",
+  "name": "Spiderling",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 97,
+  "public_code": "VEN-097/166",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "chaos"
+  ],
+  "tags": [
+    "Shadow Isles",
+    "Spider"
+  ],
+  "energy_cost": 3,
+  "power_cost": null,
+  "might": 1,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "[Hidden] (Hide now for [A] to react with later for [0].)\nI have +1 [M] for each other unit you control here with my name.\nYour deck can have any number of cards named Spiderling.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/fadf12e6e52eb5c70c65b479438f999f49d825fc-744x1039.png",
+  "artist": "Six More Vodka"
+}

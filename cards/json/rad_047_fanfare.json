@@ -1,0 +1,21 @@
+{
+  "id": "rad-047-167",
+  "name": "Fanfare",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 47,
+  "public_code": "RAD-047/167",
+  "card_type": "spell",
+  "super_type": null,
+  "domains": [],
+  "tags": [],
+  "energy_cost": 3,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "The next three times you play a unit this turn, draw 1.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/75a3d8fbfd8caeabfd5be38513a6624c61f5230f-744x1039.png",
+  "artist": "Kudos Productions"
+}

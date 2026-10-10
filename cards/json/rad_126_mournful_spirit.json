@@ -1,0 +1,25 @@
+{
+  "id": "rad-126-167",
+  "name": "Mournful Spirit",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 126,
+  "public_code": "RAD-126/167",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "order"
+  ],
+  "tags": [
+    "Spirit"
+  ],
+  "energy_cost": 4,
+  "power_cost": null,
+  "might": 1,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "[Deathknell][>] You may kill a unit or gear here. (When I die, get the effect.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/6d8500ac7efc5382985f566212d88ac8f41c135d-744x1039.png",
+  "artist": "Six More Vodka"
+}

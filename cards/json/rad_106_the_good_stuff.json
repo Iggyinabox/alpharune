@@ -1,0 +1,25 @@
+{
+  "id": "rad-106-167",
+  "name": "The Good Stuff",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 106,
+  "public_code": "RAD-106/167",
+  "card_type": "gear",
+  "super_type": null,
+  "domains": [
+    "body"
+  ],
+  "tags": [
+    "Device"
+  ],
+  "energy_cost": 3,
+  "power_cost": 1,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "[Deploy] (Play this only to a battlefield. When an opponent holds here, kill this.)\nWhen you play this, discard 1, then draw 3.\nWhen you hold here, return this to its owner's hand.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/e7dcc9ad059b471373f0093453a0ca7537d6aa0f-744x1039.png",
+  "artist": null
+}

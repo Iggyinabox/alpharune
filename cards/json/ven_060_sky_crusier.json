@@ -1,0 +1,25 @@
+{
+  "id": "ven-060-166",
+  "name": "Sky Crusier",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 60,
+  "public_code": "VEN-060/166",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "mind"
+  ],
+  "tags": [
+    "Piltover"
+  ],
+  "energy_cost": 4,
+  "power_cost": 1,
+  "might": 3,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "Discard a gear, [1], [E]: Deal 4 to a unit at a battlefield.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/4a99fbe995f6d5d71c1c46e1c38f64a9f9d7c3e9-744x1039.png",
+  "artist": "Kudos Productions"
+}

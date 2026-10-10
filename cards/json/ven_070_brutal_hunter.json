@@ -1,0 +1,25 @@
+{
+  "id": "ven-070-166",
+  "name": "Brutal Hunter",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 70,
+  "public_code": "VEN-070/166",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "body"
+  ],
+  "tags": [
+    "Noxus"
+  ],
+  "energy_cost": 3,
+  "power_cost": 1,
+  "might": 4,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "[Empower] [3] ([3]: Empower me. Use only if not Empowered.)\n[Empowered][>] I have +2 [M] and [Ganking]. (I can move from battlefield to battlefield.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/54122304a3bb1f989faf124cb74fd7d41b029681-744x1039.png",
+  "artist": "Six More Vodka"
+}

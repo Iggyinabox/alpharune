@@ -1,0 +1,27 @@
+{
+  "id": "rad-156-167",
+  "name": "Demacian Standard",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 156,
+  "public_code": "RAD-156/167",
+  "card_type": "gear",
+  "super_type": "signature",
+  "domains": [
+    "body",
+    "order"
+  ],
+  "tags": [
+    "Device",
+    "Jarvan IV"
+  ],
+  "energy_cost": 2,
+  "power_cost": 1,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "epic",
+  "ability_text": "[Deploy] (Play this only to a battlefield. When an opponent holds here, kill this.)\nWhen one or more friendly units attack here, give one of them +2 [M] this turn.\nWhen you hold here, you may return this to its owner's hand.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/315b0f7901a83df38b9765f12b1edfdc7de566a3-744x1040.png",
+  "artist": "Luscinia Studio"
+}

@@ -15,7 +15,7 @@
   ],
   "energy_cost": 3,
   "power_cost": 2,
-  "might": null,
+  "might": 3,
   "might_bonus": 3,
   "rarity": "rare",
   "ability_text": "[Quick-Draw] (This has [Reaction]. When you play it, attach it to a unit you control.)\n[Equip] [G] ([G]: Attach this to a unit you control.)",

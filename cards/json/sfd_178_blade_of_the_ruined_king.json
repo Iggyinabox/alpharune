@@ -15,7 +15,7 @@
   ],
   "energy_cost": 3,
   "power_cost": 1,
-  "might": null,
+  "might": 4,
   "might_bonus": 4,
   "rarity": "epic",
   "ability_text": "[Equip] \u2014 [Y], Kill a friendly unit (Pay the cost: Attach this to a unit you control.)",

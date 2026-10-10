@@ -1,0 +1,23 @@
+{
+  "id": "rad-070-167",
+  "name": "Hold 'Em",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 70,
+  "public_code": "RAD-070/167",
+  "card_type": "spell",
+  "super_type": null,
+  "domains": [
+    "body"
+  ],
+  "tags": [],
+  "energy_cost": 3,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "[Action] (Play on your turn or in showdowns.)\nThis costs [2] less if you've played a unit or gear to a battlefield this turn.\nGive a unit +3 [M] this turn.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/0d9af22d38d32b0ec2a6584d25abe201730f9e11-744x1039.png",
+  "artist": "Kudos Productions"
+}

@@ -1,0 +1,23 @@
+{
+  "id": "ven-051-166",
+  "name": "Iterative Design",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 51,
+  "public_code": "VEN-051/166",
+  "card_type": "spell",
+  "super_type": null,
+  "domains": [
+    "mind"
+  ],
+  "tags": [],
+  "energy_cost": 4,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "Play a 3 [M] Mech unit token.\n[Flow] [2][B] (You may play this from your trash for its Flow cost. Then banish it.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/8d85a05075f95b63832ed7aa15620041eacb49d3-744x1039.png",
+  "artist": "Kudos Productions"
+}

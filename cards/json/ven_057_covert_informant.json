@@ -1,0 +1,25 @@
+{
+  "id": "ven-057-166",
+  "name": "Covert Informant",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 57,
+  "public_code": "VEN-057/166",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "mind"
+  ],
+  "tags": [
+    "Noxus"
+  ],
+  "energy_cost": 3,
+  "power_cost": 1,
+  "might": 4,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "[Empower] [3] ([3]: Empower me. Use only if not Empowered.)\n[Empowered][>] When I move, draw 1.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/ff33454bf980a5c884b63e524c6580408e9b94e3-744x1039.png",
+  "artist": "Grafit Studio"
+}

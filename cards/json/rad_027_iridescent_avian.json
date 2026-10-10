@@ -1,0 +1,23 @@
+{
+  "id": "rad-027-167",
+  "name": "Iridescent Avian",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 27,
+  "public_code": "RAD-027/167",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "calm"
+  ],
+  "tags": [],
+  "energy_cost": 3,
+  "power_cost": null,
+  "might": 3,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "[E]: [Buff] a unit. If it's already buffed, give it +2 [M] this turn instead. (To buff a unit, give it a +1 [M] buff if it doesn't have one.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/73fde9189b222313dcf8c2abe79b38082c76961e-744x1039.png",
+  "artist": "Envar Studio"
+}

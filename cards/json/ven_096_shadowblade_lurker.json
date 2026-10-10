@@ -1,0 +1,25 @@
+{
+  "id": "ven-096-166",
+  "name": "Shadowblade Lurker",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 96,
+  "public_code": "VEN-096/166",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "chaos"
+  ],
+  "tags": [
+    "Ionia"
+  ],
+  "energy_cost": 5,
+  "power_cost": null,
+  "might": 5,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "I cost [2] less for each card with my name in your trash.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/f42e9286c968db8cd37fb2911617b8c78de7d516-744x1040.png",
+  "artist": "Six More Vodka"
+}

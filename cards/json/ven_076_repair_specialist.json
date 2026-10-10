@@ -1,0 +1,25 @@
+{
+  "id": "ven-076-166",
+  "name": "Repair Specialist",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 76,
+  "public_code": "VEN-076/166",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "body"
+  ],
+  "tags": [
+    "Zaun"
+  ],
+  "energy_cost": 3,
+  "power_cost": null,
+  "might": 3,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "I have [Assault] equal to the number of gear you control. (+1 [M] while I'm an attacker for each instance of Assault.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/b1ef578e372e64afbce717384fb8a3b7fd841fc8-744x1039.png",
+  "artist": "Dao Trong Le"
+}

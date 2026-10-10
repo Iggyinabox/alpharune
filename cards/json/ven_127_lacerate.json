@@ -1,0 +1,23 @@
+{
+  "id": "ven-127-166",
+  "name": "Lacerate",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 127,
+  "public_code": "VEN-127/166",
+  "card_type": "spell",
+  "super_type": null,
+  "domains": [
+    "order"
+  ],
+  "tags": [],
+  "energy_cost": 2,
+  "power_cost": 1,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "Choose a unit. If it's [Empowered], disempower it. Then kill it if it has 3 [M] or less.\n[Flow] [4][Y][Y] (You may play this from your trash for its Flow cost. Then banish it.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/f21bbd09545d949f095756281e5506128eb4809d-744x1039.png",
+  "artist": "Polar Engine Studio"
+}

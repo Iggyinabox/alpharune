@@ -1,0 +1,21 @@
+{
+  "id": "ven-159-166",
+  "name": "Kinkou Temple",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 159,
+  "public_code": "VEN-159/166",
+  "card_type": "battlefield",
+  "super_type": null,
+  "domains": [],
+  "tags": [],
+  "energy_cost": null,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "Units here with [Tank] have +1 [M].",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/afef083faa1f3813e5744a552c9873c798bedfd5-1039x744.png",
+  "artist": "Grafit Studio"
+}

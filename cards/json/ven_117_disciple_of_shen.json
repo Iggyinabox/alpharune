@@ -1,0 +1,25 @@
+{
+  "id": "ven-117-166",
+  "name": "Disciple of Shen",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 117,
+  "public_code": "VEN-117/166",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "order"
+  ],
+  "tags": [
+    "Ionia"
+  ],
+  "energy_cost": 2,
+  "power_cost": null,
+  "might": 1,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "[Hidden] (Hide now for [A] to react with later for [0].)\nI have [Shield 3] while I'm at a battlefield with exactly one other unit you control. (+3 [M] while I'm a defender.)",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/de5b6316d65297e67a97d12d7c70974f7d3ce7d6-744x1039.png",
+  "artist": "Six More Vodka"
+}

@@ -1,0 +1,23 @@
+{
+  "id": "rad-105-167",
+  "name": "Reckless Innovator",
+  "set": "RAD",
+  "set_name": "Radiance",
+  "collector_number": 105,
+  "public_code": "RAD-105/167",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "chaos"
+  ],
+  "tags": [],
+  "energy_cost": 3,
+  "power_cost": null,
+  "might": 3,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "[Accelerate] (You may pay [1][P] as an additional cost to have me enter ready.)\nWhen I become exhausted, choose one \u2014\nPlay a Gold gear token exhausted. (It has \"[Reaction][>] Kill this, [E]: [Add] [A].\")Pay [P] to draw 1.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/b7ff5684309bcd346e6b3534e0d1f38ec1a38726-744x1039.png",
+  "artist": "Six More Vodka"
+}

@@ -1,0 +1,25 @@
+{
+  "id": "ven-184-166",
+  "name": "Leona, Determined",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 184,
+  "public_code": "VEN-184/166",
+  "card_type": "unit",
+  "super_type": "champion",
+  "domains": [
+    "order"
+  ],
+  "tags": [
+    "Leona"
+  ],
+  "energy_cost": 4,
+  "power_cost": 1,
+  "might": 4,
+  "might_bonus": null,
+  "rarity": "showcase",
+  "ability_text": "[Shield]\nWhen I attack, stun an enemy unit here.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/92ac39878346a886129b6d339ab3d9e6c722a7eb-744x1039.png",
+  "artist": "Naifan Zhang"
+}

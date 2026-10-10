@@ -17,7 +17,7 @@
   ],
   "energy_cost": 2,
   "power_cost": 1,
-  "might": null,
+  "might": 3,
   "might_bonus": 3,
   "rarity": "epic",
   "ability_text": "[Quick-Draw] (This has [Reaction]. When you play it, attach it to a unit you control.)\n[Equip] [A] ([A]: Attach this to a unit you control.)\n[Temporary] (If this is unattached, kill it at the start of its controller's Beginning Phase, before scoring.)",

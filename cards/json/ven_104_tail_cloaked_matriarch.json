@@ -1,0 +1,25 @@
+{
+  "id": "ven-104-166",
+  "name": "Tail-Cloaked Matriarch",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 104,
+  "public_code": "VEN-104/166",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "chaos"
+  ],
+  "tags": [
+    "Ionia"
+  ],
+  "energy_cost": 4,
+  "power_cost": null,
+  "might": 4,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "[Empower] [2][P] ([2][P]: Empower me. Use only if not Empowered.)\nWhen I become [Empowered], you may choose a unit in your trash with Energy cost no more than [3] and Power cost no more than [A]. Play it to your base, ignoring its cost.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/91a04e2131245c81c2eac486e63925592b0e253a-744x1039.png",
+  "artist": "Six More Vodka"
+}

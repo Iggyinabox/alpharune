@@ -1,0 +1,25 @@
+{
+  "id": "ven-082-166",
+  "name": "Profiteer",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 82,
+  "public_code": "VEN-082/166",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "body"
+  ],
+  "tags": [
+    "Shurima"
+  ],
+  "energy_cost": 4,
+  "power_cost": null,
+  "might": 4,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "When you play me, you may disempower something you control to empower a legend, unit, or gear.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/27955854d3f04ed95e87152f066f99671af2f9f1-744x1039.png",
+  "artist": "Grafit Studio"
+}

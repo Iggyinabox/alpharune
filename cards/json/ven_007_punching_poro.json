@@ -1,0 +1,26 @@
+{
+  "id": "ven-007-166",
+  "name": "Punching Poro",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 7,
+  "public_code": "VEN-007/166",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "fury"
+  ],
+  "tags": [
+    "Poro",
+    "Ionia"
+  ],
+  "energy_cost": 2,
+  "power_cost": null,
+  "might": 2,
+  "might_bonus": null,
+  "rarity": "common",
+  "ability_text": "[Empower] \u2014 Discard 1 (Pay the cost: Empower me. Use only if not Empowered.)\n[Empowered][>] I have +1 [M].",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/03b9a8e704e0f09b686d89d4c2d79f100f212b0f-744x1039.png",
+  "artist": "Six More Vodka"
+}

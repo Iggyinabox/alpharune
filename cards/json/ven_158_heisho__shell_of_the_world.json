@@ -1,0 +1,21 @@
+{
+  "id": "ven-158-166",
+  "name": "Heisho, Shell of the World",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 158,
+  "public_code": "VEN-158/166",
+  "card_type": "battlefield",
+  "super_type": null,
+  "domains": [],
+  "tags": [],
+  "energy_cost": null,
+  "power_cost": null,
+  "might": null,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "Players ignore [Deflect] while paying for spells and abilities choosing something here.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/075d4b78c065a96845ac978c86af3a3349cb5501-1039x744.png",
+  "artist": "Envar Studio"
+}

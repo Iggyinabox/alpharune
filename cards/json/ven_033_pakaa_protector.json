@@ -1,0 +1,26 @@
+{
+  "id": "ven-033-166",
+  "name": "Pakaa Protector",
+  "set": "VEN",
+  "set_name": "Vendetta",
+  "collector_number": 33,
+  "public_code": "VEN-033/166",
+  "card_type": "unit",
+  "super_type": null,
+  "domains": [
+    "calm"
+  ],
+  "tags": [
+    "Cat",
+    "Shurima"
+  ],
+  "energy_cost": 5,
+  "power_cost": null,
+  "might": 4,
+  "might_bonus": null,
+  "rarity": "uncommon",
+  "ability_text": "When I move, reveal the top card of your Main Deck. If it's a unit, draw it. Otherwise, put it in your trash and give me +2 [M] this turn.",
+  "effect_text": null,
+  "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/ab3be32adadb72831c07750d8defc7918fd32d96-744x1039.png",
+  "artist": "Bubble Cat Studio"
+}
