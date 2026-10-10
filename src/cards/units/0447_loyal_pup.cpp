@@ -14,6 +14,7 @@ namespace {
 class LoyalPup : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // "When you defend at a battlefield, you may move me there."
     // Wired via WhenYouDefendAtABattlefield (TriggerManager::onCombatStarted
     // fires this on the defending player's on-board cards and stashes the
@@ -35,6 +36,7 @@ public:
                                           !already_here(); };
         int conf = confirmOptional(ctx, "Loyal Pup: move me to the defended battlefield?",
                                    still_legal);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (conf == -1) return;   // waiting for agent
         if (conf < 1) return;     // declined / already there
         ctx.executor.moveToBattlefield(ctx.source, bf);

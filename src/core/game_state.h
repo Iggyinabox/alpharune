@@ -483,6 +483,24 @@ struct ChainItem {
     int resume_point = 0;
     std::vector<int32_t> resume_data;
 
+    // ── Choices made at finalization (CR 355, 383.3) ──
+    // A card that opts in (Card::choicesAtFinalization) has its callback run
+    // once when the item is finalized, with `finalizing` set: the choice
+    // helpers ask the agent as usual and the card returns before its effect
+    // (Card::finalizingChoices). The answers stay on the item; when it
+    // resolves (`choices_finalized`) the helpers return them without asking.
+    bool finalizing = false;
+    bool choices_finalized = false;
+    // A cost was paid during the finalize pass (Card::costDueNow), so it is
+    // not charged again at resolution.
+    bool finalize_costs_paid = false;
+    // confirmOptional's answer: -1 not asked, 0 no, 1 yes, 2 yes and
+    // re-validated at resolution.
+    int8_t may_answer = -1;
+    // Finalized targets are checked for legality once as the item resolves
+    // (a target that is no longer legal is a mistarget). 1 = single, 2 = pair.
+    uint8_t finalize_checked = 0;
+
     // ── Repeat (CR 820) — optional additional cost ──
     // `repeats_paid` is the number of times the Repeat cost was paid as
     // the spell was played. The spell's effect resolves `1 + repeats_paid`

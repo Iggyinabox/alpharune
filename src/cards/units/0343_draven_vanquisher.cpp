@@ -15,6 +15,7 @@ namespace {
 class DravenVanquisher : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
 
     // "When I win a combat, play a Gold gear token exhausted.
     //  When I attack or defend, you may pay [R]. If you do, give me +2 [M]
@@ -24,6 +25,7 @@ public:
     }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>&) override {
         if (ctx.firing_trigger == TriggerType::WhenIWinCombat) {
+            if (finalizingChoices(ctx)) return;   // no choices
             createGoldExhausted(ctx);
             ctx.events.logTrace("DRAVEN: won combat -> Gold gear token (exhausted)");
             return;
@@ -46,7 +48,8 @@ public:
                                        has_fury_power);
             if (conf == -1) return;  // waiting for agent
             if (conf == 0) return;   // declined / can't pay
-            if (!payOnePower(ctx, ctx.controller, Domain::Fury)) return;
+            if (costDueNow(ctx) && !payOnePower(ctx, ctx.controller, Domain::Fury)) return;
+            if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
             ctx.executor.giveTemporaryMight(ctx.source, 2);
             ctx.events.logTrace("DRAVEN: paid [R] -> +2 [M] this turn");
             return;

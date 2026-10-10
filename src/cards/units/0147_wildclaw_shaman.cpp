@@ -14,6 +14,7 @@ namespace {
 class WildclawShaman : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouPlayMe; }
     // "When you play me, you may spend a buff to buff me and ready me. (If I
     // don't have a buff, I get a +1 [M] buff.)" Optional: on yes, ensure I have
@@ -23,6 +24,7 @@ public:
         auto still_legal = [&]() { return ctx.state.objectExists(ctx.source); };
         int conf = confirmOptional(ctx, "Wildclaw Shaman: buff & ready me?",
                                    still_legal);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (conf == -1) return;  // waiting for agent
         if (conf < 1) return;    // declined
         if (!ctx.state.objectExists(ctx.source)) return;

@@ -15,6 +15,7 @@ namespace {
 class Rampage : public SpellCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeResolve; }
     // "As you play this, you may pay [O] as an additional cost. Choose a
     //  friendly unit and an enemy unit. If you paid the additional cost, give
     //  the friendly unit +2 [M] this turn. They deal damage equal to their
@@ -46,6 +47,7 @@ public:
         auto [friendly, enemy] = pickTargetPair(
             ctx, "Rampage", units(ctx.state, me, true),
             [&](GameObjectId) { return units(ctx.state, me, false); });
+            if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if ((friendly == kInvalidId || enemy == kInvalidId) &&
             ctx.state.chain.resuming.has_value() &&
             (ctx.state.chain.resuming->resume_point == 10 ||

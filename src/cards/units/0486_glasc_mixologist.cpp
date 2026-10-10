@@ -15,6 +15,7 @@ namespace {
 class GlascMixologist : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenIDie; }
 
     // Eligible units in trash: card_type Unit with printed energy cost <= 3.
@@ -46,6 +47,7 @@ public:
         if (eligible.empty()) return;
         GameObjectId picked = pickTarget(ctx, "Glasc Mixologist (unit from trash)",
                                           eligible);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         // Suspended for agent decision.
         if (picked == kInvalidId && ctx.state.chain.resuming.has_value() &&
             ctx.state.chain.resuming->resume_point == 7) {

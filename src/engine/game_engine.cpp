@@ -1183,8 +1183,16 @@ int GameEngine::activationEnergyReduction(const Card& card, PlayerId player,
 // pickTarget then returns this choice at resolution, or nothing if it is no
 // longer legal (a mistarget: the instruction is ignored).
 void GameEngine::chooseTargetsAtFinalize(ChainItem& item) {
-    if (!item.targets.empty() || item.card_def_id == kInvalidId) return;
-    if (item.is_ability && !item.is_activated_ability) return;   // triggered: card decides
+    if (item.card_def_id == kInvalidId) return;
+    if (item.is_ability && !item.is_activated_ability) {
+        // A triggered ability: its "you may", costs and targets (CR 383.3).
+        // (`targets` carries the triggering event's subject, not a choice.)
+        const Card* tcard = card_registry_.get(item.card_def_id);
+        if (tcard && (tcard->choicesAtFinalization() & Card::kFinalizeTrigger))
+            runFinalizePass(item);
+        return;
+    }
+    if (!item.targets.empty()) return;
     const Card* card = (item.is_ability && item.granted_ability_def != 0)
         ? card_registry_.get(item.granted_ability_def)
         : card_registry_.get(item.card_def_id);
@@ -1192,12 +1200,19 @@ void GameEngine::chooseTargetsAtFinalize(ChainItem& item) {
 
     std::vector<GameObjectId> legal;
     if (item.is_spell) {
-        if (!card->needsPlayTimeTarget()) return;
+        if (!card->needsPlayTimeTarget()) {
+            if (card->choicesAtFinalization() & Card::kFinalizeResolve) runFinalizePass(item);
+            return;
+        }
         legal = card->enumerateLegalTargets(state_, item.controller);
     } else {
         auto abs = card->activatedAbilities();
         if (item.ability_index < 0 || item.ability_index >= static_cast<int>(abs.size())) return;
-        if (!abs[item.ability_index].needs_activation_time_target) return;
+        if (abs[item.ability_index].is_empower) return;
+        if (!abs[item.ability_index].needs_activation_time_target) {
+            if (card->choicesAtFinalization() & Card::kFinalizeActivate) runFinalizePass(item);
+            return;
+        }
         legal = card->enumerateLegalTargets(state_, item.controller, item.ability_index);
     }
     if (legal.empty()) return;   // nothing to choose now: the card handles it as it resolves
@@ -1253,6 +1268,47 @@ void GameEngine::chooseTargetsAtFinalize(ChainItem& item) {
             events_.emit(ObjectStateChangedEvent{t, "chosen_by_controller"});
         else
             state_.player(chooser).chose_enemy_unit_this_turn = true;
+    }
+}
+
+// Runs an opted-in card's callback once as its chain item is finalized, so the
+// choice helpers (confirmOptional / pickMode / pickTarget / pickTargetPair) ask
+// the agent now and costs are paid now; the card returns at its
+// Card::finalizingChoices marker, before the effect. The answers are written
+// back to the item, and the helpers return them when it resolves.
+void GameEngine::runFinalizePass(ChainItem& item) {
+    // An item is mid-resolution (this one was added by its effect): the
+    // resume slot is taken, so this item decides as it resolves instead.
+    if (state_.chain.resuming.has_value()) return;
+    const ChainItemId item_id = item.id;
+    state_.chain.resuming = item;
+    state_.chain.resuming->finalizing = true;
+
+    constexpr int kMaxChoices = 16;
+    for (int iter = 0; iter < kMaxChoices; ++iter) {
+        resolveSpell(*state_.chain.resuming);
+        if (!effect_executor_->hasPendingChoice()) break;
+        auto pending = effect_executor_->consumePendingChoice();
+        events_.logTrace(std::string("CHOICE-REQUEST (finalize): ") +
+                         (pending.label.empty() ? "MakeChoice" : pending.label) + " [" +
+                         std::to_string(pending.legal.size()) + " options] (" +
+                         toString(pending.player) + ")");
+        Intent choice = queryAgentForChain(pending.player, pending.legal);
+        effect_executor_->recordChoice(std::move(choice));
+    }
+
+    ChainItem done = std::move(*state_.chain.resuming);
+    state_.chain.resuming.reset();
+    for (auto& ci : state_.chain.items) {
+        if (ci.id != item_id) continue;
+        ci.resume_point = done.resume_point;
+        ci.resume_data = std::move(done.resume_data);
+        ci.chosen_objects = std::move(done.chosen_objects);
+        ci.may_answer = done.may_answer;
+        ci.finalize_costs_paid = done.finalize_costs_paid;
+        ci.finalize_checked = 0;
+        ci.choices_finalized = true;
+        break;
     }
 }
 
@@ -1773,7 +1829,8 @@ void GameEngine::runChain() {
 void GameEngine::resolveSpell(const ChainItem& item) {
     {
         std::string name = state_.objectExists(item.source) ? state_.getObject(item.source).name : "?";
-        events_.logTrace("RESOLVE: " + name + " (chain_item=" + std::to_string(item.id) +
+        events_.logTrace(std::string(item.finalizing ? "FINALIZE-CHOICES: " : "RESOLVE: ") +
+                         name + " (chain_item=" + std::to_string(item.id) +
                          ", ability=" + std::to_string(item.is_ability) +
                          ", spell=" + std::to_string(item.is_spell) + ")");
     }
@@ -1883,7 +1940,7 @@ void GameEngine::resolveSpell(const ChainItem& item) {
                     act_card->onActivate(ctx, item.ability_index, effective_targets);
                 }
                 // Prize of Progress: a gear's activated ability was used.
-                if (state_.objectExists(item.source) &&
+                if (!item.finalizing && state_.objectExists(item.source) &&
                     state_.getObject(item.source).isGear()) {
                     events_.emit(ObjectStateChangedEvent{item.source,
                                                          "gear_ability_used"});

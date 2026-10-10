@@ -15,6 +15,7 @@ namespace {
 class OceanDrake : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // ── behaviour (Vendetta batch C) ──
     // "You may play me to an open battlefield." — engine-handled: the unit
     // play generator matches "play me to an open battlefield" in ability_text.
@@ -29,6 +30,7 @@ public:
                                    [&]() { return !nonDragons(ctx).empty(); });
         if (conf < 1) return;
         GameObjectId picked = pickTarget(ctx, "Ocean Drake: return to hand", nonDragons(ctx));
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (picked == kInvalidId || !ctx.state.objectExists(picked)) return;
         ctx.executor.bounceToHand(picked);
     }

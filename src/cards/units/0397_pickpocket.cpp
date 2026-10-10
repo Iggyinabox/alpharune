@@ -15,6 +15,7 @@ namespace {
 class Pickpocket : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
 
     // "When you play me, you may kill a gear with Energy cost no more than [1].
     //  If you do, play a Gold gear token exhausted."
@@ -39,6 +40,7 @@ public:
 
         GameObjectId gear = pickTarget(ctx, "Pickpocket: choose a gear to kill",
                                        candidates());
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (gear == kInvalidId || !ctx.state.objectExists(gear)) return;
         ctx.executor.killObject(gear);
         // "If you do, play a Gold gear token exhausted."

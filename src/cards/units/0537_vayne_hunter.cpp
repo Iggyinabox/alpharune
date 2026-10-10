@@ -18,6 +18,7 @@ namespace {
 class VayneHunter_537 : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
 
     bool entersReadyOnPlay(const GameState& state, PlayerId controller) const override {
         PlayerId opp = opponent(controller);
@@ -38,7 +39,8 @@ public:
                    payableEnergy(ctx.state, ctx.controller) >= 1;
         });
         if (conf != 1) return;
-        if (!payEnergy(ctx, ctx.controller, 1)) return;
+        if (costDueNow(ctx) && !payEnergy(ctx, ctx.controller, 1)) return;
+        if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
         ctx.executor.bounceToHand(ctx.source);
         ctx.events.logTrace("VAYNE, HUNTER: conquer -> paid [1] to return to hand");
     }

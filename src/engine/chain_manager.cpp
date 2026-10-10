@@ -436,6 +436,10 @@ void ChainManager::stepResolve(
             // branch fresh on each repeat.
             state_.chain.resuming->resume_point = 0;
             state_.chain.resuming->resume_data.clear();
+            state_.chain.resuming->may_answer = -1;
+            state_.chain.resuming->choices_finalized = false;
+            state_.chain.resuming->finalize_costs_paid = false;
+            state_.chain.resuming->finalize_checked = 0;
             if (state_.chain.resuming->is_spell || state_.chain.resuming->is_ability) {
                 resolve_spell(state_.chain.resuming.value());
             }

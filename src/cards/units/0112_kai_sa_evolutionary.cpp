@@ -15,6 +15,7 @@ namespace {
 class KaiSaEvolutionary : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenIConquer; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         if (!ctx.state.objectExists(ctx.source)) return;
@@ -40,6 +41,7 @@ public:
         int conf = confirmOptional(ctx,
             "Kai'Sa: play a spell (Energy cost < points) from trash without Energy cost?",
             still_legal);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (conf != 1) return;
 
         GameObjectId chosen = find_spell();

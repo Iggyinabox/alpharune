@@ -15,6 +15,7 @@ namespace {
 class DameTheDespoiler : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
 
     // "[Empower] [5][O]"
     EmpowerSpec empowerSpec() const override { return empowerCost(5, 1, Domain::Body); }
@@ -33,6 +34,7 @@ public:
             });
         std::sort(here.begin(), here.end());
         auto picked = pickTarget(ctx, "Dame the Despoiler: choose a unit here", here);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (picked == kInvalidId || !ctx.state.objectExists(picked)) return;
         const int theirs = ctx.state.getObject(picked).current_might;
         const int mine = ctx.state.getObject(ctx.source).current_might;

@@ -15,6 +15,7 @@ namespace {
 class GentlemenSDuel : public SpellCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeResolve; }
 
     // "Give a friendly unit +3 [M] this turn. Then choose an enemy unit.
     // They deal damage equal to their Mights to each other."
@@ -41,6 +42,7 @@ public:
         auto [friendly, enemy] = pickTargetPair(
             ctx, "Gentlemen's Duel: friendly unit, then enemy unit",
             legal_a, legal_b_fn);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (friendly == kInvalidId) return;  // suspend or fizzle
 
         // Give the friendly unit +3 [M] this turn (resolves before the duel).

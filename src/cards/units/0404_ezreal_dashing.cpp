@@ -18,6 +18,7 @@ namespace {
 class EzrealDashing : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
 
     // ── Trigger: deal damage = my Might to an enemy unit here ──
     TriggerType triggerType() const override { return TriggerType::WhenIAttackOrDefend; }
@@ -32,6 +33,7 @@ public:
             here.push_back(id);
         }
         GameObjectId tgt = pickTarget(ctx, "Ezreal: deal Might damage to an enemy here", here);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (tgt == kInvalidId || !ctx.state.objectExists(tgt)) return;
         int dmg = ctx.state.getObject(ctx.source).current_might;
         ctx.executor.dealDamage(tgt, dmg, ctx.source);

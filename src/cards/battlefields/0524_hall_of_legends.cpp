@@ -15,6 +15,7 @@ namespace {
 class HallOfLegends : public BattlefieldCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouConquerHere; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>&) override {
         // "You may pay [1]" is this ability's cost (CR 383.3.b); whether the
@@ -35,7 +36,8 @@ public:
         if (conf == -1) return;  // waiting on agent
         if (conf == 0) return;   // declined / can't pay
         auto& ps = ctx.state.player(ctx.controller);
-        if (!payEnergy(ctx, ctx.controller, 1)) return;
+        if (costDueNow(ctx) && !payEnergy(ctx, ctx.controller, 1)) return;
+        if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
         GameObjectId lz = ps.legend_zone;
         if (lz != kInvalidId && ctx.state.objectExists(lz)) {
             ctx.executor.readyObject(lz);

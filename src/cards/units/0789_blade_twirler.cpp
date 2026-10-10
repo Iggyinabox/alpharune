@@ -15,6 +15,7 @@ namespace {
 class BladeTwirler : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // "The first time I move each turn, choose a player. They [Burn 1]."
     TriggerType triggerType() const override { return TriggerType::WhenIMove; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
@@ -32,6 +33,7 @@ public:
         // Mode 0 = the opponent, mode 1 = yourself.
         int mode = pickMode(ctx, "Blade Twirler: choose a player to [Burn 1]", 2,
                             {"Opponent burns 1", "You burn 1"});
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (mode < 0) return;  // waiting for agent
         PlayerId who = (mode == 0) ? opponent(ctx.controller) : ctx.controller;
         ctx.executor.burn(who, 1);

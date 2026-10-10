@@ -15,6 +15,7 @@ namespace {
 class MinahSwiftfoot : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // ── behaviour (Vendetta batch C) ──
     // "When I move to a battlefield, choose one — Each player discards 1. /
     //  Each player draws 1."
@@ -22,6 +23,7 @@ public:
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         int mode = pickMode(ctx, "Minah Swiftfoot", 2,
                             {"Each player discards 1", "Each player draws 1"});
+                            if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (mode < 0) return;   // waiting for the agent
         for (auto p : {ctx.controller, opponent(ctx.controller)}) {
             if (mode == 0) ctx.executor.discardCards(p, 1);

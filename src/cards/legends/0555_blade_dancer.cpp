@@ -15,6 +15,7 @@ namespace {
 class BladeDancer : public LegendCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
 
     std::vector<TriggerType> triggerTypes() const override {
         return {TriggerType::WhenYouChooseAFriendlyUnit, TriggerType::WhenIConquer};
@@ -32,11 +33,12 @@ public:
                 // CR 445.2 / 164.2.a: floating Energy or a ready rune can pay.
                 return payableEnergy(ctx.state, ctx.controller) >= 1;
             };
-            if (!still_legal()) return;
+            if (!costAlreadyPaid(ctx) && !still_legal()) return;
             int conf = confirmOptional(ctx, "Blade Dancer: pay [1] to ready me?",
                                        still_legal);
             if (conf < 1) return;
-            if (!payEnergy(ctx, ctx.controller, 1)) return;
+            if (costDueNow(ctx) && !payEnergy(ctx, ctx.controller, 1)) return;
+            if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
             ctx.executor.readyObject(ctx.source);
             ctx.events.logTrace("BLADE DANCER: paid [1] -> ready me");
             return;
@@ -67,8 +69,12 @@ public:
             int conf = confirmOptional(ctx,
                 "Blade Dancer: exhaust me + pay [A] to ready the chosen unit?", still_legal);
             if (conf != 1) return;
-            if (!ctx.executor.payAnyPower(ctx.controller, 1)) return;
-            ctx.executor.exhaustObject(ctx.source);
+            if (costDueNow(ctx)) {
+                if (!ctx.executor.payAnyPower(ctx.controller, 1)) return;
+                ctx.executor.exhaustObject(ctx.source);
+            }
+            if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
+            if (chosen == kInvalidId || !ctx.state.objectExists(chosen)) return;
             ctx.executor.readyObject(chosen);
             ctx.events.logTrace("BLADE DANCER: exhaust me + [A] -> ready " +
                                  ctx.state.getObject(chosen).name);

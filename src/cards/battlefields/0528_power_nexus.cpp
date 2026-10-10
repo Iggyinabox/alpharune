@@ -16,6 +16,7 @@ namespace {
 class PowerNexus : public BattlefieldCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouHoldHere; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         // CR 445.2 / 164.2.b: the [A][A][A][A] may be paid with floating power
@@ -24,7 +25,8 @@ public:
         int conf = confirmOptional(ctx, "Power Nexus: pay [A][A][A][A] to score 1?",
             [&]() { return ctx.executor.payableAnyPower(ctx.controller) >= 4; });
         if (conf != 1) return;
-        if (!ctx.executor.payAnyPower(ctx.controller, 4)) return;
+        if (costDueNow(ctx) && !ctx.executor.payAnyPower(ctx.controller, 4)) return;
+        if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
         ctx.executor.scorePoints(ctx.controller, 1);   // CR 194.1.c
         ctx.events.logTrace("POWER NEXUS: paid [A][A][A][A] -> score 1 point");
     }

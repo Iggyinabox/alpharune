@@ -15,6 +15,7 @@ namespace {
 class MelDefiantSoul : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // ── behaviour (Vendetta batch C) ──
     // "[Empower] — Discard a spell"
     EmpowerSpec empowerSpec() const override {
@@ -34,6 +35,7 @@ public:
                    obj.current_might <= 3;
         });
         GameObjectId picked = pickTarget(ctx, "Mel, Defiant Soul: banish", legal);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (picked == kInvalidId || !ctx.state.objectExists(picked)) return;
         ctx.executor.banishObject(picked);
     }

@@ -15,6 +15,7 @@ namespace {
 class MaskMother : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
 
     // "When you discard me, you may pay [1] to give a friendly unit +2 [M] this
     // turn." Fires from the trash. The [1] is paid with card_helpers.h
@@ -35,7 +36,8 @@ public:
         if (conf != 1) return;                        // waiting, declined or can't pay
         auto picked = pickTarget(ctx, "Mask Mother: +2 [M] this turn", friendly());
         if (picked == kInvalidId || !ctx.state.objectExists(picked)) return;
-        if (!payEnergy(ctx, ctx.controller, 1)) return;
+        if (costDueNow(ctx) && !payEnergy(ctx, ctx.controller, 1)) return;
+        if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
         ctx.executor.giveTemporaryMight(picked, 2);
         ctx.events.logTrace("MASK MOTHER: discarded, paid [1] -> +2 [M] this turn");
     }

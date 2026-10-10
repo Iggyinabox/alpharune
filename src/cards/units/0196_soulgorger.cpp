@@ -15,6 +15,7 @@ namespace {
 class Soulgorger : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouPlayMe; }
     // "When you play me, you may play a unit from your trash, ignoring its
     // Energy cost." (Power cost approximated as free — same convention as
@@ -37,6 +38,7 @@ public:
         auto eligible = trashUnits(ctx);
         if (eligible.empty()) return;
         GameObjectId picked = pickTarget(ctx, "Soulgorger (unit from trash)", eligible);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (picked == kInvalidId && ctx.state.chain.resuming.has_value() &&
             ctx.state.chain.resuming->resume_point == 7) {
             return;  // suspended

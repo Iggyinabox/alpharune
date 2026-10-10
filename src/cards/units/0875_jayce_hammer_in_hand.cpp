@@ -15,6 +15,7 @@ namespace {
 class JayceHammerInHand : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
 
     // "When I become ready, choose one to give me this turn — [Assault 2] /
     // [Deflect 2] / [Ganking]". (The three keywords are granted options, not
@@ -26,6 +27,7 @@ public:
         if (!ctx.state.getObject(ctx.source).location.has_value()) return;
         static const std::vector<std::string> kModes = {"Assault 2", "Deflect 2", "Ganking"};
         int mode = pickMode(ctx, "Jayce, Hammer in Hand: choose a keyword", 3, kModes);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (mode < 0) return;                         // waiting for the agent
         switch (mode) {
         case 0: ctx.executor.giveTemporaryKeyword(ctx.source, Keyword::Assault, 2); break;

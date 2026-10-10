@@ -18,6 +18,7 @@ namespace {
 class RedBrambleback : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // ENGINE GAP: "Your conquer effects for conquering here trigger an
     // additional time" has no engine counter analogous to
     // deathknell_double_count for conquer triggers; not wired.
@@ -30,6 +31,7 @@ public:
                 legal.push_back(id);
         }
         GameObjectId picked = pickTarget(ctx, "Red Brambleback: buff a friendly unit", legal);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (picked == kInvalidId) return;
         if (!ctx.state.objectExists(picked)) return;
         ctx.executor.buffUnit(picked);

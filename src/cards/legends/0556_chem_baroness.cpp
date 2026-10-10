@@ -15,6 +15,7 @@ namespace {
 class ChemBaroness : public LegendCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenIConquerOrHold; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         // Optional: exhaust me to play a Gold gear token exhausted.
@@ -23,7 +24,8 @@ public:
                                   [&]() { return true; });
         if (yes != 1) return;
         auto& self = ctx.state.getObject(ctx.source);
-        self.is_exhausted = true;
+        if (costDueNow(ctx)) self.is_exhausted = true;
+        if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
         LocationId loc{BaseLocation{ctx.controller}};
         auto tok = ctx.executor.createToken(ctx.controller, CardType::Gear, "Gold",
                                             0, {}, {}, loc, /*enter_ready=*/false);

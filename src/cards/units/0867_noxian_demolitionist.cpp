@@ -15,6 +15,7 @@ namespace {
 class NoxianDemolitionist : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
 
     // "When I conquer, you may kill a gear with Energy cost no more than my Might."
     TriggerType triggerType() const override { return TriggerType::WhenIConquer; }
@@ -39,6 +40,7 @@ public:
                                    [&]() { return !gears().empty(); });
         if (conf != 1) return;                        // waiting, declined or no legal gear
         auto picked = pickTarget(ctx, "Noxian Demolitionist: choose a gear", gears());
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (picked == kInvalidId || !ctx.state.objectExists(picked)) return;
         ctx.executor.killObject(picked);
         ctx.events.logTrace("NOXIAN DEMOLITIONIST: killed a gear");

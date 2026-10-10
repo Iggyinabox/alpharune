@@ -16,6 +16,7 @@ namespace {
 class BondsOfStrength : public SpellCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeResolve; }
     TargetRequirements getTargetRequirements() const override {
         return TargetRequirements{.count = 2, .must_be_unit = true, .must_be_friendly = true};
     }
@@ -41,6 +42,7 @@ public:
         auto [a, b] = pickTargetPair(ctx, "Bonds of Strength",
             friendly_units(kInvalidId),
             [&](GameObjectId picked_a) { return friendly_units(picked_a); });
+            if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         bool suspending = (a == kInvalidId || b == kInvalidId) &&
                           ctx.state.chain.resuming.has_value() &&
                           (ctx.state.chain.resuming->resume_point == 10 ||

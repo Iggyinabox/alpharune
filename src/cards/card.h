@@ -258,6 +258,33 @@ public:
     int confirmOptional(CardContext& ctx, const std::string& label,
                         const std::function<bool()>& still_legal);
 
+    // ── Choices at finalization (CR 355, 383.3) ──
+    // Targets, modes, "you may" and "[cost] to [effect]" payments of a spell
+    // or ability are decided when it is played / put on the chain, before
+    // anyone can respond — not as it resolves. A card opts a callback in by
+    // returning its bit here, and splits that callback in two:
+    //
+    //     int go = confirmOptional(ctx, ...);          // choices
+    //     if (go <= 0) return;
+    //     auto t = pickTarget(ctx, ...);
+    //     if (costDueNow(ctx)) payEnergy(ctx, 1);      // costs
+    //     if (finalizingChoices(ctx)) return;          // ── end of choices ──
+    //     ... the effect ...
+    //
+    // The engine runs the callback once at finalization (it stops at the
+    // marker) and again at resolution, where the helpers return the stored
+    // answers. Nothing before the marker may change game state other than
+    // through the helpers and the cost payment.
+    enum : unsigned { kFinalizeTrigger = 1, kFinalizeResolve = 2, kFinalizeActivate = 4 };
+    virtual unsigned choicesAtFinalization() const { return 0; }
+    /// True while the engine is collecting this item's finalization choices.
+    static bool finalizingChoices(const CardContext& ctx);
+    /// False at resolution when the cost was already paid at finalization.
+    static bool costDueNow(CardContext& ctx);
+    /// True at resolution when the cost was paid at finalization: checks like
+    /// "can I afford it" / "am I ready to exhaust" no longer apply.
+    static bool costAlreadyPaid(const CardContext& ctx);
+
     /// Variable-X cost helper (CR principle: "pay any amount of [X]").
     ///
     /// Cards like Bullet Time ("Pay any amount of [A] to deal that much

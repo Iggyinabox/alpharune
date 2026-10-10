@@ -15,6 +15,7 @@ namespace {
 class TreasureHoard : public BattlefieldCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouConquerHere; }
 
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
@@ -23,12 +24,13 @@ public:
         auto still_legal = [&ctx]() {
             return payableEnergy(ctx.state, ctx.controller) >= 1;
         };
-        if (!still_legal()) return;
+        if (!costAlreadyPaid(ctx) && !still_legal()) return;
         int conf = confirmOptional(ctx,
             "Treasure Hoard: pay [1] for a Gold token?", still_legal);
         if (conf == -1) return;
         if (conf < 1) return;
-        if (!payEnergy(ctx, ctx.controller, 1)) return;
+        if (costDueNow(ctx) && !payEnergy(ctx, ctx.controller, 1)) return;
+        if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
 
         // CR 149.2: gear can only be played to a player's Base unless an effect
         // says otherwise, and "play a Gold gear token exhausted" names no

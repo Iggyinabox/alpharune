@@ -15,6 +15,7 @@ namespace {
 class GustMonk : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // ── behaviour (Vendetta batch C) ──
     // "You may pay [1] as an additional cost to play me."
     OptionalAdditionalCost optionalAdditionalCost() const override {
@@ -43,6 +44,7 @@ public:
         };
         auto [card, unit] = pickTargetPair(ctx, "Gust Monk: banish from trash / [Assault 2]",
                                            trash_cards, units_fn);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (card == kInvalidId || unit == kInvalidId) return;   // suspended or fizzled
         if (!ctx.state.objectExists(card) || !ctx.state.objectExists(unit)) return;
         auto& banished = ctx.state.getObject(card);

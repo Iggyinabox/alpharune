@@ -14,6 +14,7 @@ namespace {
 class DefiantDance : public SpellCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeResolve; }
     bool needsPlayTimeTargetPair() const override { return true; }
     void onResolve(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         auto all_units = [&]() {
@@ -35,6 +36,7 @@ public:
                 }
                 return out;
             });
+            if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (pair.first == kInvalidId) return;  // suspend / fizzle
         if (ctx.state.objectExists(pair.first)) {
             ctx.executor.giveTemporaryMight(pair.first, 2);

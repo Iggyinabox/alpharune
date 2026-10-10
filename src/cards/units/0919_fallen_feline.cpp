@@ -15,6 +15,7 @@ namespace {
 class FallenFeline : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // ── behaviour (Vendetta batch C) ──
     // "When you play me, name a spell."
     // The named spell is stored in string_state["named_spell"].
@@ -48,6 +49,7 @@ public:
         if (!ctx.state.objectExists(ctx.source)) return;
         GameObjectId picked = pickTarget(ctx, "Fallen Feline: name a spell",
                                          nameableSpells(ctx.state, opponent(ctx.controller)));
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (picked == kInvalidId || !ctx.state.objectExists(picked)) return;
         const std::string name = ctx.state.getObject(picked).name;
         ctx.state.getObject(ctx.source).string_state[kNamedKey] = name;

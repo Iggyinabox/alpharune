@@ -17,6 +17,12 @@ public:
     const CardDef& def() const override { return def_; }
     TriggerType triggerType() const override { return TriggerType::WhenYouPlayASpell; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>&) override {
+        // "While you control this battlefield": only its controller's spells count.
+        bool mine = false;
+        for (const auto& bf : ctx.state.battlefields)
+            if (bf.card_object_id == ctx.source)
+                mine = bf.controller.has_value() && *bf.controller == ctx.controller;
+        if (!mine) return;
         // CR gate "While you control this battlefield" — fire only if the
         // BF object's controller (set by ctx.controller via fireTrigger)
         // matches the spell-player. Read from per-trigger snapshot

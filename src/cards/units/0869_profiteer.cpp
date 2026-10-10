@@ -15,6 +15,7 @@ namespace {
 class Profiteer : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
 
     // "When you play me, you may disempower something you control to empower a
     // legend, unit, or gear."
@@ -50,6 +51,7 @@ public:
                                    [&]() { return !mine_empowered().empty(); });
         if (conf != 1) return;                        // waiting, declined or nothing Empowered
         auto [paid, gain] = pickTargetPair(ctx, "Profiteer", mine_empowered(), recipients);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         const bool suspending = (paid == kInvalidId || gain == kInvalidId) &&
                                 ctx.state.chain.resuming.has_value() &&
                                 (ctx.state.chain.resuming->resume_point == 10 ||

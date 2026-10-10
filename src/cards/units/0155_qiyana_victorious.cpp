@@ -14,10 +14,12 @@ namespace {
 class QiyanaVictorious : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenIConquer; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         int mode = pickMode(ctx, "Qiyana: draw 1 / channel 1 exhausted", 2,
                             {"Draw 1", "Channel 1 rune exhausted"});
+                            if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (mode < 0) return;  // suspended for agent decision
         if (mode == 0) {
             ctx.executor.drawCards(ctx.controller, 1);

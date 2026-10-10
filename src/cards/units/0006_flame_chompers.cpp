@@ -15,6 +15,7 @@ namespace {
 class FlameChompers : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // "When you discard me, you may pay [R] to play me."
     // ENGINE GAP: the engine does not currently dispatch WhenYouDiscard
     // triggers (no CardsDiscardedEvent subscriber fires them), so this
@@ -30,6 +31,7 @@ public:
         if (!can_pay()) return;
         int conf = confirmOptional(ctx, "Flame Chompers: pay [R] to play me?",
                                    can_pay);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (conf < 1) return;
         // Pay [R]: prefer Fury power, fall back to universal.
         if (ps.rune_pool.power[fury] >= 1) ps.rune_pool.power[fury] -= 1;

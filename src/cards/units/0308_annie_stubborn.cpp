@@ -15,6 +15,7 @@ namespace {
 class AnnieStubborn : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouPlayMe; }
 
     std::vector<GameObjectId> trashSpells(CardContext& ctx) const {
@@ -32,6 +33,7 @@ public:
         if (eligible.empty()) return;
         GameObjectId picked = pickTarget(ctx, "Annie, Stubborn (spell from trash)",
                                           eligible);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         // pickTarget returned kInvalidId because it suspended for an agent
         // decision (resume_point 7) — return and resume later.
         if (picked == kInvalidId && ctx.state.chain.resuming.has_value() &&

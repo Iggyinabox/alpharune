@@ -15,6 +15,7 @@ namespace {
 class KennenKeeperOfBalance : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // ── behaviour (Vendetta batch C) ──
     // [Hidden] is engine-handled.
     // "When you play me or I attack, you may pay [2] to [Stun] a unit."
@@ -37,7 +38,8 @@ public:
         GameObjectId picked = pickTarget(ctx, "Kennen, Keeper of Balance: stun", stunnable(ctx));
         if (picked == kInvalidId || !ctx.state.objectExists(picked)) return;
         // Pay only once the unit is chosen (this branch runs exactly once).
-        if (!payEnergy(ctx, ctx.controller, 2)) return;
+        if (costDueNow(ctx) && !payEnergy(ctx, ctx.controller, 2)) return;
+        if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
         ctx.executor.stunUnitBy(picked, ctx.source);
     }
     // "While there's a stunned enemy unit here, I have +2 [M]."

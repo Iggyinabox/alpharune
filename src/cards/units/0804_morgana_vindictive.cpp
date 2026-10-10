@@ -15,6 +15,7 @@ namespace {
 class MorganaVindictive : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // [Ambush] is engine-handled (keyword).
     // "When you play me, deal damage to a unit equal to the damage marked on it."
     // The unit is chosen at resolution (pickTarget) so the amount reflects the
@@ -29,6 +30,7 @@ public:
                              chooseableUnits(ctx.state, ctx.controller,
                                              [](const GameObject&) { return true; }));
         }
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (tgt == kInvalidId || !ctx.state.objectExists(tgt)) return;
         const auto& unit = ctx.state.getObject(tgt);
         if (!unit.isUnit() || !unit.location.has_value()) return;

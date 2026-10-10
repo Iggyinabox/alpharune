@@ -18,6 +18,7 @@ namespace {
 class ShadowClone : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // "When I attack, you may banish a unit from your trash. If you do, give me
     // [Assault 4] this turn."
     TriggerType triggerType() const override { return TriggerType::WhenIAttack; }
@@ -37,6 +38,7 @@ public:
                                    still_legal);
         if (conf < 1) return;
         GameObjectId picked = pickTarget(ctx, "Shadow Clone: unit to banish", trashed_units());
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (picked == kInvalidId || !ctx.state.objectExists(picked)) return;
         ctx.executor.banishObject(picked);
         ctx.executor.giveTemporaryKeyword(ctx.source, Keyword::Assault, 4);

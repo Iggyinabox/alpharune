@@ -14,6 +14,7 @@ namespace {
 class Flash : public SpellCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeResolve; }
 
     void onResolve(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         PlayerId controller = ctx.controller;
@@ -41,6 +42,7 @@ public:
         };
         auto pair = pickTargetPair(ctx, "Flash: move up to 2 friendly units to base",
                                    legal_a, legal_b_fn);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (pair.first == kInvalidId && pair.second == kInvalidId &&
             ctx.state.chain.resuming.has_value() &&
             ctx.state.chain.resuming->resume_point != 13) {

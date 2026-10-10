@@ -14,6 +14,7 @@ namespace {
 class TeemoStrategist : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenIDefend; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         if (!ctx.state.objectExists(ctx.source)) return;
@@ -33,6 +34,7 @@ public:
             return out;
         };
         GameObjectId picked = pickTarget(ctx, "Teemo, Strategist", legal());
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (picked == kInvalidId || !ctx.state.objectExists(picked)) return;
 
         // Reveal the top 5 of own Main Deck (top = back of vector).

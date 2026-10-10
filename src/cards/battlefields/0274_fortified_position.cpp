@@ -15,6 +15,7 @@ namespace {
 class FortifiedPosition : public BattlefieldCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // "When you defend here, choose a unit. It gains [Shield 2] this combat."
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         // Choose a friendly unit (the defender) controlled by the defending
@@ -26,6 +27,7 @@ public:
         }
         if (friendly.empty()) return;
         GameObjectId picked = pickTarget(ctx, "Fortified Position (gain Shield 2)", friendly);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (picked == kInvalidId && ctx.state.chain.resuming.has_value() &&
             ctx.state.chain.resuming->resume_point == 7) {
             return;  // suspended for agent decision

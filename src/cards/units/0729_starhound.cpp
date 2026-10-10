@@ -19,6 +19,7 @@ namespace {
 class Starhound : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouPlayMe; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         auto& ps = ctx.state.player(ctx.controller);
@@ -35,6 +36,7 @@ public:
         if (legal.empty()) return;
         GameObjectId picked = pickTarget(ctx, "Starhound (Bird/Cat/Dog/Poro from trash)",
                                           legal);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (picked == kInvalidId && ctx.state.chain.resuming.has_value() &&
             ctx.state.chain.resuming->resume_point == 7) {
             return;  // suspended for agent decision

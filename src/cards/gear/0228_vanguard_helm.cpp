@@ -14,6 +14,7 @@ namespace {
 class VanguardHelm : public GearCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // "When a buffed friendly unit dies, buff another friendly unit."
     // ENGINE-GAP: the "buffed" condition is not checked. The dying unit's
     // last-known buff count exists (GameObject::last_known.buff_count, CR
@@ -33,6 +34,7 @@ public:
         }
         if (targets.empty()) return;
         GameObjectId picked = pickTarget(ctx, "Vanguard Helm (buff a friendly unit)", targets);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (picked == kInvalidId && ctx.state.chain.resuming.has_value() &&
             ctx.state.chain.resuming->resume_point == 7) {
             return;  // suspended for agent decision

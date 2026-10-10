@@ -15,6 +15,7 @@ namespace {
 class JayceBrilliantInventor : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
 
     // "When you play me or the first time you play a non-token gear each turn,
     // you may ready something besides me that's exhausted."
@@ -61,6 +62,7 @@ public:
                                      [&]() { return !find_targets().empty(); });
         if (answer != 1) return;                      // waiting, declined or nothing exhausted
         auto target = pickTarget(ctx, "Jayce, Brilliant Inventor: ready", find_targets());
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (target == kInvalidId || !ctx.state.objectExists(target)) return;
         ctx.executor.readyObject(target);
         ctx.events.logTrace("JAYCE, BRILLIANT INVENTOR: readied " +

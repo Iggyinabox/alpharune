@@ -697,6 +697,7 @@ TEST_F(AuditFix3Test, DuskRoseLab_KillsUnitHereDrawsOne) {
     state.getObject(bf_card).card_def_id = kDuskRoseLab;
     state.getObject(bf_card).card_type = CardType::Battlefield;
     state.battlefields[0].card_object_id = bf_card;
+    state.battlefields[0].controller = P1;   // "your Beginning Phase": the battlefield's controller
     auto unit = addUnit(P1, kInvalidId, 2, /*at_bf=*/0);
     addToDeck(P1, kInvalidId);
 
@@ -748,6 +749,7 @@ TEST_F(AuditFix3Test, DuskRoseLab_OnlyKillsOwnUnitHere) {
     state.getObject(bf_card).card_def_id = kDuskRoseLab;
     state.getObject(bf_card).card_type = CardType::Battlefield;
     state.battlefields[0].card_object_id = bf_card;
+    state.battlefields[0].controller = P1;   // "your Beginning Phase": the battlefield's controller
     auto own = addUnit(P1, kInvalidId, 2, /*at_bf=*/0);
     auto enemy = addUnit(P2, kInvalidId, 2, /*at_bf=*/0);
     addToDeck(P1, kInvalidId);

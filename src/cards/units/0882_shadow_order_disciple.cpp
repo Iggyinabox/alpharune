@@ -15,6 +15,7 @@ namespace {
 class ShadowOrderDisciple : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
 
     // "When I move, you may [Burn 1] to give me +1 [M] this turn."
     TriggerType triggerType() const override { return TriggerType::WhenIMove; }
@@ -25,6 +26,7 @@ public:
                    !ctx.state.player(ctx.controller).main_deck.empty();
         };
         int conf = confirmOptional(ctx, "Shadow Order Disciple: Burn 1 for +1 [M]?", legal);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (conf != 1) return;                        // waiting, declined or nothing to burn
         if (ctx.executor.burn(ctx.controller, 1).empty()) return;   // cost not paid
         ctx.executor.giveTemporaryMight(ctx.source, 1);

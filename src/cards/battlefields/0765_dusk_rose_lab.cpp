@@ -15,6 +15,7 @@ namespace {
 class DuskRoseLab : public BattlefieldCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::AtStartOfBeginning; }
 
     // Units the controller controls AT this battlefield.
@@ -36,6 +37,13 @@ public:
     }
 
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
+        // "your Beginning Phase": "you" is this battlefield's controller
+        // (CR 190.6.d); uncontrolled, the ability does nothing.
+        bool mine = false;
+        for (const auto& bf : ctx.state.battlefields)
+            if (bf.card_object_id == ctx.source)
+                mine = bf.controller.has_value() && *bf.controller == ctx.controller;
+        if (!mine) return;
         auto still_legal = [&]() { return !unitsHere(ctx).empty(); };
         int conf = confirmOptional(ctx,
             "Dusk Rose Lab: kill a unit here to draw 1?", still_legal);
@@ -45,6 +53,7 @@ public:
         auto units = unitsHere(ctx);
         if (units.empty()) return;
         GameObjectId picked = pickTarget(ctx, "Dusk Rose Lab (unit to kill)", units);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (picked == kInvalidId && ctx.state.chain.resuming.has_value() &&
             ctx.state.chain.resuming->resume_point == 7) {
             return;  // suspended for agent decision

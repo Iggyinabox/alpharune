@@ -15,6 +15,7 @@ namespace {
 class TombRaiderBarbara : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // "When you play me, if you control 7 or more runes, choose an enemy gear.
     //  If it's [Empowered], disempower it. Otherwise, kill it."
     TriggerType triggerType() const override { return TriggerType::WhenYouPlayMe; }
@@ -31,6 +32,7 @@ public:
         if (runesControlled(ctx.state, ctx.controller) < 7) return;
         GameObjectId tgt = pickTarget(ctx, "Tomb-Raider Barbara: choose an enemy gear",
                                       enemyGear(ctx));
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (tgt == kInvalidId || !ctx.state.objectExists(tgt)) return;
         auto& gear = ctx.state.getObject(tgt);
         if (!gear.isGear() || !gear.location.has_value()) return;

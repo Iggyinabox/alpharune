@@ -15,6 +15,7 @@ namespace {
 class MasaCrashingThunder : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // ── behaviour (Vendetta batch C) ──
     // "You may pay [Y] as an additional cost to play me."
     OptionalAdditionalCost optionalAdditionalCost() const override {
@@ -35,6 +36,7 @@ public:
             return obj.controller != ctx.controller && obj.isAtBattlefield();
         });
         GameObjectId picked = pickTarget(ctx, "Masa, Crashing Thunder: stun", legal);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (picked == kInvalidId || !ctx.state.objectExists(picked)) return;
         ctx.executor.stunUnitBy(picked, ctx.source);
     }

@@ -3,8 +3,31 @@
 #include "core/intent.h"
 #include "engine/effect_executor.h"
 #include "core/events.h"
+#include <algorithm>
 
 namespace riftbound {
+
+// finalize_checked bit 4: a cost payment was started during the finalize pass.
+// It counts as paid only once the card reaches its end-of-choices marker, so a
+// payment that fails (the card returns early) is still owed at resolution.
+bool Card::finalizingChoices(const CardContext& ctx) {
+    auto& r = ctx.state.chain.resuming;
+    if (!r.has_value() || !r->finalizing) return false;
+    if (r->finalize_checked & 4) r->finalize_costs_paid = true;
+    return true;
+}
+
+bool Card::costDueNow(CardContext& ctx) {
+    auto& r = ctx.state.chain.resuming;
+    if (!r.has_value()) return true;
+    if (r->finalizing) { r->finalize_checked |= 4; return true; }
+    return !(r->choices_finalized && r->finalize_costs_paid);
+}
+
+bool Card::costAlreadyPaid(const CardContext& ctx) {
+    const auto& r = ctx.state.chain.resuming;
+    return r.has_value() && !r->finalizing && r->choices_finalized && r->finalize_costs_paid;
+}
 
 int Card::confirmOptional(CardContext& ctx, const std::string& label,
                            const std::function<bool()>& still_legal) {
@@ -29,6 +52,7 @@ int Card::confirmOptional(CardContext& ctx, const std::string& label,
             ctx.events.logTrace("MAY_NOT_OFFERED: " + label +
                                  " (precondition failed at prompt time)");
             ri.resume_point = 2;  // mark "done, do not re-enter"
+            ri.may_answer = 0;
             return 0;
         }
         // Publish a 2-option choice via Intent::chosen_value (no = 0, yes = 1).
@@ -73,6 +97,7 @@ int Card::confirmOptional(CardContext& ctx, const std::string& label,
         if (!said_yes) {
             ctx.events.logTrace("MAY_DECLINED: " + label);
             ri.resume_point = 2;
+            ri.may_answer = 0;
             return 0;
         }
         // Re-validate at use time. State may have shifted while the
@@ -83,10 +108,12 @@ int Card::confirmOptional(CardContext& ctx, const std::string& label,
                                  " (state shifted between agent yes "
                                  "and execution; silent fail)");
             ri.resume_point = 2;
+            ri.may_answer = 0;
             return 0;
         }
         ctx.events.logTrace("MAY_ACCEPTED: " + label);
         ri.resume_point = 2;  // commit; caller proceeds to do the work
+        ri.may_answer = 1;
         return 1;
     }
 
@@ -94,6 +121,18 @@ int Card::confirmOptional(CardContext& ctx, const std::string& label,
     // post-confirmation work. Return 1 so the caller re-enters its
     // execute branch on subsequent loop iterations (in case the card
     // itself requests further choices and is re-entered).
+    if (ri.may_answer == 0) return 0;
+    // Answered at finalization: the effect happens only if it can still be
+    // done as the ability resolves. (Once a cost has been paid the
+    // precondition, which usually includes affording it, no longer applies.)
+    if (ri.may_answer == 1 && ri.choices_finalized && !ri.finalizing) {
+        if (!ri.finalize_costs_paid && !still_legal()) {
+            ctx.events.logTrace("MAY_INVALIDATED: " + label + " (no longer possible at resolution)");
+            ri.may_answer = 0;
+            return 0;
+        }
+        ri.may_answer = 2;
+    }
     return 1;
 }
 
@@ -407,6 +446,17 @@ GameObjectId Card::pickTarget(CardContext& ctx, const std::string& label,
 
     // resume_point >= 8: previously chosen target in resume_data[2].
     if (ri.resume_data.size() >= 3) {
+        // Chosen in the finalize pass: checked once as the item resolves. A
+        // target that is no longer legal is a mistarget (CR 359.3.e.6).
+        if (ri.choices_finalized && !ri.finalizing && !(ri.finalize_checked & 1)) {
+            ri.finalize_checked |= 1;
+            const auto t = static_cast<GameObjectId>(ri.resume_data[2]);
+            if (t != kInvalidId &&
+                std::find(legal_targets_in.begin(), legal_targets_in.end(), t) == legal_targets_in.end()) {
+                ctx.events.logTrace("TGT_MISTARGET: " + label + " — the chosen target is no longer legal");
+                ri.resume_data[2] = static_cast<int32_t>(kInvalidId);
+            }
+        }
         return static_cast<GameObjectId>(ri.resume_data[2]);
     }
     return legal_targets.empty() ? kInvalidId : legal_targets.front();
@@ -553,6 +603,25 @@ std::pair<GameObjectId, GameObjectId> Card::pickTargetPair(
     }
 
     // resume_point >= 13: return the previously-stashed pair.
+    // Chosen in the finalize pass: each target is checked once as the item
+    // resolves; one that is no longer legal is unaffected (CR 359.3.e.5).
+    if (ri.choices_finalized && !ri.finalizing && !(ri.finalize_checked & 2)) {
+        ri.finalize_checked |= 2;
+        const auto a = static_cast<GameObjectId>(ri.resume_data[3]);
+        const auto b = static_cast<GameObjectId>(ri.resume_data[4]);
+        if (b != kInvalidId) {
+            const auto lb = legal_b_in_fn(a);
+            if (std::find(lb.begin(), lb.end(), b) == lb.end()) {
+                ctx.events.logTrace("TGT_MISTARGET: " + label + " — the second target is no longer legal");
+                ri.resume_data[4] = static_cast<int32_t>(kInvalidId);
+            }
+        }
+        if (a != kInvalidId &&
+            std::find(legal_a_in.begin(), legal_a_in.end(), a) == legal_a_in.end()) {
+            ctx.events.logTrace("TGT_MISTARGET: " + label + " — the first target is no longer legal");
+            ri.resume_data[3] = static_cast<int32_t>(kInvalidId);
+        }
+    }
     return {static_cast<GameObjectId>(ri.resume_data[3]),
             static_cast<GameObjectId>(ri.resume_data[4])};
 }

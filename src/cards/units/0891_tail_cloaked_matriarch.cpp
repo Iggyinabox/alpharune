@@ -15,6 +15,7 @@ namespace {
 class TailCloakedMatriarch : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // ── behaviour (Vendetta batch C) ──
     // "[Empower] [2][P]"
     EmpowerSpec empowerSpec() const override { return empowerCost(2, 1, Domain::Chaos); }
@@ -39,6 +40,7 @@ public:
         if (conf < 1) return;
         GameObjectId picked = pickTarget(ctx, "Tail-Cloaked Matriarch: unit in trash",
                                          candidates(ctx));
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (picked == kInvalidId || !ctx.state.objectExists(picked)) return;
         auto& ps = ctx.state.player(ctx.controller);
         auto it = std::find(ps.trash.begin(), ps.trash.end(), picked);

@@ -16,6 +16,7 @@ namespace {
 class RivenShattered : public WeaponmasterUnit {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // [Weaponmaster] (WhenYouPlayMe) comes from WeaponmasterUnit; this card
     // adds a second trigger and branches on the firing event.
     std::vector<TriggerType> triggerTypes() const override {
@@ -29,6 +30,7 @@ public:
     }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& targets) override {
         if (ctx.firing_trigger != TriggerType::WhenIAttack) {
+            if (finalizingChoices(ctx)) return;   // the base's choices stay at resolution
             WeaponmasterUnit::onTrigger(ctx, targets);
             return;
         }
@@ -44,6 +46,7 @@ public:
                 auto bf = o.battlefieldId();
                 return o.controller != me && bf && *bf == here;
             }));
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (tgt == kInvalidId || !ctx.state.objectExists(tgt)) return;
         if (!ctx.state.objectExists(ctx.source)) return;
         // Counted at resolution, after the choice.

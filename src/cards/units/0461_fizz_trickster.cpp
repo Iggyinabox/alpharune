@@ -15,6 +15,7 @@ namespace {
 class FizzTrickster : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouPlayMe; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         if (!ctx.state.objectExists(ctx.source)) return;
@@ -39,6 +40,7 @@ public:
 
         int conf = confirmOptional(ctx,
             "Fizz: play a spell (cost <= 3) from trash for free?", still_legal);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (conf != 1) return;
 
         GameObjectId chosen = find_spell();

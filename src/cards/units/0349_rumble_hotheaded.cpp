@@ -14,6 +14,7 @@ namespace {
 class RumbleHotheaded : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
 
     // ── Part 1: "Your Mechs each have [Assault]." ──
     void applyPassiveAura(GameState& state, PlayerId controller) const override {
@@ -71,6 +72,7 @@ public:
         int conf = confirmOptional(ctx,
             "Rumble: recycle a friendly unit to play a Mech from trash?",
             still_legal);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (conf == -1) return;  // waiting on agent
         if (conf == 0) return;   // declined / not legal
 

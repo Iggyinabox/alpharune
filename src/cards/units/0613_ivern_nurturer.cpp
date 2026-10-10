@@ -15,6 +15,7 @@ namespace {
 class IvernNurturer : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
 
     std::vector<TriggerType> triggerTypes() const override {
         return {TriggerType::WhenYouPlayMe, TriggerType::WhenIHold};
@@ -47,6 +48,7 @@ public:
         // "You may reveal a unit ... and draw it." Optional.
         int conf = confirmOptional(ctx,
             "Ivern, Nurturer: reveal a unit from top 3 and draw it?", has_unit);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (conf == -1) return;  // waiting for agent
 
         // Now actually remove the peeked cards from the top of the deck.

@@ -15,6 +15,7 @@ namespace {
 class DianaLunari : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // "When a showdown begins here, ..." — now fires on the real event
     // (was approximated by WhenIAttackOrDefend).
     TriggerType triggerType() const override { return TriggerType::WhenAShowdownBeginsHere; }
@@ -26,11 +27,12 @@ public:
         auto still_legal = [&ctx]() {
             return payableEnergy(ctx.state, ctx.controller) >= 1;
         };
-        if (!still_legal()) return;
+        if (!costAlreadyPaid(ctx) && !still_legal()) return;
         int conf = confirmOptional(ctx, "Diana Lunari: pay [1] to Predict + reveal?",
                                    still_legal);
         if (conf < 1) return;
-        if (!payEnergy(ctx, ctx.controller, 1)) return;
+        if (costDueNow(ctx) && !payEnergy(ctx, ctx.controller, 1)) return;
+        if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
 
         // [Predict] — look at top card, agent may recycle it.
         ctx.executor.predict(ctx.controller, 1);

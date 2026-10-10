@@ -29,6 +29,7 @@ namespace {
 class StalkingWolf : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouPlayMe; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         std::vector<GameObjectId> legal;
@@ -44,6 +45,7 @@ public:
         if (legal.empty()) return;
         GameObjectId victim = pickTarget(ctx, "Stalking Wolf: kill a Bird/Cat/Dog/Poro you control",
                                          legal);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (victim == kInvalidId && ctx.state.chain.resuming.has_value() &&
             ctx.state.chain.resuming->resume_point == 7) {
             return;  // suspended

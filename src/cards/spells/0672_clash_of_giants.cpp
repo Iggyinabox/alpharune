@@ -15,6 +15,7 @@ namespace {
 class ClashOfGiants : public SpellCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeResolve; }
     // "Choose two units. They deal damage equal to their Mights to each other."
     TargetRequirements getTargetRequirements() const override {
         return TargetRequirements{.count = 2, .must_be_unit = true};
@@ -43,6 +44,7 @@ public:
         auto [a, b] = pickTargetPair(ctx, "Clash of Giants",
                                      legal(kInvalidId),
                                      [&](GameObjectId picked_a) { return legal(picked_a); });
+                                     if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         bool suspending = (a == kInvalidId || b == kInvalidId) &&
                           ctx.state.chain.resuming.has_value() &&
                           (ctx.state.chain.resuming->resume_point == 10 ||

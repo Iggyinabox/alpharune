@@ -14,6 +14,7 @@ namespace {
 class SpectralMatron : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouPlayMe; }
 
     // Available power [A]: floating power in the pool + the player's ready
@@ -58,6 +59,7 @@ public:
         if (eligible.empty()) return;
         GameObjectId picked = pickTarget(ctx, "Spectral Matron (unit from trash)",
                                           eligible);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (picked == kInvalidId && ctx.state.chain.resuming.has_value() &&
             ctx.state.chain.resuming->resume_point == 7) {
             return;  // suspended for agent decision

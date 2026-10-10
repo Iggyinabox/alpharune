@@ -15,6 +15,7 @@ namespace {
 class AvaAchiever : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenIAttack; }
     // "When I attack, you may pay [C] to play a card with [Hidden] from your
     // hand, ignoring its cost. If it's a unit, play it here." [C] = one Power of
@@ -62,6 +63,7 @@ public:
         auto eligible = hiddenInHand(ctx);
         if (eligible.empty()) return;
         GameObjectId picked = pickTarget(ctx, "Ava Achiever (Hidden card)", eligible);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (picked == kInvalidId && ctx.state.chain.resuming.has_value() &&
             ctx.state.chain.resuming->resume_point == 7) {
             return;  // suspended

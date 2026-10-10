@@ -900,5 +900,267 @@ TEST_F(CostPaymentRulesTest, Targeting_MistargetedSpellDoesNothing) {
     EXPECT_EQ(s().getObject(other).temp_might_bonus, 0) << "the buff does not jump to another unit";
 }
 
+// ─── Triggered abilities decide at finalization (CR 383.3) ──────────────────
+// A triggered ability's "you may", its "[cost] to [effect]" payment and its
+// targets are settled when it is put on the chain — before any player gets
+// priority to respond — and are not asked again as it resolves.
+
+namespace {
+constexpr CardDefId kKennenKeeper   = 922;  // "When you play me, you may pay [2] to stun a unit."
+constexpr CardDefId kFieldMusicians = 813;  // "When you play me, give a unit +3 [M] this turn."
+
+// Answers "you may" with `say_yes`, picks `want` when offered objects, passes otherwise.
+class TriggerChoiceAgent : public AgentInterface {
+public:
+    bool say_yes = true;
+    GameObjectId want = kInvalidId;
+    int may_asked = 0, target_asked = 0;
+    Intent selectAction(const GameState&, const std::vector<Intent>& legal) override {
+        if (legal.empty()) return Intent{};
+        const bool choice = legal.front().type == IntentType::MakeChoice;
+        if (choice && legal.front().chosen_value.has_value()) {
+            ++may_asked;
+            for (const auto& i : legal)
+                if (i.chosen_value == (say_yes ? 1 : 0)) return i;
+        }
+        if (choice && !legal.front().chosen_objects.empty()) {
+            ++target_asked;
+            for (const auto& i : legal)
+                if (i.chosen_objects.front() == want) return i;
+        }
+        for (const auto& i : legal) if (i.type == IntentType::PassPriority) return i;
+        return legal.front();
+    }
+};
+
+// Runs `on_first_priority` the first time it is asked for anything, then passes.
+class ObservingAgent : public AgentInterface {
+public:
+    std::function<void()> on_first_priority;
+    bool seen = false;
+    Intent selectAction(const GameState&, const std::vector<Intent>& legal) override {
+        if (!seen) { seen = true; if (on_first_priority) on_first_priority(); }
+        for (const auto& i : legal) if (i.type == IntentType::PassPriority) return i;
+        return legal.empty() ? Intent{} : legal.front();
+    }
+};
+}  // namespace
+
+class TriggerFinalizationTest : public CostPaymentRulesTest {
+protected:
+    TriggerChoiceAgent p1_;
+    ObservingAgent p2_;
+    void setUpBoard() {
+        makeEngine();
+        setLegend(P1); setLegend(P2);
+        engine_->testHook_setAgents(&p1_, &p2_);
+        s().turn.ns_state = NeutralShowdownState::Neutral;
+        s().turn.oc_state = OpenClosedState::Open;
+    }
+    void playUnitFromHand(CardDefId def, int energy) {
+        s().player(P1).rune_pool.energy = energy;
+        auto card = cardInHand(P1, def);
+        Intent play;
+        play.type = IntentType::PlayCard;
+        play.player = P1;
+        play.card = card;
+        play.play_location = LocationId{BaseLocation{P1}};
+        engine_->testHook_executeIntent(play);
+    }
+    int readyRunes(PlayerId p) {
+        int n = 0;
+        for (auto& [id, o] : s().objects)
+            if (o.isRune() && o.controller == p && o.location.has_value() && !o.is_exhausted) ++n;
+        return n;
+    }
+};
+
+TEST_F(TriggerFinalizationTest, MayCostAndTargetAreSettledBeforeTheOpponentCanRespond) {
+    setUpBoard();
+    auto victim = engineUnit(P2, 3);
+    p1_.want = victim;
+    rune(P1, Domain::Order); rune(P1, Domain::Order);
+    int ready_at_response = -1; bool stunned_at_response = true; int may_at_response = -1;
+    p2_.on_first_priority = [&] {
+        ready_at_response = readyRunes(P1);
+        stunned_at_response = s().getObject(victim).is_stunned;
+        may_at_response = p1_.may_asked;
+    };
+    playUnitFromHand(kKennenKeeper, 3);
+
+    ASSERT_TRUE(p2_.seen);
+    EXPECT_EQ(may_at_response, 1) << "the \"you may\" is answered before the opponent has priority";
+    EXPECT_EQ(ready_at_response, 0) << "and the [2] is already paid";
+    EXPECT_FALSE(stunned_at_response) << "but the effect waits for resolution";
+    EXPECT_TRUE(s().getObject(victim).is_stunned);
+    EXPECT_EQ(p1_.may_asked, 1);
+    EXPECT_EQ(p1_.target_asked, 1) << "nothing is asked again as the ability resolves";
+    EXPECT_EQ(readyRunes(P1), 0) << "and the cost is charged once";
+}
+
+TEST_F(TriggerFinalizationTest, DecliningCostsNothingAndDoesNothing) {
+    setUpBoard();
+    auto victim = engineUnit(P2, 3);
+    p1_.say_yes = false;
+    rune(P1, Domain::Order); rune(P1, Domain::Order);
+    playUnitFromHand(kKennenKeeper, 3);
+
+    EXPECT_EQ(p1_.may_asked, 1);
+    EXPECT_EQ(p1_.target_asked, 0);
+    EXPECT_EQ(readyRunes(P1), 2);
+    EXPECT_FALSE(s().getObject(victim).is_stunned);
+}
+
+TEST_F(TriggerFinalizationTest, TargetThatLeavesBeforeResolutionIsAMistarget) {
+    // The unit chosen at finalization is gone when the ability resolves: the
+    // ability does nothing. It does not pick another unit (CR 359.3.e.6).
+    setUpBoard();
+    auto chosen = engineUnit(P1, 2);
+    auto other  = engineUnit(P1, 2);
+    p1_.want = chosen;
+    int asked_at_response = -1;
+    p2_.on_first_priority = [&] {
+        asked_at_response = p1_.target_asked;
+        auto& u = s().getObject(chosen);
+        u.location = std::nullopt;
+        u.zone = ZoneType::Trash;
+    };
+    playUnitFromHand(kFieldMusicians, 4);
+
+    ASSERT_TRUE(p2_.seen);
+    EXPECT_EQ(asked_at_response, 1) << "the target is chosen before the opponent has priority";
+    EXPECT_EQ(p1_.target_asked, 1) << "no re-targeting at resolution";
+    EXPECT_EQ(s().getObject(other).temp_might_bonus, 0);
+    EXPECT_EQ(s().getObject(chosen).temp_might_bonus, 0);
+}
+
+// ─── "At the end of this turn" belongs to the turn, not the turn player ─────
+TEST_F(RulesComplianceTest, DelayedEndOfTurnAbilityFiresForTheNonTurnPlayer) {
+    // Targon's Peak (284): "When you conquer here, ready up to 2 runes at the
+    // end of this turn." P2 sets it up during P1's turn.
+    constexpr CardDefId kTargonsPeak = 284;
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    auto bf_card = s().createObject();
+    {
+        auto& b = s().getObject(bf_card);
+        b.card_type = CardType::Battlefield;
+        b.card_def_id = kTargonsPeak;
+        b.name = "Targon's Peak";
+        b.owner = b.controller = P2;
+    }
+    s().battlefields[0].card_object_id = bf_card;
+    DelayedAbility da;
+    da.source = bf_card;
+    da.card_def_id = kTargonsPeak;
+    da.controller = P2;
+    da.trigger = TriggerType::AtEndOfTurn;
+    da.expires_on_turn = s().turn.turn_number;
+    s().delayed_abilities.push_back(da);
+    ASSERT_EQ(s().turn.turn_player, P1);
+
+    events.emit(PhaseChangedEvent{TurnPhase::MainPhase, TurnPhase::EndingStep, P1});
+
+    ASSERT_EQ(s().chain.items.size(), 1u) << "P2's delayed ability goes on the chain";
+    EXPECT_EQ(s().chain.items.back().controller, P2);
+    EXPECT_TRUE(s().delayed_abilities.empty());
+}
+
+// ─── Battlefield abilities (CR 190.6) ───────────────────────────────────────
+class BattlefieldAbilityTest : public RulesComplianceTest {
+protected:
+    GameObjectId setBattlefieldCard(int bf, CardDefId def, std::optional<PlayerId> controller) {
+        auto id = s().createObject();
+        auto& b = s().getObject(id);
+        b.card_type = CardType::Battlefield;
+        b.card_def_id = def;
+        b.name = card_db.get(def).name;
+        s().battlefields[bf].card_object_id = id;
+        s().battlefields[bf].controller = controller;
+        return id;
+    }
+    GameObjectId resolvedSpell(PlayerId p) {
+        auto id = s().createObject();
+        auto& sp = s().getObject(id);
+        sp.owner = sp.controller = p;
+        sp.card_type = CardType::Spell;
+        sp.name = "TestSpell";
+        sp.zone = ZoneType::Trash;
+        sp.card_counters["__energy_spent_on_play"] = 4;
+        return id;
+    }
+    int abilitiesOnChainFrom(GameObjectId source, PlayerId controller) {
+        int n = 0;
+        for (const auto& ci : s().chain.items)
+            if (ci.source == source && ci.controller == controller) ++n;
+        return n;
+    }
+};
+
+TEST_F(BattlefieldAbilityTest, WhenYouDefendHereTriggersForTheDefender) {
+    constexpr CardDefId kRavenbloom = 529;   // "When you defend here, reveal the top card ..."
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    auto bf = setBattlefieldCard(0, kRavenbloom, P2);
+    events.emit(CombatStartedEvent{0, /*attacker=*/P1, /*defender=*/P2});
+    EXPECT_EQ(abilitiesOnChainFrom(bf, P2), 1);
+    EXPECT_EQ(abilitiesOnChainFrom(bf, P1), 0);
+}
+
+TEST_F(BattlefieldAbilityTest, DefendHereDoesNotTriggerAtAnotherBattlefield) {
+    constexpr CardDefId kRavenbloom = 529;
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    auto bf = setBattlefieldCard(0, kRavenbloom, P2);
+    events.emit(CombatStartedEvent{1, P1, P2});
+    EXPECT_EQ(abilitiesOnChainFrom(bf, P2), 0);
+}
+
+TEST_F(BattlefieldAbilityTest, APlayerPlaysASpell_ThatPlayerControlsTheAbility) {
+    constexpr CardDefId kAbandonedHall = 761;  // "When a player plays a spell, they may ..."
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    auto bf = setBattlefieldCard(0, kAbandonedHall, P1);
+    engineUnit(P2, 2, /*at_bf=*/0);
+    // P2 — not the battlefield's controller — plays the spell (CR 190.6.c).
+    auto spell = resolvedSpell(P2);
+    events.emit(SpellResolvedEvent{spell, P2});
+    EXPECT_EQ(abilitiesOnChainFrom(bf, P2), 1);
+}
+
+TEST_F(BattlefieldAbilityTest, WhileYouControlThisBattlefield_OnlyTheControllersSpellsCount) {
+    constexpr CardDefId kForgottenLibrary = 767;  // "While you control this battlefield, when you
+                                                  // play a spell, if you spent [4] or more, [Predict]."
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    auto bf = setBattlefieldCard(0, kForgottenLibrary, P1);
+    for (PlayerId p : {P1, P2})
+        for (int i = 0; i < 3; ++i) {
+            auto c = s().createObject();
+            auto& o = s().getObject(c);
+            o.owner = o.controller = p;
+            o.card_type = CardType::Unit;
+            o.zone = ZoneType::MainDeck;
+            s().player(p).main_deck.push_back(c);
+        }
+    // Runs the battlefield's ability for `who` and reports whether it Predicted
+    // (the first-choice agent recycles the card it looks at, so the top changes).
+    auto predicts = [&](PlayerId who) {
+        auto spell = resolvedSpell(who);
+        events.emit(SpellResolvedEvent{spell, who});
+        EXPECT_EQ(abilitiesOnChainFrom(bf, who), 1);
+        const auto item = s().chain.items.back();
+        s().chain.items.clear();
+        s().chain.resuming = item;
+        const auto top_before = s().player(who).main_deck.back();
+        CardContext ctx{s(), events, engine_->testHook_executor(), who, bf};
+        card_registry.get(kForgottenLibrary)->onTrigger(ctx, {});
+        s().chain.resuming.reset();
+        return s().player(who).main_deck.back() != top_before;
+    };
+    EXPECT_FALSE(predicts(P2)) << "no Predict for a player who doesn't control the battlefield";
+    EXPECT_TRUE(predicts(P1));
+}
+
 }  // namespace
 }  // namespace riftbound::test

@@ -15,6 +15,7 @@ namespace {
 class Tideturner : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouPlayMe; }
     TargetRequirements getTargetRequirements() const override {
         return TargetRequirements{.count = 1, .must_be_unit = true,
@@ -44,6 +45,7 @@ public:
         if (!still_legal()) return;
         auto conf = confirmOptional(ctx,
             "Tideturner: swap locations with target?", still_legal);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (conf < 1) return;
         auto my_loc  = ctx.state.getObject(ctx.source).location;
         auto tgt_loc = ctx.state.getObject(targets[0]).location;

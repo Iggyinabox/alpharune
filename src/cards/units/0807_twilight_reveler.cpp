@@ -15,6 +15,7 @@ namespace {
 class TwilightReveler : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // "When I attack, ready another friendly unit."
     TriggerType triggerType() const override { return TriggerType::WhenIAttack; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
@@ -25,6 +26,7 @@ public:
             others.push_back(id);
         }
         GameObjectId tgt = pickTarget(ctx, "Twilight Reveler: ready another friendly unit", others);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (tgt == kInvalidId || !ctx.state.objectExists(tgt)) return;
         ctx.executor.readyObject(tgt);
         ctx.events.logTrace("TWILIGHT REVELER: readied " + ctx.state.getObject(tgt).name);

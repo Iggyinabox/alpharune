@@ -1,4 +1,5 @@
 #include "cards/card.h"
+#include "cards/card_helpers.h"
 #include "cards/card_registry.h"
 #include "core/game_state.h"
 #include "core/events.h"
@@ -14,6 +15,7 @@ namespace {
 class ValleyOfIdols : public BattlefieldCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // "When a player plays a unit here, they may pay [1] to [Buff] it."
     // The battlefield WhenYouPlayAUnit trigger fires (per TriggerManager) only
     // on the BF where the unit landed, with ctx.controller = the playing
@@ -40,27 +42,16 @@ public:
         if (played == kInvalidId) return;
 
         // Find a ready rune to pay [1].
-        auto base_loc = BaseLocation{ctx.controller};
-        auto find_rune = [&]() -> GameObjectId {
-            for (auto& [id, obj] : ctx.state.objects) {
-                if (!obj.isRune() || obj.controller != ctx.controller || obj.is_exhausted) continue;
-                if (!obj.location.has_value() || *obj.location != LocationId{base_loc}) continue;
-                return id;
-            }
-            return kInvalidId;
-        };
-
         int decision = confirmOptional(ctx, "Valley of Idols: pay [1] to [Buff] the unit?",
             [&]() {
-                return ctx.state.objectExists(played) && find_rune() != kInvalidId;
+                return ctx.state.objectExists(played) &&
+                       payableEnergy(ctx.state, ctx.controller) >= 1;
             });
-        if (decision == -1) return;  // waiting on agent
-        if (decision == 0) return;   // declined / not legal
+        if (decision < 1) return;   // waiting on the agent, declined or not legal
 
-        GameObjectId pay_rune = find_rune();
-        if (!ctx.state.objectExists(played) || pay_rune == kInvalidId) return;
-        ctx.state.getObject(pay_rune).is_exhausted = true;
-        // [Buff] = +1 [M] buff if it doesn't already have one.
+        if (costDueNow(ctx) && !payEnergy(ctx, ctx.controller, 1)) return;
+        if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
+        if (!ctx.state.objectExists(played)) return;
         if (ctx.state.getObject(played).buff_count == 0) {
             ctx.executor.buffUnit(played);
             ctx.events.logTrace("VALLEY OF IDOLS: paid [1] -> [Buff] the played unit");

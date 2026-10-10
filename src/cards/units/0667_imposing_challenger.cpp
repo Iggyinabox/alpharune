@@ -15,6 +15,7 @@ namespace {
 class ImposingChallenger : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // "When I move, you may move an enemy unit here with less Might than me to
     //  a different battlefield."
     TriggerType triggerType() const override { return TriggerType::WhenIMove; }
@@ -47,6 +48,7 @@ public:
 
         GameObjectId tgt = pickTarget(ctx, "Imposing Challenger: choose an enemy unit",
                                       candidates(ctx));
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (tgt == kInvalidId || !ctx.state.objectExists(tgt)) return;
         auto my_bf = ctx.state.getObject(ctx.source).battlefieldId();
         if (!my_bf) return;

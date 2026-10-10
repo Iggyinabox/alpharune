@@ -14,6 +14,7 @@ namespace {
 class Windsinger : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouPlayMe; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         if (!ctx.state.objectExists(ctx.source)) return;
@@ -34,6 +35,7 @@ public:
         if (conf == -1) return;
         if (conf == 0) return;
         GameObjectId picked = pickTarget(ctx, "Windsinger", legal());
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (picked == kInvalidId || !ctx.state.objectExists(picked)) return;
         std::string n = ctx.state.getObject(picked).name;
         ctx.executor.bounceToHand(picked);

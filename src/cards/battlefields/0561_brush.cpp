@@ -19,6 +19,7 @@ namespace {
 class Brush : public BattlefieldCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouScoreHere; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         // Locate the BF slot this Brush card occupies.
@@ -32,6 +33,7 @@ public:
 
         int conf = confirmOptional(ctx, "Brush: replace this with the battlefield it replaced?",
                                    [&]() { return true; });
+                                   if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (conf != 1) return;
 
         // Send the Brush token to banishment (tokens cease to exist; this is a

@@ -15,6 +15,7 @@ namespace {
 class MissFortuneCaptain : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenIMove; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         if (!ctx.state.objectExists(ctx.source)) return;
@@ -56,6 +57,7 @@ public:
 
         auto target = pickTarget(ctx, "Miss Fortune ready an exhausted friendly",
                                   find_targets());
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (target == kInvalidId) return;  // yielded for agent input
 
         ctx.executor.readyObject(target);

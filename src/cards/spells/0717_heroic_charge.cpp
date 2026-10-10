@@ -19,6 +19,7 @@ namespace {
 class HeroicCharge : public SpellCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeResolve; }
     TargetRequirements getTargetRequirements() const override {
         return TargetRequirements{.count = 2, .must_be_unit = true};
     }
@@ -52,6 +53,7 @@ public:
         };
         auto [friendly, enemy] = pickTargetPair(ctx, "Heroic Charge",
                                                  legal_friendly, enemy_fn);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         bool suspending = (friendly == kInvalidId || enemy == kInvalidId) &&
                           ctx.state.chain.resuming.has_value() &&
                           (ctx.state.chain.resuming->resume_point == 10 ||

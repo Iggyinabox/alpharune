@@ -46,12 +46,9 @@ public:
         // "Lose control of that unit and recall it at end of turn": a delayed
         // ability that returns control and recalls the unit. The engine's
         // end-of-turn control reversion (takeControl's until_end_of_turn) stays
-        // armed as the fallback for the "lose control" half.
-        // ENGINE-GAP: TriggerManager only checks AtEndOfTurn delayed abilities
-        // of the TURN player, so when this is played on an opponent's turn (it
-        // has [Hidden]) the delayed ability never fires: control still reverts
-        // at expiration, but the unit is not recalled. Needed: end-of-turn
-        // delayed abilities fired for both players (CR 359.3.e.16).
+        // armed as the fallback for the "lose control" half. (End-of-turn
+        // delayed abilities fire for both players, so this works when played
+        // from [Hidden] on an opponent's turn.)
         if (ctx.state.objectExists(ctx.source)) {
             ctx.state.getObject(ctx.source).card_counters[kSeizedKey] =
                 static_cast<int>(picked) + 1;

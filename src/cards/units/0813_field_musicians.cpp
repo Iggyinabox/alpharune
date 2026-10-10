@@ -15,6 +15,7 @@ namespace {
 class FieldMusicians : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // "When you play me, give a unit +3 [M] this turn."
     TriggerType triggerType() const override { return TriggerType::WhenYouPlayMe; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& targets) override {
@@ -26,6 +27,7 @@ public:
                              chooseableUnits(ctx.state, ctx.controller,
                                              [](const GameObject&) { return true; }));
         }
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (tgt == kInvalidId || !ctx.state.objectExists(tgt)) return;
         ctx.executor.giveTemporaryMight(tgt, 3);
         ctx.events.logTrace("FIELD MUSICIANS: +3 [M] this turn to " +

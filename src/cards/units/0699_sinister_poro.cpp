@@ -15,6 +15,7 @@ namespace {
 class SinisterPoro : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // "When I attack, you may pay [1] to move an enemy unit here to its base."
     TriggerType triggerType() const override { return TriggerType::WhenIAttack; }
 
@@ -51,7 +52,8 @@ public:
         // again), so the [1] is paid only here, once the target is known —
         // paying before pickTarget charged it on every entry.
         if (tgt == kInvalidId || !ctx.state.objectExists(tgt)) return;
-        if (!payEnergy(ctx, ctx.controller, 1)) return;
+        if (costDueNow(ctx) && !payEnergy(ctx, ctx.controller, 1)) return;
+        if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
         ctx.executor.moveToBase(tgt);
         ctx.events.logTrace("SINISTER PORO: paid [1] -> moved an enemy unit to its base");
     }

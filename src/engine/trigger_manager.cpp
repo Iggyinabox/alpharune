@@ -404,6 +404,19 @@ void TriggerManager::onSpellResolved(const SpellResolvedEvent& e) {
     }
     for (auto& [id, t] : fires)
         fireTrigger(id, e.controller, energy_spent, t, /*subject=*/e.spell);
+
+    // Battlefield cards ("When a player plays a spell, they ..." — Abandoned
+    // Hall; Forgotten Library). A battlefield's card object is not at a
+    // location, so the sweep above never sees it. The player who played the
+    // spell controls the ability (CR 190.6.c); a card whose text is limited to
+    // the battlefield's controller checks that itself.
+    for (auto& bf : state_.battlefields) {
+        if (!state_.objectExists(bf.card_object_id)) continue;
+        if (cardFiresOn(card_registry_, state_.getObject(bf.card_object_id).card_def_id,
+                        TriggerType::WhenYouPlayASpell))
+            fireTrigger(bf.card_object_id, e.controller, energy_spent,
+                        TriggerType::WhenYouPlayASpell, /*subject=*/e.spell);
+    }
 }
 
 void TriggerManager::onEnteredBoard(const EnteredBoardEvent& e) {
@@ -421,6 +434,10 @@ void TriggerManager::onCombatStarted(const CombatStartedEvent& e) {
 
     // Battlefield cards: "When combat starts here," (Threshold of the Gray).
     fireBattlefieldTriggers(TriggerType::WhenCombatStartsHere, e.attacker, e.battlefield);
+    // "When you defend here," (Fortified Position, Reaver's Row, Ravenbloom
+    // Conservatory): the defending player's ability.
+    if (e.defender != PlayerId::None)
+        fireBattlefieldTriggers(TriggerType::WhenYouDefendHere, e.defender, e.battlefield);
 
     for (auto& [id, obj] : state_.objects) {
         if (!obj.isUnit() || !obj.isAtBattlefield()) continue;
@@ -900,6 +917,10 @@ void TriggerManager::onPhaseChanged(const PhaseChangedEvent& e) {
         // Delayed abilities scheduled for end of turn (e.g. Targon's Peak's
         // "ready up to 2 runes at the end of this turn").
         checkDelayedAbilities(TriggerType::AtEndOfTurn, e.turn_player, kInvalidId);
+        // "At the end of this turn" is not "your turn": one set up by the
+        // other player (Hostile Takeover played as a reaction, a conquer on
+        // the opponent's turn) fires too, after the turn player's.
+        checkDelayedAbilities(TriggerType::AtEndOfTurn, opponent(e.turn_player), kInvalidId);
     }
 
     // "At the start of your Beginning Phase"

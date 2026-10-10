@@ -15,6 +15,7 @@ namespace {
 class ProtectiveSands : public BattlefieldCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // "When you conquer here, if you control 4 or fewer runes, you may pay [1]
     // to draw 1."
     TriggerType triggerType() const override { return TriggerType::WhenYouConquerHere; }
@@ -23,10 +24,11 @@ public:
             return runesControlled(ctx.state, ctx.controller) <= 4 &&
                    payableEnergy(ctx.state, ctx.controller) >= 1;
         };
-        if (!still_legal()) return;
+        if (!costAlreadyPaid(ctx) && !still_legal()) return;
         int conf = confirmOptional(ctx, "Protective Sands: pay [1] to draw 1?", still_legal);
         if (conf < 1) return;
-        if (!payEnergy(ctx, ctx.controller, 1)) return;
+        if (costDueNow(ctx) && !payEnergy(ctx, ctx.controller, 1)) return;
+        if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
         ctx.executor.drawCards(ctx.controller, 1);
     }
 private:

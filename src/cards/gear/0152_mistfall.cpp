@@ -15,6 +15,7 @@ namespace {
 class Mistfall : public GearCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // "When you buff a friendly unit, you may pay [O] and exhaust this to ready it."
     // Fires via WhenYouBuffAFriendlyUnit; the buffed unit is the trigger subject.
     TriggerType triggerType() const override {
@@ -29,12 +30,13 @@ public:
                    !ctx.state.getObject(self).is_exhausted &&
                    subject != kInvalidId && ctx.state.objectExists(subject);
         };
-        if (!still_legal()) return;
+        if (!costAlreadyPaid(ctx) && !still_legal()) return;
         int conf = confirmOptional(ctx,
             "Mistfall: pay [O] + exhaust to ready the buffed unit?", still_legal);
         if (conf < 1) return;
-        if (!payOnePower(ctx, ctx.controller, Domain::Body)) return;  // [O]
-        ctx.state.getObject(self).is_exhausted = true;                // exhaust this
+        if (costDueNow(ctx) && !payOnePower(ctx, ctx.controller, Domain::Body)) return;  // [O]
+        if (costDueNow(ctx)) ctx.state.getObject(self).is_exhausted = true;                // exhaust this
+        if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
         ctx.executor.readyObject(subject);
         ctx.events.logTrace("MISTFALL: paid [O]+exhaust -> ready buffed unit");
     }

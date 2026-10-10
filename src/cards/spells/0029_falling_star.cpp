@@ -15,6 +15,7 @@ namespace {
 class FallingStar : public SpellCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeResolve; }
 
     TargetRequirements getTargetRequirements() const override {
         return TargetRequirements{.count = 2, .must_be_unit = true};
@@ -34,6 +35,7 @@ public:
             ctx, "Falling Star",
             all_units(),
             [&](GameObjectId /*picked_a*/) { return all_units(); });
+            if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
 
         // Suspend detection (mirrors MStarCrossed): if a pick is invalid AND
         // we're parked at a prompt-publish resume_point (10 or 12), the chain

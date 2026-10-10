@@ -18,6 +18,7 @@ namespace {
 class FaePorter : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenIMoveToFB; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         if (!ctx.state.objectExists(ctx.source)) return;
@@ -42,6 +43,7 @@ public:
         if (conf == -1) return;  // waiting on agent
         if (conf == 0) return;   // declined / not legal
         GameObjectId tgt = pickTarget(ctx, "Fae Porter: move which unit here?", movable());
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (tgt == kInvalidId) return;  // suspend or no target
         if (!ctx.state.objectExists(tgt)) return;
         if (!payOnePower(ctx, ctx.controller, Domain::Chaos)) return;

@@ -15,6 +15,7 @@ namespace {
 class MonasteryOfHirana : public BattlefieldCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override {
         return TriggerType::WhenYouConquerHere;
     }
@@ -33,6 +34,7 @@ public:
 
         int conf = confirmOptional(ctx,
             "Monastery of Hirana: spend a buff to draw 1?", still_legal);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (conf == -1) return;
         if (conf == 0) return;
 

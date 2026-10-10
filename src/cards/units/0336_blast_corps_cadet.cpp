@@ -15,6 +15,7 @@ namespace {
 class BlastCorpsCadet : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
 
     // "You may pay [1][R] as an additional cost to play me.
     //  When you play me, if you paid the additional cost, deal 2 to a unit
@@ -37,6 +38,7 @@ public:
         }
         GameObjectId tgt = pickTarget(ctx,
             "Blast Corps Cadet: deal 2 to a unit at a battlefield", legal);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (tgt == kInvalidId || !ctx.state.objectExists(tgt)) return;
         ctx.executor.dealDamage(tgt, 2, ctx.source);
         if (ctx.state.objectExists(tgt) &&

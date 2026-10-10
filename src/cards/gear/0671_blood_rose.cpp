@@ -15,6 +15,7 @@ namespace {
 class BloodRose : public GearCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
 
     // ── Trigger: WhenYouPlayAUnit, optionally pay 1 for 1 XP ──
     TriggerType triggerType() const override { return TriggerType::WhenYouPlayAUnit; }
@@ -28,11 +29,12 @@ public:
         auto still_legal = [&ctx]() {
             return payableEnergy(ctx.state, ctx.controller) >= 1;
         };
-        if (!still_legal()) return;
+        if (!costAlreadyPaid(ctx) && !still_legal()) return;
         auto conf = confirmOptional(ctx,
             "Blood Rose: pay [1] to gain 1 XP?", still_legal);
         if (conf < 1) return;
-        if (!payEnergy(ctx, ctx.controller, 1)) return;
+        if (costDueNow(ctx) && !payEnergy(ctx, ctx.controller, 1)) return;
+        if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
         ps.xp += 1;
         ctx.events.logTrace("BLOOD ROSE: paid [1] -> +1 XP (now " +
                              std::to_string(ps.xp) + ")");

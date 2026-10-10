@@ -14,12 +14,14 @@ namespace {
 class KhaZixEvolvingHunter : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     std::vector<TriggerType> triggerTypes() const override {
         return {TriggerType::WhenIConquerOrHold, TriggerType::WhenIAttack};
     }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         if (!ctx.state.objectExists(ctx.source)) return;
         if (ctx.firing_trigger == TriggerType::WhenIConquerOrHold) {
+            if (finalizingChoices(ctx)) return;   // no choices
             ctx.state.player(ctx.controller).xp += 1;  // [Hunt]
             ctx.events.logTrace("KHA'ZIX: [Hunt] +1 XP");
             return;
@@ -43,6 +45,7 @@ public:
         if (yes != 1) return;
         GameObjectId tgt = pickTarget(ctx, "Kha'Zix: deal Might to enemy here",
                                       enemiesHere());
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (tgt == kInvalidId || !ctx.state.objectExists(tgt)) return;
         ctx.state.player(ctx.controller).xp -= 3;
         int might = ctx.state.getObject(ctx.source).current_might;

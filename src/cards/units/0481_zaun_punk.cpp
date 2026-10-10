@@ -21,6 +21,7 @@ namespace {
 class ZaunPunk : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouPlayMe; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         auto friendly_gear = [&]() {
@@ -51,6 +52,7 @@ public:
             return out;
         };
         auto [cost, victim] = pickTargetPair(ctx, "Zaun Punk", friendly_gear(), any_gear_fn);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         bool suspending = (cost == kInvalidId || victim == kInvalidId) &&
                           ctx.state.chain.resuming.has_value() &&
                           (ctx.state.chain.resuming->resume_point == 10 ||

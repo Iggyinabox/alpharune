@@ -14,6 +14,7 @@ namespace {
 class GrandDuelist : public LegendCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // "When one of your units becomes [Mighty], you may exhaust me to channel 1
     // rune exhausted. (A unit is Mighty while it has 5+ [M].)"
     // Wired via WhenAUnitBecomesMighty (cleanup edge-detect → "became_mighty" →
@@ -32,7 +33,8 @@ public:
                                    still_legal);
         if (conf == -1) return;   // waiting for agent
         if (conf < 1) return;     // declined / already exhausted
-        ctx.executor.exhaustObject(ctx.source);
+        if (costDueNow(ctx)) ctx.executor.exhaustObject(ctx.source);
+        if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
         ctx.executor.channelRunes(ctx.controller, 1, /*enter_exhausted=*/true);
         ctx.events.logTrace("GRAND DUELIST: exhausted -> channeled 1 rune (exhausted)");
     }

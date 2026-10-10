@@ -15,6 +15,7 @@ namespace {
 class RavenbloomPrefect : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // ── behaviour (Vendetta batch C) ──
     // "When an opponent plays a gear, you may banish me to banish it."
     // The played gear rides on the chain item as triggering_subject.
@@ -31,6 +32,7 @@ public:
         };
         int conf = confirmOptional(ctx, "Ravenbloom Prefect: banish me to banish the gear?",
                                    still_legal);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (conf < 1) return;
         ctx.executor.banishObject(ctx.source);
         // If the gear has not finished being played, its pending permanent

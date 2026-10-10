@@ -15,6 +15,7 @@ namespace {
 class BaccaiReaper : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // "When I attack, you may pay [R] to give me [Assault 2] this turn."
     TriggerType triggerType() const override { return TriggerType::WhenIAttack; }
 
@@ -50,6 +51,7 @@ public:
                    canPayFury(ctx.state, ctx.controller);
         };
         int conf = confirmOptional(ctx, "Baccai Reaper: pay [R] for [Assault 2]?", still_legal);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (conf == -1) return;  // waiting for agent
         if (conf < 1) return;    // declined / can't pay
         if (!payFury(ctx)) return;

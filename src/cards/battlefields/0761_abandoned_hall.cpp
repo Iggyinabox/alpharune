@@ -14,6 +14,7 @@ namespace {
 class AbandonedHall : public BattlefieldCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouPlayASpell; }
 
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
@@ -42,6 +43,7 @@ public:
         if (conf == 0) return;   // declined
         auto target = pickTarget(ctx, "Abandoned Hall: choose a unit here",
                                  findTargets());
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (target == kInvalidId) return;
         ctx.executor.giveTemporaryMight(target, 1);
         ctx.events.logTrace("ABANDONED HALL: +1 [M] this turn to " +

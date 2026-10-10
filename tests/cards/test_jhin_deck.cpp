@@ -519,6 +519,9 @@ TEST_F(JhinDeckTest, ForgottenLibrary_PiercingLightWithRepeat_Procs) {
     auto bf = state.createObject();
     state.getObject(bf).card_def_id = 767;
     state.getObject(bf).controller = P1;
+    // "While you control this battlefield": bind the card to a controlled battlefield.
+    state.battlefields[0].card_object_id = bf;
+    state.battlefields[0].controller = P1;
 
     addToDeck(P1, kInvalidId);
     emulateSpellResolved(P1, 346);
@@ -538,6 +541,9 @@ TEST_F(JhinDeckTest, ForgottenLibrary_ArbitraryCost4Spell_Procs) {
     auto bf = state.createObject();
     state.getObject(bf).card_def_id = 767;
     state.getObject(bf).controller = P1;
+    // "While you control this battlefield": bind the card to a controlled battlefield.
+    state.battlefields[0].card_object_id = bf;
+    state.battlefields[0].controller = P1;
     addToDeck(P1, kInvalidId);
     emulateSpellResolved(P1, 122);  // Time Warp, cost 10
 

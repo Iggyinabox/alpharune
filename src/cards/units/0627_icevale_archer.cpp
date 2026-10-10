@@ -15,6 +15,7 @@ namespace {
 class IcevaleArcher : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // "When I attack, you may pay [1] to give a unit here -1 [M] this turn."
     TriggerType triggerType() const override { return TriggerType::WhenIAttack; }
 
@@ -50,7 +51,8 @@ public:
         // again), so the [1] is paid only here, once the target is known —
         // paying before pickTarget charged it on every entry.
         if (tgt == kInvalidId || !ctx.state.objectExists(tgt)) return;
-        if (!payEnergy(ctx, ctx.controller, 1)) return;
+        if (costDueNow(ctx) && !payEnergy(ctx, ctx.controller, 1)) return;
+        if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
         ctx.executor.giveTemporaryMight(tgt, -1);
         ctx.events.logTrace("ICEVALE ARCHER: paid [1] -> gave a unit here -1 [M] this turn");
     }

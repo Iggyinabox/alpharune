@@ -15,6 +15,7 @@ namespace {
 class AkaliDeadlyWeapon : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // "[Empower] [2][R]"
     EmpowerSpec empowerSpec() const override { return empowerCost(2, 1, Domain::Fury); }
     // "[Empowered][>] I have +1 [M]."
@@ -50,6 +51,7 @@ public:
         if (conf < 1) return;    // declined / nothing to hit
         GameObjectId tgt = pickTarget(ctx, "Akali, Deadly Weapon: choose a unit",
                                       unitsWhereIMoved(ctx));
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (tgt == kInvalidId || !ctx.state.objectExists(tgt)) return;
         if (!ctx.state.objectExists(ctx.source)) return;
         const int amount = ctx.state.getObject(ctx.source).isEmpowered() ? 2 : 1;

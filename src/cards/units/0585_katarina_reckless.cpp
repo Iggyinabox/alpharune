@@ -14,6 +14,7 @@ namespace {
 class KatarinaReckless : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // "When you hide a card, ready me. When you play a card from face down,
     // deal 2 to an enemy unit." Now both events have engine triggers.
     std::vector<TriggerType> triggerTypes() const override {
@@ -22,6 +23,7 @@ public:
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>&) override {
         if (!ctx.state.objectExists(ctx.source)) return;
         if (ctx.firing_trigger == TriggerType::WhenYouHideACard) {
+            if (finalizingChoices(ctx)) return;   // no choices
             ctx.executor.readyObject(ctx.source);
             ctx.events.logTrace("KATARINA RECKLESS: hid a card -> ready me");
         } else if (ctx.firing_trigger == TriggerType::WhenYouPlayFromFacedown) {
@@ -32,6 +34,7 @@ public:
                     legal.push_back(id);
             }
             GameObjectId t = pickTarget(ctx, "Katarina: deal 2 to an enemy unit", legal);
+            if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
             if (t == kInvalidId || !ctx.state.objectExists(t)) return;
             ctx.executor.dealDamage(t, 2, ctx.source);
             ctx.events.logTrace("KATARINA RECKLESS: played from facedown -> deal 2");

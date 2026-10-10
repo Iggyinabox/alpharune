@@ -36,6 +36,7 @@ std::vector<GameObjectId> weakerEnemies(const GameState& state, PlayerId player,
 class PublicExecution : public SpellCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeResolve; }
     // [vendetta-E]
     // "Choose a friendly unit. Kill an enemy unit with less Might than it."
     bool needsPlayTimeTargetPair() const override { return true; }
@@ -48,6 +49,7 @@ public:
         auto [mine, victim] = pickTargetPair(
             ctx, "Public Execution", executioners(ctx.state, ctx.controller),
             [&](GameObjectId a) { return weakerEnemies(ctx.state, ctx.controller, a); });
+            if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (mine == kInvalidId || victim == kInvalidId) return;   // suspended or fizzled
         if (!ctx.state.objectExists(victim)) return;
         ctx.executor.killObject(victim);

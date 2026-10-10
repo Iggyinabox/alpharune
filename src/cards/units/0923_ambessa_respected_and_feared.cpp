@@ -15,6 +15,7 @@ namespace {
 class AmbessaRespectedAndFeared : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // ── behaviour (Vendetta batch C) ──
     // "[Empower] [1][Y][Y]"
     EmpowerSpec empowerSpec() const override { return empowerCost(1, 2, Domain::Order); }
@@ -38,6 +39,7 @@ public:
                    obj.current_might < my_might;
         });
         GameObjectId picked = pickTarget(ctx, "Ambessa: kill a weaker enemy here", legal);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (picked == kInvalidId || !ctx.state.objectExists(picked)) return;
         ctx.executor.killObject(picked);
     }

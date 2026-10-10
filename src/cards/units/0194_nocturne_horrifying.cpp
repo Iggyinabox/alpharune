@@ -14,6 +14,7 @@ namespace {
 class NocturneHorrifying : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // "As you look at or reveal me from the top of your deck, you may banish
     // me. If you do, you may play me for [A]." [Ganking] engine-handled.
     // The two nested "may"s are collapsed into one decision (the resume-slot
@@ -31,6 +32,7 @@ public:
         if (!still_in_deck()) return;  // already left the deck top
         int conf = confirmOptional(ctx, "Nocturne: banish from deck and play for [A]?",
                                     still_in_deck);
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
         if (conf != 1) return;
         auto& ps = ctx.state.player(owner);
         auto it = std::find(ps.main_deck.begin(), ps.main_deck.end(), ctx.source);

@@ -15,6 +15,7 @@ namespace {
 class BlitzcrankImpassive : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     std::vector<TriggerType> triggerTypes() const override {
         return {TriggerType::WhenYouPlayMe, TriggerType::WhenIHold};
     }
@@ -26,6 +27,7 @@ public:
         // unit is actually holding a battlefield — but here both triggers are
         // event-driven and carry firing_trigger, so branch on it directly).
         if (ctx.firing_trigger == TriggerType::WhenIHold) {
+            if (finalizingChoices(ctx)) return;   // no choices
             ctx.executor.bounceToHand(ctx.source);
             ctx.events.logTrace("BLITZCRANK: returned to owner's hand on hold");
             return;
@@ -53,6 +55,7 @@ public:
             "Blitzcrank: pull an enemy unit to my battlefield?", still_legal);
         if (conf == -1) return;
         if (conf == 0) return;
+        if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
 
         auto target = find_enemy_elsewhere();
         if (target == kInvalidId) return;

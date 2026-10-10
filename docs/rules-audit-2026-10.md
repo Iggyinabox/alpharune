@@ -19,7 +19,7 @@ CH `src/cards/card_helpers.h`.
 ## Status after the fix batches (2026-10-10, branch `vendetta-rules-update`)
 
 The table further down is the ORIGINAL audit. This is where each item stands
-now. "Fixed" means implemented with tests that run in the suite (1465 passing)
+now. "Fixed" means implemented with tests that run in the suite (1473 passing)
 and exercised by random-game smoke runs.
 
 | # | Item | Now |
@@ -30,13 +30,13 @@ and exercised by random-game smoke runs.
 | 4 | Token is intrinsic | Fixed. |
 | 5 | Contested removal / application | Fixed. |
 | 6 | "When I die" last-known info | Fixed for the cards that depend on it (`GameObject::last_known`). Vanguard Helm still lacks the dying unit as a subject. |
-| 7 | "You may" / costs at finalization | **Open.** Single TARGETS are now chosen at finalization (see 9), but a triggered ability's "you may" and its "[X] to [Y]" cost are still decided as it resolves. Needs a per-card split of choice and effect (core header + card migration). |
-| 8 | Expired delayed abilities | **Open.** End-of-turn delayed abilities still fire only for the turn player. |
-| 9 | Targeting | Mostly fixed. One-target spells and abilities choose at finalization, pay Deflect then, are visible on the chain, and mistarget instead of re-picking. **Open:** two-target spells (`pickTargetPair`) and triggered abilities still choose at resolution; "restriction is not a target" is not modelled. |
+| 7 | "You may" / costs at finalization | Fixed for 141 triggered abilities: the "you may", the "[cost] to [effect]" payment and the targets are decided when the ability is finalized, before anyone can respond (`Card::choicesAtFinalization`, `GameEngine::runFinalizePass`). **Open:** 23 triggers still decide as they resolve — most correctly, because the choice depends on something revealed or drawn while resolving (Twisted Fate, Fate Weaver, Ashe); the others are listed under "Triggers not yet migrated" below. Costs other than Energy / Power / exhausting the source (spending a buff or XP, killing a unit) are still paid at resolution. |
+| 8 | Expired delayed abilities | Fixed: "at the end of this turn" delayed abilities fire for both players. Flag-based durations set during the Ending Step are still open. |
+| 9 | Targeting | Fixed for one-target and two-target spells and abilities and for the migrated triggers (see 7): chosen at finalization, Deflect paid then, visible on the chain, mistarget instead of re-picking. **Open:** "restriction is not a target" is not modelled; modal spells still pick their mode as they resolve. |
 | 10 | Split damage | Partly fixed. The controller chooses the split; it is still chosen at resolution and capped at 12 prompts. |
 | 11 | Accelerate | Fixed (domain rule; the granted Accelerate is optional). The grant is still keyed on a hard-coded card id in the engine. |
 | 12 | "Play" semantics | Fixed. |
-| 13 | Battlefield ability control | **Open.** |
+| 13 | Battlefield ability control | Fixed for the cases that differ in play: "when you defend here" (never dispatched before), "when a player plays a spell" battlefields (never dispatched before), and "you" abilities that require control (Forgotten Library, Dusk Rose Lab). Uncontrolled-battlefield abilities are still controlled by the event's player rather than the turn player (190.6.b); no card distinguishes the two today. |
 | 14 | "Then banish it" / enters | Fixed for countered Flow spells and "enters exhausted". Shadow's "enter ready at a battlefield" is open. |
 | 15 | "Activate" a named trigger | Fixed in Reckoner's Arena (each ability is its own chain item). |
 | 16 | Unified lethal damage | Fixed (assignment and cleanup agree; "your damage" is attributed). |
@@ -57,8 +57,14 @@ base costs; "can't be countered"; sideboard limit 10.
 Not rules, but found and fixed: combat damage options were enumerated by
 permuting every unit (a 16-defender combat never returned).
 
-Still needing a core-header change (one batched rebuild): trigger choices at
-finalization (7), a restricted-Energy pool (Butcher of the Sands), an
+Triggers not yet migrated to finalization-time choices: Veiled Temple, Safety
+Inspector, Altar of Memories, Blast Cone, Star Spring, Janna Savior, Jayce Man
+of Progress, Iascylla, Insightful Investigator, Kennen Storm of Shuriken, and
+the ten cards that build their own choice prompts (Dazzling Aurora, Bottled
+Constellation and others; `grep -L choicesAtFinalization` over the cards whose
+`onTrigger` calls `requestChoice`).
+
+Still needing a core-header change (one batched rebuild): a restricted-Energy pool (Butcher of the Sands), an
 alternative Empower cost (Legion Marauder), free-form "name a card" (Fallen
 Feline), a battlefield-sourced additional cost (Dragon Roost), ability
 activations as "played" events (Curator of the Sands). `grep -rn ENGINE-GAP
