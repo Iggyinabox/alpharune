@@ -179,6 +179,29 @@ void EffectExecutor::killObject(GameObjectId target) {
                 BaseLocation{controller}, false});
             return;
         }
+
+        // Card-defined death replacements (The Boss, Zhonya's Hourglass,
+        // Guardian Angel, Soraka, ...). Effect kills consult them exactly as
+        // combat deaths do (GameEngine::killUnit): a kill is a kill.
+        if (card_registry_) {
+            std::vector<GameObjectId> replacers;
+            for (auto& [id, other] : state_.objects) {
+                if (other.controller != controller || id == target) continue;
+                if (!other.location.has_value() && other.zone != ZoneType::LegendZone) continue;
+                if (other.card_def_id == kInvalidId) continue;
+                const Card* c = card_registry_->get(other.card_def_id);
+                if (c && c->hasReplacementEffect()) replacers.push_back(id);
+            }
+            for (auto rid : replacers) {
+                Card* c = card_registry_->get(state_.getObject(rid).card_def_id);
+                CardContext rctx{state_, events_, *this, controller, rid};
+                if (c && c->applyReplacement(rctx, target)) {
+                    events_.logDebug(std::string("REPLACEMENT: ") + state_.getObject(rid).name +
+                                     " prevents " + state_.getObject(target).name + " from dying");
+                    return;
+                }
+            }
+        }
         // Detach gear (CR 719.5)
         for (auto gear_id : obj.attachments) {
             if (state_.objectExists(gear_id)) {

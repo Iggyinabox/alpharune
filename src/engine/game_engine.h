@@ -583,6 +583,11 @@ private:
     bool canPayActivationResources(PlayerId player, int energy,
                                    const ActivationCost& cost) const;
     bool payActivationResources(PlayerId player, int energy, const ActivationCost& cost);
+    /// Apply `assigned` combat damage to a unit through the replacement
+    /// effects that govern it (CR 467.2.c.5).
+    void applyCombatDamage(GameObjectId target, int assigned);
+    /// Whether `damager`'s damage kills in any amount (CR 142.4.c).
+    bool anyDamageIsLethalFor(PlayerId damager) const;
     /// (Re)create the chain manager, effect executor and trigger manager bound
     /// to state_ / events_.
     void initSubsystems();

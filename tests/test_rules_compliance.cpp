@@ -1,0 +1,242 @@
+/// @file test_rules_compliance.cpp
+/// Engine-level tests pinning behaviour to specific Core Rules, written while
+/// auditing the engine against the 2026-10-09 rules (docs/rules-audit-2026-10.md).
+/// Each test names the rule it enforces.
+
+#include "cards/card_test_fixture.h"
+#include "engine/effect_executor.h"
+#include "engine/game_engine.h"
+
+#include <gtest/gtest.h>
+
+namespace riftbound::test {
+namespace {
+
+class RulesComplianceTest : public CardTestFixture {
+protected:
+    std::unique_ptr<GameEngine> engine_;
+    FirstChoiceAgent a1_, a2_;
+    GameState& s() { return engine_->mutableState(); }
+
+    void makeEngine(int n_bfs = 2) {
+        engine_ = std::make_unique<GameEngine>(card_db, events, card_registry);
+        auto& st = s();
+        st.mode = ModeOfPlay{};
+        st.players[0].id = P1;
+        st.players[1].id = P2;
+        for (int i = 0; i < n_bfs; ++i) {
+            BattlefieldState bf;
+            bf.id = static_cast<int>(st.battlefields.size());
+            st.battlefields.push_back(bf);
+        }
+        engine_->testHook_setAgents(&a1_, &a2_);
+        st.turn.turn_player = P1;
+        st.turn.phase = TurnPhase::MainPhase;
+    }
+
+    /// A legend in `p`'s Legend Zone (def_id may be kInvalidId for a blank one).
+    GameObjectId setLegend(PlayerId p, CardDefId def_id = kInvalidId) {
+        auto id = s().createObject();
+        auto& lo = s().getObject(id);
+        lo.owner = lo.controller = p;
+        lo.card_type = CardType::Legend;
+        lo.card_def_id = def_id;
+        if (def_id != kInvalidId) lo.name = card_db.get(def_id).name;
+        lo.zone = ZoneType::LegendZone;
+        s().player(p).legend_zone = id;
+        return id;
+    }
+
+    GameObjectId engineUnit(PlayerId p, int might, int at_bf = -1,
+                            CardDefId def_id = kInvalidId) {
+        auto id = s().createObject();
+        auto& u = s().getObject(id);
+        u.owner = u.controller = p;
+        u.card_type = CardType::Unit;
+        u.card_def_id = def_id;
+        u.name = def_id != kInvalidId ? card_db.get(def_id).name : "TestUnit";
+        u.base_might = u.current_might = might;
+        if (at_bf >= 0) {
+            u.zone = ZoneType::BattlefieldZone;
+            u.location = BattlefieldLocation{static_cast<BattlefieldId>(at_bf)};
+        } else {
+            u.zone = ZoneType::Base;
+            u.location = BaseLocation{p};
+        }
+        return id;
+    }
+
+    bool onBoard(GameObjectId id) { return s().getObject(id).location.has_value(); }
+};
+
+// ─── Death replacement effects ("would die ... instead") ────────────────────
+// A replacement applies only under its own printed condition. The Boss (264):
+// "When a buffed unit you control would die, you may pay ... exhaust me, and
+// spend its buff to ... recall it instead."
+
+constexpr CardDefId kTheBoss = 264;
+
+TEST_F(RulesComplianceTest, DeathReplacement_TheBoss_DoesNotSaveAnUnbuffedUnit) {
+    makeEngine();
+    setLegend(P1, kTheBoss);
+    setLegend(P2);
+    auto unit = engineUnit(P1, 2, 0);
+    s().getObject(unit).damage_marked = 2;      // lethal
+
+    engine_->testHook_processLethalDamage();
+
+    EXPECT_FALSE(onBoard(unit)) << "The Boss only saves BUFFED units";
+    EXPECT_EQ(s().getObject(unit).zone, ZoneType::Trash);
+}
+
+TEST_F(RulesComplianceTest, DeathReplacement_TheBoss_SavesABuffedUnit) {
+    makeEngine();
+    auto boss = setLegend(P1, kTheBoss);
+    setLegend(P2);
+    auto unit = engineUnit(P1, 2, 0);
+    s().getObject(unit).buff_count = 1;
+    s().getObject(unit).recomputeMight();
+    s().getObject(unit).damage_marked = 5;      // lethal
+
+    engine_->testHook_processLethalDamage();
+
+    EXPECT_TRUE(onBoard(unit));
+    EXPECT_TRUE(s().getObject(unit).isAtBase()) << "recalled to base";
+    EXPECT_EQ(s().getObject(unit).buff_count, 0) << "its buff is spent";
+    EXPECT_TRUE(s().getObject(boss).is_exhausted) << "The Boss exhausts to pay";
+}
+
+TEST_F(RulesComplianceTest, DeathReplacement_AppliesToEffectKillsToo) {
+    // A unit killed by a spell or ability "would die" just the same, so the
+    // replacement must be consulted on that path as well.
+    makeEngine();
+    setLegend(P1, kTheBoss);
+    setLegend(P2);
+    auto unit = engineUnit(P1, 2, 0);
+    s().getObject(unit).buff_count = 1;
+    s().getObject(unit).recomputeMight();
+
+    EffectExecutor exec(s(), events, card_db, &card_registry);
+    exec.killObject(unit);
+
+    EXPECT_TRUE(onBoard(unit)) << "saved by The Boss";
+    EXPECT_TRUE(s().getObject(unit).isAtBase());
+}
+
+TEST_F(RulesComplianceTest, DeathReplacement_ExhaustedBossCannotSaveASecondUnit) {
+    makeEngine();
+    auto boss = setLegend(P1, kTheBoss);
+    setLegend(P2);
+    s().getObject(boss).is_exhausted = true;
+    auto unit = engineUnit(P1, 2, 0);
+    s().getObject(unit).buff_count = 1;
+    s().getObject(unit).recomputeMight();
+    s().getObject(unit).damage_marked = 5;
+
+    engine_->testHook_processLethalDamage();
+
+    EXPECT_FALSE(onBoard(unit)) << "the cost (exhaust me) can't be paid";
+}
+
+// ─── CR 467.2.c.5 — replacement effects apply to combat damage ASSIGNMENT ───
+
+namespace {
+int assignedTo(const std::vector<DamageAssignment>& da, GameObjectId id) {
+    for (const auto& a : da) if (a.target_unit == id) return a.damage;
+    return 0;
+}
+}  // namespace
+
+TEST_F(RulesComplianceTest, CombatDamage_PreventionRaisesTheLethalAssignment) {
+    // "Prevent the next 7 damage" (Ki Barrier): 467.2.c.4.a — the assigner must
+    // assign enough that the unit actually takes lethal damage.
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    auto shielded = engineUnit(P2, 3, 0);
+    auto other    = engineUnit(P2, 2, 0);
+    s().getObject(shielded).prevent_damage_remaining = 7;
+
+    auto adv = engine_->testHook_advanceCombatDamage(P1, 12, {shielded, other});
+    ASSERT_FALSE(adv.legal.empty());
+    const auto& da = adv.legal.front().damage_assignments;
+    EXPECT_EQ(assignedTo(da, shielded), 10) << "3 lethal + 7 prevented";
+    EXPECT_EQ(assignedTo(da, other), 2);
+
+    engine_->testHook_executeIntent(adv.legal.front());
+    EXPECT_EQ(s().getObject(shielded).damage_marked, 3) << "7 of the 10 was prevented";
+    EXPECT_EQ(s().getObject(shielded).prevent_damage_remaining, 0);
+    EXPECT_EQ(s().getObject(other).damage_marked, 2);
+}
+
+TEST_F(RulesComplianceTest, CombatDamage_PreventionAbsorbsAnInsufficientAssignment) {
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    auto shielded = engineUnit(P2, 3, 0);
+    s().getObject(shielded).prevent_damage_remaining = 7;
+
+    auto adv = engine_->testHook_advanceCombatDamage(P1, 5, {shielded});
+    ASSERT_FALSE(adv.legal.empty());
+    engine_->testHook_executeIntent(adv.legal.front());
+
+    EXPECT_EQ(s().getObject(shielded).damage_marked, 0) << "all 5 prevented";
+    EXPECT_EQ(s().getObject(shielded).prevent_damage_remaining, 2);
+}
+
+TEST_F(RulesComplianceTest, CombatDamage_UnitThatCannotBeDamagedIsExempt) {
+    // CR 467.2.c.10: no amount is lethal for it, so it is skipped and the
+    // damage goes to the units that can take it.
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    auto immune = engineUnit(P2, 3, 0);
+    auto other  = engineUnit(P2, 2, 0);
+    s().getObject(immune).immune_to_damage = true;
+
+    auto adv = engine_->testHook_advanceCombatDamage(P1, 3, {immune, other});
+    ASSERT_FALSE(adv.legal.empty());
+    const auto& da = adv.legal.front().damage_assignments;
+    EXPECT_EQ(assignedTo(da, immune), 0);
+    EXPECT_EQ(assignedTo(da, other), 3);
+
+    engine_->testHook_executeIntent(adv.legal.front());
+    EXPECT_EQ(s().getObject(immune).damage_marked, 0);
+    EXPECT_EQ(s().getObject(other).damage_marked, 3);
+}
+
+TEST_F(RulesComplianceTest, CombatDamage_NextDamagePreventedIsNotDealtInCombat) {
+    // "The next time that unit would be dealt damage this turn, prevent it."
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    auto guarded = engineUnit(P2, 3, 0);
+    s().getObject(guarded).prevent_next_damage_this_turn = true;
+
+    Intent assign;
+    assign.type = IntentType::AssignCombatDamage;
+    assign.player = P1;
+    assign.damage_assignments = {{guarded, 4}};
+    engine_->testHook_executeIntent(assign);
+
+    EXPECT_EQ(s().getObject(guarded).damage_marked, 0);
+    EXPECT_FALSE(s().getObject(guarded).prevent_next_damage_this_turn) << "consumed";
+}
+
+TEST_F(RulesComplianceTest, CombatDamage_DoubledDamageNeedsHalfTheAssignment) {
+    // Damage to this unit is doubled this turn: 467.2.c.4.a — assign the
+    // minimum that results in lethal damage.
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    auto marked = engineUnit(P2, 4, 0);
+    auto other  = engineUnit(P2, 2, 0);
+    s().getObject(marked).damage_doubled_this_turn = true;
+
+    auto adv = engine_->testHook_advanceCombatDamage(P1, 4, {marked, other});
+    ASSERT_FALSE(adv.legal.empty());
+    const auto& da = adv.legal.front().damage_assignments;
+    EXPECT_EQ(assignedTo(da, marked), 2) << "2 assigned is 4 dealt";
+    EXPECT_EQ(assignedTo(da, other), 2);
+
+    engine_->testHook_executeIntent(adv.legal.front());
+    EXPECT_EQ(s().getObject(marked).damage_marked, 4);
+}
+
+}  // namespace
+}  // namespace riftbound::test

@@ -2018,16 +2018,102 @@ void GameEngine::executeMulligan(const Intent& intent) {
     }
 }
 
+// ── Combat damage and replacement effects (CR 467.2.c.5) ─────────────────────
+// "When assigning damage in this way, passive abilities and replacement effects
+// that would apply to the resulting damage are considered to apply to the
+// assignment instead." These helpers are the single place that says how an
+// ASSIGNED amount becomes DEALT damage for a unit, so the assignment cascade
+// and the application step always agree.
+namespace {
+
+/// Damage actually dealt when `assigned` combat damage is assigned to `t`.
+int combatDamageDealt(const GameObject& t, int assigned) {
+    if (assigned <= 0) return 0;
+    if (t.immune_to_damage) return 0;                    // can't be dealt damage
+    if (t.prevent_next_damage_this_turn) return 0;       // next instance prevented
+    int dealt = std::max(0, assigned - t.prevent_damage_remaining);
+    if (t.damage_doubled_this_turn) dealt *= 2;
+    return dealt;
+}
+
+/// CR 467.2.c.10: "If a unit cannot be dealt damage, then no amount of damage
+/// can be considered lethal. Such a unit is exempt from any considerations of
+/// mandatory assignment."
+bool canTakeCombatDamage(const GameObject& t) {
+    return !t.immune_to_damage && !t.prevent_next_damage_this_turn;
+}
+
+/// Minimum ASSIGNED amount that deals lethal damage to `t` (CR 467.2.c.4.a).
+/// `any_damage_lethal`: the assigning player's damage kills in any amount
+/// (CR 142.4.c — Elder Dragon).
+int combatDamageNeededForLethal(const GameObject& t, bool any_damage_lethal) {
+    int lethal = any_damage_lethal ? 1 : std::max(1, t.current_might - t.damage_marked);
+    if (t.damage_doubled_this_turn) lethal = (lethal + 1) / 2;
+    return lethal + t.prevent_damage_remaining;
+}
+
+/// Greedy-lethal cascade over `order` (CR 467.2.c.3 / .4): each unit gets
+/// exactly lethal before the next gets any; excess goes on the last unit that
+/// can be damaged. Units that can't be dealt damage are skipped (467.2.c.10).
+std::vector<DamageAssignment> lethalCascade(const GameState& state,
+                                            const std::vector<GameObjectId>& order,
+                                            int total_damage, bool any_damage_lethal) {
+    std::vector<DamageAssignment> da;
+    int remaining = total_damage;
+    for (auto tid : order) {
+        if (remaining <= 0) break;
+        const auto& t = state.getObject(tid);
+        if (!canTakeCombatDamage(t)) continue;
+        int assigned = std::min(remaining, combatDamageNeededForLethal(t, any_damage_lethal));
+        da.push_back({tid, assigned});
+        remaining -= assigned;
+    }
+    if (remaining > 0) {
+        // "unless no further units remain to have damage assigned to them"
+        if (!da.empty()) da.back().damage += remaining;
+        else if (!order.empty()) da.push_back({order.front(), remaining});  // nothing damageable
+    }
+    return da;
+}
+
+}  // namespace
+
+bool GameEngine::anyDamageIsLethalFor(PlayerId damager) const {
+    // Elder Dragon: "Any amount of your damage is enough to kill." (CR 142.4.c)
+    for (const auto& [id, obj] : state_.objects) {
+        if (!obj.isUnit() || !obj.location.has_value()) continue;
+        if (obj.controller != damager || obj.card_def_id == kInvalidId) continue;
+        const auto& text = card_db_.get(obj.card_def_id).ability_text;
+        if (text.find("Any amount of your damage is enough to kill") != std::string::npos ||
+            text.find("any amount of your damage is enough to kill") != std::string::npos)
+            return true;
+    }
+    return false;
+}
+
+void GameEngine::applyCombatDamage(GameObjectId target_id, int assigned) {
+    if (assigned <= 0 || !state_.objectExists(target_id)) return;
+    auto& t = state_.getObject(target_id);
+    const int dealt = combatDamageDealt(t, assigned);
+    // Consume the prevention that applied to this instance.
+    if (t.prevent_next_damage_this_turn) {
+        t.prevent_next_damage_this_turn = false;
+    } else if (!t.immune_to_damage) {
+        t.prevent_damage_remaining -= std::min(assigned, t.prevent_damage_remaining);
+    }
+    if (dealt != assigned)
+        events_.logTrace("  COMBAT_DAMAGE: " + t.name + " assigned " + std::to_string(assigned) +
+                         " -> dealt " + std::to_string(dealt));
+    if (dealt <= 0) return;
+    t.damage_marked += dealt;
+    t.damage_taken_this_turn += dealt;
+    events_.emit(DamageDealtEvent{target_id, dealt, kInvalidId, true});
+}
+
 void GameEngine::executeAssignCombatDamage(const Intent& intent) {
     // Apply damage assignments
     for (auto& assignment : intent.damage_assignments) {
-        auto& target = state_.getObject(assignment.target_unit);
-        target.damage_marked += assignment.damage;
-        target.damage_taken_this_turn += assignment.damage;
-        events_.emit(DamageDealtEvent{
-            assignment.target_unit, assignment.damage,
-            kInvalidId, true
-        });
+        applyCombatDamage(assignment.target_unit, assignment.damage);
     }
 }
 
@@ -3553,21 +3639,9 @@ GameEngine::CombatDamageAdvance GameEngine::advanceCombatDamage(
 
     // Build default assignment (greedy lethal, respecting caller's
     // Tank/Backline ordering on `targets`).
+    const bool any_damage_lethal = anyDamageIsLethalFor(assigner);
     auto buildDefault = [&]() -> std::vector<DamageAssignment> {
-        std::vector<DamageAssignment> da;
-        int remaining = total_damage;
-        for (auto tid : targets) {
-            if (remaining <= 0) break;
-            auto& t = state_.getObject(tid);
-            int lethal = std::max(1, t.current_might - t.damage_marked);
-            int assigned = std::min(remaining, lethal);
-            da.push_back({tid, assigned});
-            remaining -= assigned;
-        }
-        if (remaining > 0 && !da.empty()) {
-            da.back().damage += remaining;
-        }
-        return da;
+        return lethalCascade(state_, targets, total_damage, any_damage_lethal);
     };
 
     // CR 460.2.c.3 (strict lethality) + 460.2.c.4 (no over-assign) + CR 815
@@ -3595,20 +3669,7 @@ GameEngine::CombatDamageAdvance GameEngine::advanceCombatDamage(
 
     auto greedyCascade = [&](const std::vector<GameObjectId>& order)
         -> std::vector<DamageAssignment> {
-        std::vector<DamageAssignment> da;
-        int remaining = total_damage;
-        for (auto tid : order) {
-            if (remaining <= 0) break;
-            auto& t = state_.getObject(tid);
-            int lethal = std::max(1, t.current_might - t.damage_marked);
-            int assigned = std::min(remaining, lethal);
-            da.push_back({tid, assigned});
-            remaining -= assigned;
-        }
-        if (remaining > 0 && !da.empty()) {
-            da.back().damage += remaining;
-        }
-        return da;
+        return lethalCascade(state_, order, total_damage, any_damage_lethal);
     };
 
     auto canonicalKey = [](const std::vector<DamageAssignment>& da) {
@@ -3675,9 +3736,7 @@ void GameEngine::resolveCombatDamageDecision(const Intent& chosen) {
                              std::to_string(da.damage) + " (was " +
                              std::to_string(t.damage_marked) + "/" +
                              std::to_string(t.current_might) + "M)");
-            t.damage_marked += da.damage;
-            t.damage_taken_this_turn += da.damage;
-            events_.emit(DamageDealtEvent{da.target_unit, da.damage, kInvalidId, true});
+            applyCombatDamage(da.target_unit, da.damage);
         }
     }
 }
@@ -4601,18 +4660,8 @@ bool GameEngine::checkWinCondition() {
 }
 
 void GameEngine::processLethalDamage() {
-    // Check if either player has Elder Dragon's "any damage = lethal" effect
-    bool elder_p1 = false, elder_p2 = false;
-    for (auto& [id, obj] : state_.objects) {
-        if (!obj.isUnit() || !obj.location.has_value()) continue;
-        if (obj.card_def_id == kInvalidId) continue;
-        const auto& def = card_db_.get(obj.card_def_id);
-        if (def.ability_text.find("Any amount of your damage is enough to kill") != std::string::npos ||
-            def.ability_text.find("any amount of your damage is enough to kill") != std::string::npos) {
-            if (obj.controller == PlayerId::Player1) elder_p1 = true;
-            if (obj.controller == PlayerId::Player2) elder_p2 = true;
-        }
-    }
+    const bool elder_p1 = anyDamageIsLethalFor(PlayerId::Player1);
+    const bool elder_p2 = anyDamageIsLethalFor(PlayerId::Player2);
 
     std::vector<GameObjectId> to_kill;
     for (auto& [id, obj] : state_.objects) {
@@ -5848,53 +5897,6 @@ void GameEngine::killUnit(GameObjectId unit_id) {
         if (card->applyReplacement(ctx, unit_id)) {
             events_.logDebug(std::string("REPLACEMENT: ") + obj.name +
                              " prevents " + unit.name + " from dying");
-            return; // replacement consumed — unit does NOT die
-        }
-    }
-
-    // Legacy replacement effects: "would die → instead heal/exhaust/recall"
-    // Scan all objects controlled by the same player for replacement abilities
-    for (auto& [id, obj] : state_.objects) {
-        if (obj.controller != controller) continue;
-        if (id == unit_id) continue;
-        if (!obj.location.has_value() && obj.zone != ZoneType::LegendZone) continue;
-        if (obj.card_def_id == kInvalidId) continue;
-
-        const auto& def = card_db_.get(obj.card_def_id);
-        auto& text = def.ability_text;
-
-        // Check for "would die" replacement pattern
-        if (text.find("would die") != std::string::npos &&
-            text.find("instead") != std::string::npos) {
-
-            // Replacement applies — heal, exhaust, recall instead of dying
-            events_.logDebug(std::string("REPLACEMENT: ") + obj.name +
-                             " prevents " + unit.name + " from dying");
-
-            unit.damage_marked = 0;
-            unit.is_exhausted = true;
-            // Recall to base
-            auto old_loc = unit.location;
-            unit.location = BaseLocation{controller};
-            unit.zone = ZoneType::Base;
-            events_.emit(ObjectStateChangedEvent{unit_id, "healed"});
-            events_.emit(UnitMovedEvent{unit_id, controller,
-                old_loc.value_or(BaseLocation{controller}),
-                BaseLocation{controller}, false});
-
-            // If the replacement source is a gear/spell that says "kill this instead",
-            // destroy the replacement source
-            if (text.find("kill this instead") != std::string::npos ||
-                text.find("kill me instead") != std::string::npos) {
-                auto rep_was_at = obj.location;
-                obj.zone = ZoneType::Trash;
-                obj.location = std::nullopt;
-                state_.player(obj.owner).trash.push_back(id);
-                events_.emit(LeftBoardEvent{id, obj.controller, obj.card_type,
-                    rep_was_at.value_or(BaseLocation{obj.controller}),
-                    ZoneType::Trash, true});
-            }
-
             return; // replacement consumed — unit does NOT die
         }
     }
