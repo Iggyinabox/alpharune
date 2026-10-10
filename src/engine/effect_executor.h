@@ -214,9 +214,12 @@ public:
     /// with `super_type=Token`. The original is recorded in
     /// `replaced_card`/`was_replaced` so swap-back works on score.
     /// Used by Green Father to install the Brush BF token.
+    /// `token_def`: the card whose abilities the token battlefield has (the
+    /// Brush card for a Brush token), so they work like any battlefield's.
     void replaceBattlefieldWithToken(BattlefieldId target_bf,
                                       const std::string& token_name,
-                                      PlayerId controller);
+                                      PlayerId controller,
+                                      CardDefId token_def = kInvalidId);
 
     // ── Copy effects ──
     /// Make a token become a copy of another unit (base traits only, not buffs/auras).

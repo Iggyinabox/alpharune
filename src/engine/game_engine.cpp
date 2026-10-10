@@ -1987,9 +1987,9 @@ void GameEngine::resolvePermanent(const ChainItem& item) {
         // decision to the agent. (Previously auto-applied whenever
         // affordable, which silently spent the player's energy + rune
         // every time the Accelerate cost happened to be payable.)
-        const bool granted_accelerate = card.card_counters.count("__rek_sai_accel") &&
-                                        card.card_counters["__rek_sai_accel"] != 0;
-        if (granted_accelerate) card.card_counters["__rek_sai_accel"] = 0;
+        const bool granted_accelerate = card.card_counters.count("__granted_accelerate") &&
+                                        card.card_counters["__granted_accelerate"] != 0;
+        if (granted_accelerate) card.card_counters["__granted_accelerate"] = 0;
         if (card.keywords.has(Keyword::Accelerate) || granted_accelerate) {
             // CR 805.1.b.1: the Power must match one of the unit's own domains;
             // 805.1.b.2: a unit with no domain pays it with [A].
@@ -4362,6 +4362,10 @@ void GameEngine::recalculateAuras() {
     for (auto& [src_id, src] : state_.objects) {
         if (!src.location.has_value() && src.zone != ZoneType::LegendZone) continue;
         if (src.card_def_id == kInvalidId) continue; // skip tokens without CardDef
+        // Battlefields give their auras through Card::applyPassiveAura (the
+        // loop above). A token battlefield's card object has a location, so
+        // without this its text would also be read as a unit's "here" aura.
+        if (src.card_type == CardType::Battlefield) continue;
 
         const auto& def = card_db_.get(src.card_def_id);
         auto& text = def.ability_text;
@@ -4591,31 +4595,6 @@ void GameEngine::recalculateAuras() {
                 // "While I'm buffed, I have an additional +1 [M]"
                 if (clean.find("additional +1 [m]") != std::string::npos) {
                     GameObject::AuraEffect ae; ae.source = id; ae.might_bonus = 1;
-                    obj.aura_effects.push_back(ae);
-                }
-            }
-        }
-
-        // Brush battlefield aura (Green Father's replacement token).
-        // "Bird, Cat, Dog, Poro, and Ivern units have +1 [M] in Brush."
-        // Check if `obj` is a unit currently at a BF named "Brush" with
-        // any of the named tags, and apply +1M.
-        if (obj.isUnit() && obj.location.has_value() &&
-            std::holds_alternative<BattlefieldLocation>(*obj.location)) {
-            auto bf_id = std::get<BattlefieldLocation>(*obj.location).id;
-            const auto* bf = (bf_id < (BattlefieldId)state_.battlefields.size())
-                ? &state_.battlefields[bf_id] : nullptr;
-            if (bf && state_.objectExists(bf->card_object_id) &&
-                state_.getObject(bf->card_object_id).name == "Brush") {
-                bool tag_match = false;
-                for (const auto& tag : obj.tags) {
-                    if (tag == "Bird" || tag == "Cat" || tag == "Dog" ||
-                        tag == "Poro" || tag == "Ivern") { tag_match = true; break; }
-                }
-                if (tag_match) {
-                    GameObject::AuraEffect ae;
-                    ae.source = bf->card_object_id;
-                    ae.might_bonus = 1;
                     obj.aura_effects.push_back(ae);
                 }
             }
@@ -4916,21 +4895,8 @@ void GameEngine::advanceCleanup() {
 }
 
 bool GameEngine::checkWinCondition() {
-    // CR 467 + Aspirant's Climb (id 776): "Increase the points needed to
-    // win the game by 1." Phase 6q+ — scan in-play battlefield cards for
-    // the modifier text and bump the effective victory threshold per BF
-    // currently on the board.
-    int effective_victory = state_.mode.victory_score;
-    for (const auto& bf : state_.battlefields) {
-        if (!state_.objectExists(bf.card_object_id)) continue;
-        const auto& bf_obj = state_.getObject(bf.card_object_id);
-        if (bf_obj.card_def_id == kInvalidId) continue;
-        const auto& def = card_db_.get(bf_obj.card_def_id);
-        if (def.ability_text.find("Increase the points needed to win") !=
-            std::string::npos) {
-            effective_victory += 1;
-        }
-    }
+    // The points needed to win, including battlefields that change it.
+    const int effective_victory = effect_executor_->effectiveVictoryScore();
 
     // A player wins if they have >= victory score AND more than opponent (CR 467)
     for (auto pid : {PlayerId::Player1, PlayerId::Player2}) {
@@ -5737,22 +5703,19 @@ GameEngine::CostPaymentAdvance GameEngine::beginCostPayment(
     if (auto* self_card = card_registry_.get(card.card_def_id)) {
         energy_needed -= self_card->selfCostReduction(state_, player);
     }
-    // Rek'Sai, Breacher: "Friendly units played from anywhere other than
-    // a player's hand have Accelerate." Implemented as a self-discount
-    // when (a) play_source != Hand and (b) a friendly Rek'Sai is on board.
-    // The current cost-payment path doesn't have direct access to the
-    // Intent (and thus play_source); we surface it via a transient field
-    // on PlayerState before calling beginCostPayment. See executePlayCard
-    // for the set/clear pattern.
-    if (card.isUnit() && ps.current_play_source != Intent::PlaySource::Hand) {
+    // A card on the player's board may give the unit being played [Accelerate]
+    // (Card::grantsAccelerateTo). Mark it so resolvePermanent offers the usual
+    // optional [1][C] (CR 805.1.b — a "may pay", never a mandatory surcharge).
+    // The cost-payment path has no Intent, so the play source comes from the
+    // transient PlayerState::current_play_source (set in executePlayCard).
+    if (card.isUnit()) {
+        const bool from_hand = ps.current_play_source == Intent::PlaySource::Hand;
         for (auto& [oid, obj] : state_.objects) {
-            if (obj.controller != player) continue;
-            if (obj.card_def_id != 352) continue;  // Rek'Sai, Breacher
-            if (!obj.location.has_value()) continue;
-            // The unit HAS [Accelerate] for this play: mark it so
-            // resolvePermanent offers the usual optional [1][C] (CR 805.1.b —
-            // Accelerate is a "may pay", never a mandatory surcharge).
-            card.card_counters["__rek_sai_accel"] = 1;
+            if (obj.controller != player || !obj.location.has_value()) continue;
+            if (obj.card_def_id == kInvalidId) continue;
+            const Card* granter = card_registry_.get(obj.card_def_id);
+            if (!granter || !granter->grantsAccelerateTo(state_, oid, card, from_hand)) continue;
+            card.card_counters["__granted_accelerate"] = 1;
             break;
         }
     }

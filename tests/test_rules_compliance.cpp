@@ -1319,5 +1319,49 @@ TEST_F(RulesComplianceTest, AbilityActivationTriggersCuratorOfTheSands) {
     EXPECT_EQ(s().chain.items.back().fired_trigger, TriggerType::WhenYouActivateAnAbility);
 }
 
+// ─── Card behaviour the engine asks the card for ────────────────────────────
+TEST_F(BattlefieldAbilityTest, AspirantsClimbRaisesThePointsNeededToWin) {
+    constexpr CardDefId kAspirantsClimb = 271;
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    const int base = s().mode.victory_score;
+    EXPECT_EQ(engine_->testHook_executor().effectiveVictoryScore(), base);
+    setBattlefieldCard(0, kAspirantsClimb, std::nullopt);
+    EXPECT_EQ(engine_->testHook_executor().effectiveVictoryScore(), base + 1);
+}
+
+TEST_F(BattlefieldAbilityTest, BrushTokenBattlefieldIsTheBrushCard) {
+    constexpr CardDefId kBrush = 561;   // "Bird, Cat, Dog, Poro, and Ivern units here have +1 [M]."
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    setBattlefieldCard(0, 271, P1);
+    auto poro  = engineUnit(P1, 2, /*at_bf=*/0);
+    auto other = engineUnit(P1, 2, /*at_bf=*/0);
+    auto away  = engineUnit(P1, 2, /*at_bf=*/1);
+    s().getObject(poro).tags = {"Poro"};
+    s().getObject(away).tags = {"Poro"};
+
+    engine_->testHook_executor().replaceBattlefieldWithToken(0, "Brush", P1, kBrush);
+    EXPECT_EQ(s().getObject(s().battlefields[0].card_object_id).card_def_id, kBrush);
+    engine_->testHook_cleanup();
+    EXPECT_EQ(s().getObject(poro).current_might, 3);
+    EXPECT_EQ(s().getObject(other).current_might, 2) << "not one of the named tags";
+    EXPECT_EQ(s().getObject(away).current_might, 2) << "not here";
+    engine_->testHook_cleanup();
+    EXPECT_EQ(s().getObject(poro).current_might, 3) << "recalculated, not accumulated";
+}
+
+TEST_F(RulesComplianceTest, RekSaiGrantsAccelerateOnlyToFriendlyUnitsNotPlayedFromHand) {
+    constexpr CardDefId kRekSai = 352;
+    makeEngine();
+    const Card* card = card_registry.get(kRekSai);
+    auto reksai = engineUnit(P1, 4, -1, kRekSai);
+    auto mine   = engineUnit(P1, 2);
+    auto theirs = engineUnit(P2, 2);
+    EXPECT_TRUE(card->grantsAccelerateTo(s(), reksai, s().getObject(mine), /*from_hand=*/false));
+    EXPECT_FALSE(card->grantsAccelerateTo(s(), reksai, s().getObject(mine), /*from_hand=*/true));
+    EXPECT_FALSE(card->grantsAccelerateTo(s(), reksai, s().getObject(theirs), /*from_hand=*/false));
+}
+
 }  // namespace
 }  // namespace riftbound::test

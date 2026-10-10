@@ -10,24 +10,12 @@
 
 namespace riftbound {
 namespace {
-// COVERAGE-OK: engine-handled — checkWinCondition (game_engine.cpp ~4063) scans
-// in-play battlefields for "Increase the points needed to win" and bumps the
-// effective victory threshold.
-
 // "Increase the points needed to win the game by 1."
-// ESCALATE(victory_score_modifier): The points needed to win are a fixed
-// global value (GameState::mode.victory_score, default 8) read directly in
-// scoring/win checks. There is no hook for a battlefield (or any card) to
-// modify victory_score while it is in play. The only structured BattlefieldCard
-// hook is minTurnToScore(); nothing adjusts victory_score. Implementing this
-// needs the engine to apply a per-battlefield (and generally per-permanent)
-// victory_score delta — ideally an aura-recalc-style "effective victory score"
-// that sums contributions from cards in play, consulted everywhere
-// mode.victory_score is read today.
 
 class AspirantSClimb : public BattlefieldCard {
 public:
     const CardDef& def() const override { return def_; }
+    int victoryScoreModifier() const override { return 1; }
 private:
     const CardDef def_ = [] {
         CardDef d;

@@ -301,24 +301,18 @@ void EffectExecutor::drawCards(PlayerId player, int count) {
     }
 }
 
-// Victory Score in effect right now: the mode's score plus any battlefield
-// that raises it (Aspirant's Climb: "Increase the points needed to win the
-// game by 1."). Mirrors GameEngine::checkWinCondition.
-static int victoryScoreInEffect(const GameState& state, const CardDB& db) {
-    int v = state.mode.victory_score;
-    for (const auto& bf : state.battlefields) {
-        if (!state.objectExists(bf.card_object_id)) continue;
-        const auto& bf_obj = state.getObject(bf.card_object_id);
-        if (bf_obj.card_def_id == kInvalidId) continue;
-        if (db.get(bf_obj.card_def_id).ability_text.find(
-                "Increase the points needed to win") != std::string::npos)
-            v += 1;
+// Victory Score in effect right now: the mode's score plus what the
+// battlefields in play add to it (Card::victoryScoreModifier).
+int EffectExecutor::effectiveVictoryScore() const {
+    int v = state_.mode.victory_score;
+    if (!card_registry_) return v;
+    for (const auto& bf : state_.battlefields) {
+        if (!state_.objectExists(bf.card_object_id)) continue;
+        const auto def_id = state_.getObject(bf.card_object_id).card_def_id;
+        if (def_id == kInvalidId) continue;
+        if (const Card* card = card_registry_->get(def_id)) v += card->victoryScoreModifier();
     }
     return v;
-}
-
-int EffectExecutor::effectiveVictoryScore() const {
-    return victoryScoreInEffect(state_, card_db_);
 }
 
 int EffectExecutor::scorePoints(PlayerId player, int amount) {
@@ -440,7 +434,7 @@ bool EffectExecutor::burnOut(PlayerId player) {
                      std::to_string(opp_ps.score));
     // CR 432.3.c.1: a burn-out point that reaches the Victory Score with more
     // points than every opponent wins immediately, without waiting for cleanup.
-    if (opp_ps.score >= victoryScoreInEffect(state_, card_db_) &&
+    if (opp_ps.score >= effectiveVictoryScore() &&
         opp_ps.score > ps.score) {
         state_.game_over = true;
         state_.winner = opp_id;
@@ -1240,7 +1234,8 @@ BattlefieldId EffectExecutor::addBattlefieldToken(const std::string& name,
 
 void EffectExecutor::replaceBattlefieldWithToken(BattlefieldId target_bf,
                                                    const std::string& token_name,
-                                                   PlayerId controller) {
+                                                   PlayerId controller,
+                                                   CardDefId token_def) {
     // Locate target slot.
     BattlefieldState* slot = nullptr;
     for (auto& b : state_.battlefields) {
@@ -1268,6 +1263,7 @@ void EffectExecutor::replaceBattlefieldWithToken(BattlefieldId target_bf,
     tok.super_type = SuperType::Token;
     tok.is_token = true;   // CR 185.1 intrinsic
     tok.name = token_name;
+    tok.card_def_id = token_def;
     tok.zone = ZoneType::BattlefieldZone;
     tok.location = BattlefieldLocation{target_bf};
 

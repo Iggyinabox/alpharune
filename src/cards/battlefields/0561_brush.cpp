@@ -12,15 +12,34 @@
 namespace riftbound {
 namespace {
 
-// "Bird, Cat, Dog, Poro, and Ivern units here have +1 [M]." (aura is engine-
-//  handled). "When you score here, you may replace this with the battlefield
-//  it replaced." Reverse-replace (CR 438) — restore the banished original.
+// "Bird, Cat, Dog, Poro, and Ivern units here have +1 [M]."
+// "When you score here, you may replace this with the battlefield it
+//  replaced." Reverse-replace (CR 438) — restore the banished original.
 
 class Brush : public BattlefieldCard {
 public:
     const CardDef& def() const override { return def_; }
     unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenYouScoreHere; }
+    void applyPassiveAura(GameState& state, PlayerId /*controller*/) const override {
+        static const char* const kTags[] = {"Bird", "Cat", "Dog", "Poro", "Ivern"};
+        for (const auto& bf : state.battlefields) {
+            if (!state.objectExists(bf.card_object_id)) continue;
+            if (state.getObject(bf.card_object_id).card_def_id != cardDefId()) continue;
+            for (auto& [id, obj] : state.objects) {
+                if (!obj.isUnit() || obj.battlefieldId() != bf.id) continue;
+                bool tagged = false;
+                for (const auto& tag : obj.tags)
+                    for (const char* t : kTags) if (tag == t) tagged = true;
+                if (!tagged) continue;
+                // Called once per Brush in play: don't stack this one's bonus twice.
+                bool already = false;
+                for (const auto& ae : obj.aura_effects)
+                    if (ae.source == bf.card_object_id) already = true;
+                if (!already) auraMight(obj, bf.card_object_id, 1);
+            }
+        }
+    }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         // Locate the BF slot this Brush card occupies.
         BattlefieldState* slot = nullptr;

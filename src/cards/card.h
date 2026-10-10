@@ -699,6 +699,20 @@ public:
         return entersReadyOnPlay();
     }
 
+    /// A continuous effect that gives a unit being played [Accelerate] ("Friendly
+    /// units played from anywhere other than a player's hand have Accelerate").
+    /// Asked of each card `self`'s controller has on the board as the unit's
+    /// cost is paid; the unit's controller then gets the usual optional [1][C].
+    virtual bool grantsAccelerateTo(const GameState& /*state*/, GameObjectId /*self*/,
+                                    const GameObject& /*played*/,
+                                    bool /*played_from_hand*/) const {
+        return false;
+    }
+
+    /// Change to the points needed to win while this card is a battlefield in
+    /// play ("Increase the points needed to win the game by 1").
+    virtual int victoryScoreModifier() const { return 0; }
+
     /// What the engine calls: also given the unit being played, already at its
     /// destination ("If you play me to a battlefield, I enter ready").
     virtual bool entersReadyOnPlay(const GameState& state, PlayerId controller,

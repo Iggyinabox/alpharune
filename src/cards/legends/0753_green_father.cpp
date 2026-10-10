@@ -48,7 +48,8 @@ public:
         auto& legend = ctx.state.getObject(ctx.source);
         if (costDueNow(ctx)) legend.is_exhausted = true;
         if (finalizingChoices(ctx)) return;   // choices and costs end here (CR 383.3)
-        ctx.executor.replaceBattlefieldWithToken(target, "Brush", ctx.controller);
+        ctx.executor.replaceBattlefieldWithToken(target, "Brush", ctx.controller,
+                                                  /*token_def=*/561);   // the Brush card
         ctx.events.logTrace("GREEN FATHER: exhausted to replace BF#" +
                              std::to_string(target) + " with Brush token");
     }
