@@ -185,6 +185,8 @@ public:
     void testHook_drawCards(PlayerId p, int n) { drawCards(p, n); }
     void testHook_processLethalDamage() { processLethalDamage(); }
     void testHook_cleanup() { cleanup(); }
+    void testHook_beginningStep() { beginningStep(); }
+    void testHook_scoringStep() { scoringStep(); }
     void testHook_executeStandardMove(const Intent& i) { executeStandardMove(i); }
     void testHook_drawPhase() { drawPhase(); }
     void testHook_endingStep() { endingStep(); }
@@ -581,6 +583,9 @@ private:
     bool canPayActivationResources(PlayerId player, int energy,
                                    const ActivationCost& cost) const;
     bool payActivationResources(PlayerId player, int energy, const ActivationCost& cost);
+    /// (Re)create the chain manager, effect executor and trigger manager bound
+    /// to state_ / events_.
+    void initSubsystems();
     /// Rebuild the standing [Flow] play-from-trash grants (called from recalculateAuras).
     void refreshFlowGrants();
     bool canPayAdditionalCost(PlayerId player, int energy, int power,

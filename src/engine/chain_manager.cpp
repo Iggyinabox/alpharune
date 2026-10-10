@@ -230,6 +230,13 @@ bool ChainManager::stepExecuteAndPass(AgentQuery query_agent,
             auto& card = state_.getObject(chosen.card);
             auto& ps = state_.player(current);
 
+            // Where a permanent played here will land: the facedown card's own
+            // battlefield, or the location the intent names ([Ambush]).
+            LocationId permanent_dest = chosen.play_location.value_or(
+                LocationId{BaseLocation{current}});
+            if (card.is_hidden && card.hidden_at != kInvalidId)
+                permanent_dest = BattlefieldLocation{card.hidden_at};
+
             if (card.is_hidden) {
                 // Playing from facedown — remove from BF facedown zone, no cost
                 for (auto& bf : state_.battlefields) {
@@ -260,8 +267,16 @@ bool ChainManager::stepExecuteAndPass(AgentQuery query_agent,
             events_.emit(CardPlayedEvent{chosen.card, current,
                 card.card_type, ps.cards_played_this_turn, energy_spent});
 
-            // Add to chain with targets
-            addSpell(chosen.card, current, chosen.targets);
+            // Add to chain. A unit or gear played with Reaction timing
+            // ([Ambush] — CR 822.1.b, a [Hidden] permanent, "play me as a
+            // Reaction") is still a permanent: it resolves onto the board, it
+            // is not a spell.
+            if (card.isSpell()) {
+                addSpell(chosen.card, current, chosen.targets);
+            } else {
+                card.location = permanent_dest;
+                addPermanent(chosen.card, current);
+            }
 
             return true; // Item added → restart FEPR from Finalize
         }

@@ -1049,3 +1049,67 @@ TEST_F(ChainTestFixture, LegionParsesAsConditionGate) {
     EXPECT_TRUE(card->requiresLegion());
     EXPECT_EQ(card->triggerType(), TriggerType::WhenYouPlayMe);
 }
+
+// ── CR 822.1.b: an [Ambush] unit played as a Reaction is still a unit ────────
+// It must go on the chain as a permanent and land at the chosen battlefield,
+// not resolve as a spell and go to the trash.
+TEST_F(ChainTestFixture, AmbushUnitPlayedAsReactionIsAPermanent) {
+    constexpr CardDefId kSoulspinnerId = 910;   // 3E unit, [Ambush]
+    auto state = makeMinimalState();
+    state.turn.turn_player = PlayerId::Player1;
+    ChainManager cm(state, events, card_db);
+
+    auto target = addUnit(state, PlayerId::Player2, 5, 0);   // P2 has a unit at BF 0
+    auto spell1 = addSpellToHand(state, PlayerId::Player1, kHextechRayId);
+    state.player(PlayerId::Player1).hand.clear();
+    cm.addSpell(spell1, PlayerId::Player1, {target});
+
+    // P2 holds an Ambush unit.
+    auto ambusher = state.createObject();
+    {
+        auto& obj = state.getObject(ambusher);
+        const auto& def = card_db.get(kSoulspinnerId);
+        obj.owner = obj.controller = PlayerId::Player2;
+        obj.card_def_id = kSoulspinnerId;
+        obj.card_type = def.card_type;
+        obj.name = def.name;
+        obj.keywords = def.keywords;
+        obj.base_might = obj.current_might = def.might;
+        obj.zone = ZoneType::Hand;
+        state.player(PlayerId::Player2).hand.push_back(ambusher);
+    }
+
+    bool played = false;
+    std::vector<ChainItem> resolved;
+    std::vector<GameObjectId> spells_resolved;
+    cm.processFEPR(
+        [&](PlayerId player, const std::vector<Intent>&) -> Intent {
+            if (player == PlayerId::Player2 && !played) {
+                played = true;
+                Intent r;
+                r.type = IntentType::PlayReaction;
+                r.player = player;
+                r.card = ambusher;
+                r.play_location = BattlefieldLocation{0};
+                return r;
+            }
+            return Intent::passPriority(player);
+        },
+        // Permanents resolve as they are finalized (resolve_permanent);
+        // spells resolve through resolve_spell.
+        [&](const ChainItem& item) { resolved.push_back(item); },
+        [&](const ChainItem& item) { spells_resolved.push_back(item.source); }
+    );
+
+    ASSERT_TRUE(played);
+    ASSERT_EQ(resolved.size(), 1u) << "the unit must resolve as a permanent";
+    EXPECT_EQ(resolved[0].source, ambusher);
+    EXPECT_TRUE(resolved[0].is_permanent) << "a unit is a permanent on the chain";
+    EXPECT_FALSE(resolved[0].is_spell);
+    EXPECT_EQ(std::count(spells_resolved.begin(), spells_resolved.end(), ambusher), 0)
+        << "it must not resolve as a spell";
+    const auto& obj = state.getObject(ambusher);
+    EXPECT_NE(obj.zone, ZoneType::Trash) << "an Ambush unit must not be trashed like a spell";
+    ASSERT_TRUE(obj.location.has_value());
+    EXPECT_EQ(*obj.location, LocationId{BattlefieldLocation{0}});
+}

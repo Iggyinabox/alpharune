@@ -25,6 +25,33 @@ GameEngine::GameEngine(const CardDB& card_db, EventBus& event_bus,
     // their own bus to the same helper.
     card_revealed_conn_ = events_.on_card_revealed.connect(
         [this](const CardRevealedEvent& e) { state_.recordReveal(e); });
+
+    // Subsystems exist from construction so every engine operation is usable
+    // on a hand-built state (tests drive phases and effects without running a
+    // whole game). runGame / resumeFromSnapshot rebuild them for the new state.
+    initSubsystems();
+}
+
+void GameEngine::initSubsystems() {
+    // The trigger manager holds a reference to the chain manager and is
+    // subscribed to the event bus: drop it first so nothing dangles.
+    trigger_manager_.reset();
+    chain_manager_ = std::make_unique<ChainManager>(state_, events_, card_db_);
+    chain_manager_->setAffordCheck(
+        [this](PlayerId p, GameObjectId card) { return canAfford(p, card); });
+    chain_manager_->setPayCost(
+        [this](PlayerId p, GameObjectId card) { return payCardCost(p, card); });
+    effect_executor_ = std::make_unique<EffectExecutor>(state_, events_, card_db_, &card_registry_);
+    effect_executor_->setRng(&rng_);
+    effect_executor_->setAgentQuery(
+        [this](PlayerId p, const std::vector<Intent>& actions) -> Intent {
+            return queryAgentForChain(p, actions);
+        });
+    chain_manager_->setEffectExecutor(effect_executor_.get());
+    trigger_manager_ = std::make_unique<TriggerManager>(
+        state_, events_, card_db_, *chain_manager_, card_registry_);
+    trigger_manager_->setEffectExecutor(effect_executor_.get());
+    trigger_manager_->subscribe();
 }
 
 GameEngine::~GameEngine() {
@@ -56,23 +83,7 @@ GameResult GameEngine::runGame(
     state_ = GameState{};
     state_.mode = ModeOfPlay{};
 
-    // Initialize Phase 2 subsystems
-    chain_manager_ = std::make_unique<ChainManager>(state_, events_, card_db_);
-    chain_manager_->setAffordCheck(
-        [this](PlayerId p, GameObjectId card) { return canAfford(p, card); });
-    chain_manager_->setPayCost(
-        [this](PlayerId p, GameObjectId card) { return payCardCost(p, card); });
-    effect_executor_ = std::make_unique<EffectExecutor>(state_, events_, card_db_, &card_registry_);
-    effect_executor_->setRng(&rng_);
-    effect_executor_->setAgentQuery(
-        [this](PlayerId p, const std::vector<Intent>& actions) -> Intent {
-            return queryAgentForChain(p, actions);
-        });
-    chain_manager_->setEffectExecutor(effect_executor_.get());
-    trigger_manager_ = std::make_unique<TriggerManager>(
-        state_, events_, card_db_, *chain_manager_, card_registry_);
-    trigger_manager_->setEffectExecutor(effect_executor_.get());
-    trigger_manager_->subscribe();
+    initSubsystems();
 
     setupGame(deck1, deck2);
     drawOpeningHands();
@@ -173,22 +184,7 @@ StepResult GameEngine::resumeFromSnapshot(GameState snapshot_state,
     // Initialise subsystems (parallel to runGame's first block). These
     // hold references into `state_` and `events_`, which are now
     // populated from the snapshot.
-    chain_manager_ = std::make_unique<ChainManager>(state_, events_, card_db_);
-    chain_manager_->setAffordCheck(
-        [this](PlayerId p, GameObjectId card) { return canAfford(p, card); });
-    chain_manager_->setPayCost(
-        [this](PlayerId p, GameObjectId card) { return payCardCost(p, card); });
-    effect_executor_ = std::make_unique<EffectExecutor>(state_, events_, card_db_, &card_registry_);
-    effect_executor_->setRng(&rng_);
-    effect_executor_->setAgentQuery(
-        [this](PlayerId p, const std::vector<Intent>& actions) -> Intent {
-            return queryAgentForChain(p, actions);
-        });
-    chain_manager_->setEffectExecutor(effect_executor_.get());
-    trigger_manager_ = std::make_unique<TriggerManager>(
-        state_, events_, card_db_, *chain_manager_, card_registry_);
-    trigger_manager_->setEffectExecutor(effect_executor_.get());
-    trigger_manager_->subscribe();
+    initSubsystems();
 
     step_driver_ = std::make_unique<StepDriver>();
     step_result_ = GameResult{};
@@ -572,7 +568,10 @@ void GameEngine::runTurn(PlayerId player) {
                      " (" + toString(player) + ") ════ Score: P1=" +
                      std::to_string(state_.players[0].score) + " P2=" +
                      std::to_string(state_.players[1].score));
-    state_.player(player).resetTurnTracking();
+    // "This turn" tracking is per turn, not per player: both players' counters
+    // reset when any turn starts.
+    state_.player(PlayerId::Player1).resetTurnTracking();
+    state_.player(PlayerId::Player2).resetTurnTracking();
     state_.turn.turn_decisions_p1 = 0;
     state_.turn.turn_decisions_p2 = 0;
     state_.turn.any_unit_died_this_turn = false;
@@ -750,6 +749,11 @@ void GameEngine::beginningStep() {
 
     // Process "At the start of your Beginning Phase" triggers
     if (chain_manager_->chainExists()) runChain();
+
+    // CR 319: a Cleanup follows these state changes, before the Scoring Step.
+    // Without it a battlefield whose last unit just died ([Temporary], a
+    // start-of-turn kill) is still "controlled" and would wrongly score a Hold.
+    cleanup();
 }
 
 void GameEngine::scoringStep() {
@@ -3237,8 +3241,10 @@ void GameEngine::runShowdown(BattlefieldId bf_id) {
 
         events_.emit(ControlChangedEvent{bf_id, old_controller, sole_player});
 
-        // Conquer if not already scored this turn (CR 464.1)
-        scoreConquer(sole_player, bf_id);
+        // CR 468.5 / 471.1: a player Establishes Control (and so Conquers) only
+        // "if they didn't already control this Battlefield".
+        if (!old_controller.has_value() || *old_controller != sole_player)
+            scoreConquer(sole_player, bf_id);
     }
 }
 
@@ -3749,7 +3755,9 @@ void GameEngine::combatResolutionStep(BattlefieldId bf_id) {
         auto old_controller = bf.controller;
         bf.controller = combat_winner;
         events_.emit(ControlChangedEvent{bf_id, old_controller, combat_winner});
-        scoreConquer(combat_winner, bf_id);
+        // CR 468.5 / 471.1: a defender who wins already controlled it — no Conquer.
+        if (!old_controller.has_value() || *old_controller != combat_winner)
+            scoreConquer(combat_winner, bf_id);
     } else if (att_remaining.empty() && def_remaining.empty()) {
         bf.controller = std::nullopt;
     }
@@ -4768,57 +4776,8 @@ GameObjectId GameEngine::instantiateCard(CardDefId def_id, PlayerId owner) {
 }
 
 void GameEngine::drawCards(PlayerId player, int count) {
-    auto& ps = state_.player(player);
-    int drawn = 0;
-    for (int i = 0; i < count; ++i) {
-        if (ps.main_deck.empty()) {
-            // Burn Out (CR 431.2): recycle trash into deck, then the
-            // burning-out player chooses an opponent to gain 1 point
-            // (CR 431.2.c). 1v1 = exactly one opponent. CR 431.3: if
-            // opponent reaches victory score they win immediately.
-            if (ps.trash.empty()) {
-                events_.logTrace(std::string("BURN_OUT: ") + toString(player) +
-                                 " deck AND trash empty, cannot draw");
-                break; // truly empty — nothing to do
-            }
-            ps.burned_out = true;
-            for (auto card_id : ps.trash) {
-                state_.getObject(card_id).zone = ZoneType::MainDeck;
-                ps.main_deck.push_back(card_id);
-            }
-            ps.trash.clear();
-            shuffleDeck(player);
-            PlayerId opp_id = opponent(player);
-            auto& opp_ps = state_.player(opp_id);
-            opp_ps.score++;
-            events_.logTrace(std::string("BURN_OUT: ") + toString(player) +
-                             " deck empty, shuffled trash; " +
-                             toString(opp_id) + " gains 1 point (CR 431.2.c) -> " +
-                             std::to_string(opp_ps.score));
-            if (opp_ps.score >= state_.mode.victory_score &&
-                opp_ps.score > ps.score) {
-                state_.game_over = true;
-                state_.winner = opp_id;
-                state_.game_over_reason = std::string(toString(opp_id)) +
-                                           " wins via burn-out point (CR 431.3)";
-                events_.emit(GameOverEvent{opp_id, state_.game_over_reason});
-                return;
-            }
-            // If deck still empty after shuffle (shouldn't happen), stop
-            if (ps.main_deck.empty()) break;
-        }
-        auto card_id = ps.main_deck.back();
-        ps.main_deck.pop_back();
-        ps.hand.push_back(card_id);
-        state_.getObject(card_id).zone = ZoneType::Hand;
-        events_.logTrace("  DREW: " + state_.getObject(card_id).name +
-                         " (id=" + std::to_string(card_id) + ")");
-        drawn++;
-    }
-    if (drawn > 0) {
-        state_.player(player).draws_this_turn += drawn;
-        events_.emit(CardsDrawnEvent{player, drawn});
-    }
+    // One implementation of drawing and Burn Out (CR 432) for the whole engine.
+    effect_executor_->drawCards(player, count);
 }
 
 void GameEngine::channelRunes(PlayerId player, int count) {

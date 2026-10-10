@@ -28,6 +28,20 @@ protected:
     std::unique_ptr<GameEngine> engine_;
     GameState* eng_state() { return &engine_->mutableState(); }
 
+    // Phase-step hooks sweep both legend zones, so engine-driven tests need a
+    // legend object per player (as the action-generation tests do).
+    void seedLegends() {
+        auto& s = *eng_state();
+        for (int p = 0; p < 2; ++p) {
+            auto leg = s.createObject();
+            auto& lo = s.getObject(leg);
+            lo.owner = lo.controller = s.players[p].id;
+            lo.card_type = CardType::Legend;
+            lo.zone = ZoneType::LegendZone;
+            s.players[p].legend_zone = leg;
+        }
+    }
+
     void makeEngineAndSeedBattlefields(int n_bfs = 2) {
         engine_ = std::make_unique<GameEngine>(card_db, events, card_registry);
         auto& s = *eng_state();
@@ -105,12 +119,11 @@ TEST_F(BurnOutScoringTest, BurnOut_BringsOpponentToVictoryScore_OpponentWinsImme
     EXPECT_EQ(state.player(P2).score, state.mode.victory_score);
 }
 
-TEST_F(BurnOutScoringTest, BurnOut_DeckAndTrashEmpty_NoPointAwarded) {
-    // CR 431.3: a player's deck may stay empty if trash is also empty.
-    // No recycle happens, so no point is awarded — we simply can't draw.
-    // (The "another burn out gives another point" loop only kicks in when
-    // a subsequent draw instruction re-enters this path; one isolated
-    // draw-from-empty-deck-with-empty-trash is a silent no-op.)
+TEST_F(BurnOutScoringTest, BurnOut_DeckAndTrashEmpty_BurnsOutUntilOpponentWins) {
+    // CR 432.3 / 432.3.a: with an empty trash the deck stays empty, so trying
+    // to finish the draw burns out again — a point to the opponent each time —
+    // until the opponent passes the Victory Score and wins (432.3.c.1:
+    // immediately, without waiting for a cleanup).
     state.player(P1).score = 4;
     state.player(P2).score = 2;
     // Both deck + trash already empty.
@@ -119,8 +132,97 @@ TEST_F(BurnOutScoringTest, BurnOut_DeckAndTrashEmpty_NoPointAwarded) {
     exec.drawCards(P1, 1);
 
     EXPECT_EQ(state.player(P1).score, 4);
-    EXPECT_EQ(state.player(P2).score, 2);
-    EXPECT_FALSE(state.game_over);
+    EXPECT_EQ(state.player(P2).score, state.mode.victory_score);
+    EXPECT_TRUE(state.game_over);
+    EXPECT_EQ(state.winner, P2);
+    EXPECT_TRUE(state.player(P1).hand.empty());
+}
+
+TEST_F(BurnOutScoringTest, BurnOut_EmptyDeckAndTrash_NeedsMorePointsThanOpponent) {
+    // CR 432.3.c: the burn-out point wins only with MORE points than every
+    // opponent, so it keeps going past the Victory Score when behind.
+    state.player(P1).score = state.mode.victory_score + 1;   // (already ahead; contrived)
+    state.player(P2).score = 0;
+
+    EffectExecutor exec(state, events, card_db);
+    exec.drawCards(P1, 1);
+
+    EXPECT_TRUE(state.game_over);
+    EXPECT_EQ(state.winner, P2);
+    EXPECT_EQ(state.player(P2).score, state.mode.victory_score + 2);
+}
+
+TEST_F(BurnOutScoringTest, Burn_EmptyDeckAndTrash_AlsoBurnsOutToALoss) {
+    // CR 441.4 + 432.1.b: Burn past an empty deck burns out the same way.
+    state.player(P1).score = 0;
+    state.player(P2).score = 0;
+
+    EffectExecutor exec(state, events, card_db);
+    auto burned = exec.burn(P1, 2);
+
+    EXPECT_TRUE(burned.empty());
+    EXPECT_TRUE(state.game_over);
+    EXPECT_EQ(state.winner, P2);
+}
+
+// ─── CR 319 — a Cleanup runs before the Scoring Step ───────────────────────
+
+TEST_F(BurnOutScoringTest, Hold_NotScoredWhenLastUnitDiedInBeginningStep) {
+    // P1 controls BF 0 with a single [Temporary] unit. It is killed at the
+    // start of P1's Beginning Phase "before scoring", so P1 no longer has a
+    // unit there and must not score the Hold.
+    makeEngineAndSeedBattlefields(2);
+    FirstChoiceAgent a1, a2;
+    engine_->testHook_setAgents(&a1, &a2);
+    seedLegends();
+    auto& s = *eng_state();
+    s.turn.turn_player = P1;
+    auto unit = s.createObject();
+    {
+        auto& u = s.getObject(unit);
+        u.owner = u.controller = P1;
+        u.card_type = CardType::Unit;
+        u.name = "TemporaryHolder";
+        u.base_might = u.current_might = 2;
+        u.keywords.set(Keyword::Temporary);
+        u.zone = ZoneType::BattlefieldZone;
+        u.location = BattlefieldLocation{0};
+    }
+    s.battlefields[0].controller = P1;
+    s.player(P1).score = 0;
+
+    engine_->testHook_beginningStep();
+    engine_->testHook_scoringStep();
+
+    EXPECT_EQ(s.player(P1).score, 0) << "no unit left at the battlefield -> no Hold";
+    EXPECT_FALSE(s.battlefields[0].controller.has_value() &&
+                 *s.battlefields[0].controller == P1);
+}
+
+TEST_F(BurnOutScoringTest, Hold_ScoredWhenUnitSurvivesBeginningStep) {
+    makeEngineAndSeedBattlefields(2);
+    FirstChoiceAgent a1, a2;
+    engine_->testHook_setAgents(&a1, &a2);
+    seedLegends();
+    auto& s = *eng_state();
+    s.turn.turn_player = P1;
+    auto unit = s.createObject();
+    {
+        auto& u = s.getObject(unit);
+        u.owner = u.controller = P1;
+        u.card_type = CardType::Unit;
+        u.name = "Holder";
+        u.base_might = u.current_might = 2;
+        u.zone = ZoneType::BattlefieldZone;
+        u.location = BattlefieldLocation{0};
+    }
+    s.battlefields[0].controller = P1;
+    s.player(P1).score = 0;
+
+    engine_->testHook_beginningStep();
+    engine_->testHook_scoringStep();
+
+    EXPECT_EQ(s.player(P1).score, 1);
 }
 
 // ─── CR 431.1.c — Reveal beyond deck does NOT cause Burn Out ────────────────

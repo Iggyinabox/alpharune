@@ -95,11 +95,12 @@ public:
     /// their trash, burning out if the deck runs dry. Returns the burned
     /// cards (in burn order); emits ObjectStateChangedEvent "burned" per card.
     std::vector<GameObjectId> burn(PlayerId player, int count);
-    /// Burn Out (CR 432): shuffle `player`'s trash into their empty Main Deck
-    /// and give the opponent 1 point. Returns true if the deck now has cards
-    /// and the game is still going (the caller can finish its action); false
-    /// if there was nothing to recycle or the point ended the game.
+    /// One Burn Out (CR 432.2): recycle `player`'s trash into their Main Deck
+    /// (possibly nothing) and give the opponent 1 point. Returns true if the
+    /// deck now has cards and the game is still going.
     bool burnOut(PlayerId player);
+    /// Burn out repeatedly until the deck has a card or the game ends (CR 432.3).
+    bool burnOutUntilDeckHasCards(PlayerId player);
     void healObject(GameObjectId target);
     void exhaustObject(GameObjectId target);
     void channelRunes(PlayerId player, int count, bool enter_exhausted = false);

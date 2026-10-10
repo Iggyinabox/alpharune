@@ -236,7 +236,7 @@ void EffectExecutor::drawCards(PlayerId player, int count) {
     int drawn = 0;
     for (int i = 0; i < count; ++i) {
         if (ps.main_deck.empty()) {
-            if (!burnOut(player)) {
+            if (!burnOutUntilDeckHasCards(player)) {
                 if (state_.game_over) return;
                 break;
             }
@@ -255,14 +255,27 @@ void EffectExecutor::drawCards(PlayerId player, int count) {
     }
 }
 
+// Victory Score in effect right now: the mode's score plus any battlefield
+// that raises it (Aspirant's Climb: "Increase the points needed to win the
+// game by 1."). Mirrors GameEngine::checkWinCondition.
+static int effectiveVictoryScore(const GameState& state, const CardDB& db) {
+    int v = state.mode.victory_score;
+    for (const auto& bf : state.battlefields) {
+        if (!state.objectExists(bf.card_object_id)) continue;
+        const auto& bf_obj = state.getObject(bf.card_object_id);
+        if (bf_obj.card_def_id == kInvalidId) continue;
+        if (db.get(bf_obj.card_def_id).ability_text.find(
+                "Increase the points needed to win") != std::string::npos)
+            v += 1;
+    }
+    return v;
+}
+
 bool EffectExecutor::burnOut(PlayerId player) {
     auto& ps = state_.player(player);
-    // Burn Out (CR 431.2): recycle trash into deck, then opponent
-    // gains 1 point (CR 431.2.c — burning-out player chooses an
-    // opponent; in 1v1 there is exactly one). CR 431.3: if this
-    // gain puts opponent at or past victory score with more
-    // points than us, they win immediately.
-    if (ps.trash.empty()) return false;
+    // CR 432.2: recycle the trash into the Main Deck (possibly nothing —
+    // CR 432.3: the deck may stay empty), then an opponent gains 1 point.
+    // 1v1 has exactly one opponent to choose.
     ps.burned_out = true;
     for (auto cid : ps.trash) {
         state_.getObject(cid).zone = ZoneType::MainDeck;
@@ -276,19 +289,35 @@ bool EffectExecutor::burnOut(PlayerId player) {
     auto& opp_ps = state_.player(opp_id);
     opp_ps.score++;
     events_.logTrace(std::string("BURN_OUT: ") + toString(player) +
-                     " deck empty, shuffled trash; " +
-                     toString(opp_id) + " gains 1 point (CR 431.2.c) -> " +
+                     (ps.main_deck.empty() ? " deck and trash empty; "
+                                           : " deck empty, shuffled trash; ") +
+                     toString(opp_id) + " gains 1 point (CR 432.2.c) -> " +
                      std::to_string(opp_ps.score));
-    if (opp_ps.score >= state_.mode.victory_score &&
+    // CR 432.3.c.1: a burn-out point that reaches the Victory Score with more
+    // points than every opponent wins immediately, without waiting for cleanup.
+    if (opp_ps.score >= effectiveVictoryScore(state_, card_db_) &&
         opp_ps.score > ps.score) {
         state_.game_over = true;
         state_.winner = opp_id;
         state_.game_over_reason = std::string(toString(opp_id)) +
-                                   " wins via burn-out point (CR 431.3)";
+                                   " wins via burn-out point (CR 432.3)";
         events_.emit(GameOverEvent{opp_id, state_.game_over_reason});
         return false;
     }
     return !ps.main_deck.empty();
+}
+
+// CR 432.3 / 432.3.a: with nothing to recycle the deck stays empty, and trying
+// to finish the original action burns out again — repeatedly, a point each
+// time, until the opponent wins. Returns true once the deck has a card;
+// false if the game ended.
+bool EffectExecutor::burnOutUntilDeckHasCards(PlayerId player) {
+    auto& ps = state_.player(player);
+    // The opponent gains a point per pass, so this always terminates; the
+    // bound is only a guard against a state where nobody can win.
+    for (int guard = 0; ps.main_deck.empty() && !state_.game_over && guard < 256; ++guard)
+        burnOut(player);
+    return !ps.main_deck.empty() && !state_.game_over;
 }
 
 bool EffectExecutor::empower(GameObjectId target) {
@@ -324,7 +353,7 @@ std::vector<GameObjectId> EffectExecutor::burn(PlayerId player, int count) {
     for (int i = 0; i < count; ++i) {
         // CR 441.4: burn as many as possible, burn out, then burn the rest.
         // The just-burned cards are in the trash, so a burn out reshuffles them.
-        if (ps.main_deck.empty() && !burnOut(player)) break;
+        if (ps.main_deck.empty() && !burnOutUntilDeckHasCards(player)) break;
         auto card_id = ps.main_deck.back();
         ps.main_deck.pop_back();
         auto& card = state_.getObject(card_id);
