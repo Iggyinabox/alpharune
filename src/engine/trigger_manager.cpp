@@ -618,6 +618,22 @@ void TriggerManager::onUnitDied(const UnitDiedEvent& e) {
             fireTrigger(wid, state_.getObject(wid).controller, 0,
                         TriggerType::WhenAnEnemyUnitDiesHere, /*subject=*/e.object);
     }
+    // Deathknell an Equipment gave the unit ("[Deathknell] — Draw 1." in the
+    // gear's effect text): the gear it had as it died (last-known information).
+    if (state_.objectExists(e.object) && effect_executor_) {
+        const auto& dead = state_.getObject(e.object);
+        const auto gear_at_death = dead.last_known.valid ? dead.last_known.attachments
+                                                         : dead.attachments;
+        for (auto gear_id : gear_at_death) {
+            if (!state_.objectExists(gear_id)) continue;
+            const auto& gear = state_.getObject(gear_id);
+            Card* gear_card = card_registry_.get(gear.card_def_id);
+            if (!gear_card || gear_card->equippedTriggerType() != TriggerType::WhenIDie) continue;
+            events_.logTrace("EQUIP_TRIGGER: " + gear.name + " fires on the death of " + dead.name);
+            CardContext ctx{state_, events_, *effect_executor_, e.controller, gear_id};
+            gear_card->onEquippedTrigger(ctx, e.object, {});
+        }
+    }
     if (state_.objectExists(e.object)) {
         auto& obj = state_.getObject(e.object);
 

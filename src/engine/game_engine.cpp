@@ -6242,9 +6242,9 @@ void GameEngine::killUnit(GameObjectId unit_id) {
         }
     }
 
-    // No replacement — unit dies normally
-    // Detach all gear first (CR 719.5)
-    detachAllGear(unit_id);
+    // No replacement — unit dies normally. Its gear is shed (CR 719.5) after
+    // the death is announced below, so abilities that trigger on it see the
+    // unit as it died.
 
     auto was_at = unit.location;
     int might = unit.current_might;
@@ -6283,6 +6283,7 @@ void GameEngine::killUnit(GameObjectId unit_id) {
     events_.emit(LeftBoardEvent{unit_id, controller, CardType::Unit,
         was_at.value_or(BaseLocation{controller}),
         is_token ? ZoneType::Banishment : ZoneType::Trash, true});
+    detachAllGear(unit_id);
 }
 
 void GameEngine::healAllUnits() {

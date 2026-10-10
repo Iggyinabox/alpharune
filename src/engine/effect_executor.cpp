@@ -225,14 +225,10 @@ void EffectExecutor::killObject(GameObjectId target) {
                 }
             }
         }
-        // Detach gear (CR 719.5)
-        for (auto gear_id : obj.attachments) {
-            if (state_.objectExists(gear_id)) {
-                state_.getObject(gear_id).attached_to = std::nullopt;
-            }
-        }
-        obj.attachments.clear();
-        obj.attachment_might_bonus = 0;
+        // Its gear is shed (CR 719.5) after the death is announced, so abilities
+        // that trigger on it see the unit as it died — including what it was
+        // a copy of while an Equipment made it one.
+        const auto attached = obj.attachments;   // copy
 
         int might = obj.current_might;
         const bool is_token = (obj.isToken());
@@ -251,12 +247,32 @@ void EffectExecutor::killObject(GameObjectId target) {
                              " (id=" + std::to_string(target) + ")");
         }
 
+        // "If a unit died this turn" bookkeeping — the same as a combat death
+        // (GameEngine::killUnit): a kill is a kill.
+        state_.turn.any_unit_died_this_turn = true;
+        {
+            const TurnPhase ph = state_.turn.phase;
+            const bool in_beginning = ph == TurnPhase::AwakenPhase ||
+                                      ph == TurnPhase::BeginningStep ||
+                                      ph == TurnPhase::ScoringStep;
+            if (in_beginning && state_.turn.turn_player == controller)
+                state_.player(controller).unit_died_in_beginning_this_turn = true;
+        }
         events_.emit(UnitDiedEvent{target, controller,
             was_at.value_or(BaseLocation{controller}), might});
         events_.emit(LeftBoardEvent{target, controller, CardType::Unit,
             was_at.value_or(BaseLocation{controller}),
             is_token ? ZoneType::Banishment : ZoneType::Trash, true});
+        // Through unattachGear so each gear's onUnattached hook runs.
+        for (auto gear_id : attached) unattachGear(gear_id);
+        if (state_.objectExists(target)) {
+            auto& dead = state_.getObject(target);
+            dead.attachments.clear();
+            dead.attachment_might_bonus = 0;
+        }
     } else if (obj.isGear()) {
+        // A gear that dies while attached comes off its unit first.
+        if (obj.attached_to.has_value()) unattachGear(target);
         const bool is_token = (obj.isToken());
         obj.zone = is_token ? ZoneType::Banishment : ZoneType::Trash;
         obj.last_location = obj.location;

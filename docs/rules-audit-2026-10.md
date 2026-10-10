@@ -19,7 +19,7 @@ CH `src/cards/card_helpers.h`.
 ## Status after the fix batches (2026-10-10, branch `vendetta-rules-update`)
 
 The table further down is the ORIGINAL audit. This is where each item stands
-now. "Fixed" means implemented with tests that run in the suite (1482 passing)
+now. "Fixed" means implemented with tests that run in the suite (1487 passing)
 and exercised by random-game smoke runs.
 
 | # | Item | Now |
@@ -34,10 +34,10 @@ and exercised by random-game smoke runs.
 | 8 | Expired delayed abilities | Fixed: "at the end of this turn" delayed abilities fire for both players. Flag-based durations set during the Ending Step are still open. |
 | 9 | Targeting | Fixed for one-target and two-target spells and abilities and for the migrated triggers (see 7): chosen at finalization, Deflect paid then, visible on the chain, mistarget instead of re-picking. **Open:** "restriction is not a target" is not modelled; modal spells still pick their mode as they resolve. |
 | 10 | Split damage | Partly fixed. The controller chooses the split; it is still chosen at resolution and capped at 12 prompts. |
-| 11 | Accelerate | Fixed (domain rule; the granted Accelerate is optional). The grant is still keyed on a hard-coded card id in the engine. |
+| 11 | Accelerate | Fixed (domain rule; the granted Accelerate is optional, and the grant is the granting card's own `grantsAccelerateTo`). |
 | 12 | "Play" semantics | Fixed. |
 | 13 | Battlefield ability control | Fixed for the cases that differ in play: "when you defend here" (never dispatched before), "when a player plays a spell" battlefields (never dispatched before), and "you" abilities that require control (Forgotten Library, Dusk Rose Lab). Uncontrolled-battlefield abilities are still controlled by the event's player rather than the turn player (190.6.b); no card distinguishes the two today. |
-| 14 | "Then banish it" / enters | Fixed for countered Flow spells and "enters exhausted". Shadow's "enter ready at a battlefield" is open. |
+| 14 | "Then banish it" / enters | Fixed for countered Flow spells, "enters exhausted", and Shadow's "enter ready at a battlefield". |
 | 15 | "Activate" a named trigger | Fixed in Reckoner's Arena (each ability is its own chain item). |
 | 16 | Unified lethal damage | Fixed (assignment and cleanup agree; "your damage" is attributed). |
 | 17 | Copy layer | Partly fixed (printed traits only; copied supertype). Copies are still not a tracked, removable effect in general. |
@@ -76,6 +76,12 @@ activations; Hungry Wolf's once-per-turn counts a countered activation;
 Reckoner's Arena queues abilities through the trigger manager. An Energy-only
 ability cost now spends floating Energy (it exhausted runes directly and left
 the pool alone, so the ability was free whenever the pool covered it).
+
+Batch 12: a dying unit's gear is shed after its death is announced and
+through the detach hook on both kill paths (effect kills skipped the hook);
+Equipment-granted Deathknell (Sacred Shears) is dispatched from the gear the
+unit had as it died — it never fired before; an effect kill counts as "a unit
+died this turn".
 
 Still open at card level (`grep -rn ENGINE-GAP src/cards`): an alternative
 Empower cost (Legion Marauder), free-form "name a card" (Fallen Feline), a

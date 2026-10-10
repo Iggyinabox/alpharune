@@ -38,23 +38,10 @@ public:
     // With two Shady Spectacles on one unit, taking one off leaves the unit as
     // the copy most recently applied (copy timestamps are not modelled).
     //
-    // ENGINE-GAP (1): EffectExecutor::killObject does not call unattachGear —
-    // its unit branch clears the gear's `attached_to` directly and its gear
-    // branch does not detach at all — so onUnattached does not run when the
-    // bearer or this gear is killed by an effect (GameEngine::killUnit, bounce
-    // and banish do go through unattachGear). A bearer killed that way keeps
-    // the copied identity in the trash. The stale record is repaired the next
-    // time this gear is equipped (onEquip below); killObject must detach
-    // through unattachGear.
-    // ENGINE-GAP (2): GameEngine runs onEquip outside the chain (no
+    // ENGINE-GAP: GameEngine runs onEquip outside the chain (no
     // ChainState::resuming), so pickTarget cannot suspend for the agent and
     // falls back to the first legal unit. Needed: equip activations resolved
     // through the resumable chain loop (as needsEquipTimeTarget assumes).
-    // ENGINE-GAP (3): GameEngine::killUnit detaches gear (ending the copy here)
-    // BEFORE it emits UnitDiedEvent, so the bearer's "When I die" abilities
-    // are looked up on its original card, not on the unit it was a copy of
-    // when it died (CR 383.2.c.3). Needed: death triggers queued before gear
-    // is shed, or the card def kept in GameObject::last_known.
     static constexpr const char* kCopies = "__spectacles_copies";
     static constexpr const char* kBearer = "__spectacles_bearer";
 

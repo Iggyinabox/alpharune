@@ -1363,5 +1363,68 @@ TEST_F(RulesComplianceTest, RekSaiGrantsAccelerateOnlyToFriendlyUnitsNotPlayedFr
     EXPECT_FALSE(card->grantsAccelerateTo(s(), reksai, s().getObject(theirs), /*from_hand=*/false));
 }
 
+// ─── A unit's gear when it dies ─────────────────────────────────────────────
+class GearOnDeathTest : public RulesComplianceTest {
+protected:
+    GameObjectId equip(GameObjectId unit, CardDefId gear_def) {
+        auto id = s().createObject();
+        auto& g = s().getObject(id);
+        const auto& u = s().getObject(unit);
+        g.owner = g.controller = u.controller;
+        g.card_type = CardType::Gear;
+        g.card_def_id = gear_def;
+        g.name = card_db.get(gear_def).name;
+        g.zone = u.zone;
+        g.location = u.location;
+        g.attached_to = unit;
+        s().getObject(unit).attachments.push_back(id);
+        return id;
+    }
+    void giveDeck(PlayerId p, int n) {
+        for (int i = 0; i < n; ++i) {
+            auto c = s().createObject();
+            auto& o = s().getObject(c);
+            o.owner = o.controller = p;
+            o.card_type = CardType::Unit;
+            o.zone = ZoneType::MainDeck;
+            s().player(p).main_deck.push_back(c);
+        }
+    }
+};
+
+TEST_F(GearOnDeathTest, EquipmentGrantedDeathknellFiresOnAnEffectKill) {
+    constexpr CardDefId kSacredShears = 493;   // "[Deathknell] — Draw 1."
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    giveDeck(P1, 3);
+    auto unit = engineUnit(P1, 2, /*at_bf=*/0);
+    auto shears = equip(unit, kSacredShears);
+    const auto hand_before = s().player(P1).hand.size();
+
+    engine_->testHook_executor().killObject(unit);
+
+    EXPECT_EQ(s().player(P1).hand.size(), hand_before + 1);
+    EXPECT_FALSE(s().getObject(shears).attached_to.has_value()) << "the gear is shed";
+    EXPECT_TRUE(s().getObject(shears).location.has_value()) << "and stays on the board (CR 719.5)";
+    EXPECT_TRUE(s().turn.any_unit_died_this_turn) << "an effect kill is a death this turn";
+}
+
+TEST_F(GearOnDeathTest, EquipmentGrantedDeathknellFiresOnACombatDeath) {
+    constexpr CardDefId kSacredShears = 493;
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    giveDeck(P1, 3);
+    auto unit = engineUnit(P1, 2, /*at_bf=*/0);
+    auto shears = equip(unit, kSacredShears);
+    const auto hand_before = s().player(P1).hand.size();
+
+    s().getObject(unit).damage_marked = 5;
+    engine_->testHook_processLethalDamage();
+
+    EXPECT_EQ(s().getObject(unit).zone, ZoneType::Trash);
+    EXPECT_EQ(s().player(P1).hand.size(), hand_before + 1);
+    EXPECT_FALSE(s().getObject(shears).attached_to.has_value());
+}
+
 }  // namespace
 }  // namespace riftbound::test
