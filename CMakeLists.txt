@@ -234,19 +234,91 @@ endif()
 # JSON Schema validator dep moved to riftbound-trainer along with the
 # config parsing it backed. Engine builds without it.
 
-# ─── Core library ─────────────────────────────────────────────────────────────
-
-# Per-card sources: one translation unit per card under src/cards/<type>/.
-# CONFIGURE_DEPENDS re-globs at build time so newly scaffolded cards are picked
-# up without a manual reconfigure.
-file(GLOB_RECURSE RIFTBOUND_CARD_SOURCES CONFIGURE_DEPENDS
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/cards/units/*.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/cards/spells/*.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/cards/gear/*.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/cards/legends/*.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/cards/battlefields/*.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/cards/runes/*.cpp
+# Libraries every engine translation unit compiles against. One list, so the
+# card groups below get exactly the same compile definitions as riftbound_core
+# (required for them to share one precompiled header).
+set(RIFTBOUND_CORE_LIBS
+    Boost::boost
+    Boost::system
+    Boost::context   # userspace fibers for the engine's step machine
+    Threads::Threads
+    nlohmann_json::nlohmann_json
 )
+
+# ─── Precompiled header ───────────────────────────────────────────────────────
+# Every card is its own source file and each one parses the same engine
+# headers. src/pch.h holds those headers; one small target owns the compiled
+# PCH and riftbound_core plus every card group reuse it, so a core-header
+# change rebuilds a single PCH.
+#
+# With ccache as the compiler launcher, GCC needs -fpch-preprocess and ccache
+# needs `sloppiness = pch_defines,time_macros` (set it on the build dir's
+# launcher, e.g.
+#   -DCMAKE_CXX_COMPILER_LAUNCHER="env;CCACHE_SLOPPINESS=pch_defines,time_macros;ccache"
+# ) or it will not cache compilations that use the PCH.
+option(RIFTBOUND_USE_PCH "Precompile the common engine headers (src/pch.h)" ON)
+set(RIFTBOUND_PCH_CCACHE_FLAG "")
+if(RIFTBOUND_USE_PCH AND CMAKE_CXX_COMPILER_LAUNCHER MATCHES "ccache"
+        AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    set(RIFTBOUND_PCH_CCACHE_FLAG -fpch-preprocess)
+endif()
+if(RIFTBOUND_USE_PCH)
+    add_library(riftbound_pch OBJECT src/pch_anchor.cpp)
+    target_include_directories(riftbound_pch PRIVATE src)
+    target_link_libraries(riftbound_pch PRIVATE ${RIFTBOUND_CORE_LIBS})
+    target_compile_options(riftbound_pch PRIVATE ${RIFTBOUND_PCH_CCACHE_FLAG})
+    target_precompile_headers(riftbound_pch PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/pch.h)
+endif()
+function(riftbound_use_pch TARGET)
+    if(RIFTBOUND_USE_PCH)
+        target_compile_options(${TARGET} PRIVATE ${RIFTBOUND_PCH_CCACHE_FLAG})
+        target_precompile_headers(${TARGET} REUSE_FROM riftbound_pch)
+    endif()
+endfunction()
+
+# ─── Card groups ──────────────────────────────────────────────────────────────
+# One source file per card under src/cards/<type>/ (955 of the ~1,060 engine
+# sources). Each directory is an OBJECT library folded back into riftbound_core:
+# cards_init.cpp calls into the cards and the cards call back into card.cpp and
+# the executor, so separate static libraries would link circularly. Consumers
+# of riftbound_core are unaffected.
+#
+# RIFTBOUND_UNITY_CARDS compiles each group as a few combined sources
+# (RIFTBOUND_CARD_UNITY_BATCH card files each) instead of one compile per
+# card. Cards rarely change once written, so the usual unity trade-off (edit
+# one file, recompile its batch) is seldom paid, while a core-header change
+# recompiles ~60 units instead of ~955. Turn it OFF for a build directory that
+# should give clangd a per-file compile command.
+#
+# Rule for card authors: file-scope names in a card file must be unique within
+# its group (unity merges the files' anonymous namespaces). A reprint's class
+# carries its card id (KarmaChanneler_235 / _548); shared helpers live in
+# src/cards/card_helpers.h, not copied between cards.
+option(RIFTBOUND_UNITY_CARDS "Unity-build each card group" OFF)
+set(RIFTBOUND_CARD_UNITY_BATCH 16 CACHE STRING
+    "Card source files per unity compile (with RIFTBOUND_UNITY_CARDS)")
+
+set(RIFTBOUND_CARD_GROUPS units spells gear legends battlefields runes)
+set(RIFTBOUND_CARD_OBJECTS "")
+foreach(_group IN LISTS RIFTBOUND_CARD_GROUPS)
+    # CONFIGURE_DEPENDS re-globs at build time so a newly added card is picked
+    # up without a manual reconfigure.
+    file(GLOB _card_srcs CONFIGURE_DEPENDS
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/cards/${_group}/*.cpp)
+    add_library(riftbound_cards_${_group} OBJECT ${_card_srcs})
+    target_include_directories(riftbound_cards_${_group} PRIVATE src)
+    target_link_libraries(riftbound_cards_${_group} PRIVATE ${RIFTBOUND_CORE_LIBS})
+    riftbound_use_pch(riftbound_cards_${_group})
+    if(RIFTBOUND_UNITY_CARDS)
+        set_target_properties(riftbound_cards_${_group} PROPERTIES
+            UNITY_BUILD ON
+            UNITY_BUILD_BATCH_SIZE ${RIFTBOUND_CARD_UNITY_BATCH})
+    endif()
+    list(APPEND RIFTBOUND_CARD_OBJECTS $<TARGET_OBJECTS:riftbound_cards_${_group}>)
+endforeach()
+
+# ─── Core library ─────────────────────────────────────────────────────────────
 
 add_library(riftbound_core
     src/core/types.cpp
@@ -265,7 +337,7 @@ add_library(riftbound_core
     src/cards/card.cpp
     src/cards/card_registry.cpp
     src/cards/cards_init.cpp
-    ${RIFTBOUND_CARD_SOURCES}
+    ${RIFTBOUND_CARD_OBJECTS}
     src/engine/game_runner.cpp
     src/engine/batch_runner.cpp
     src/engine/step_driver.cpp
@@ -275,34 +347,8 @@ add_library(riftbound_core
 )
 
 target_include_directories(riftbound_core PUBLIC src)
-
-# ─── Precompiled header ───────────────────────────────────────────────────────
-# Every card is its own translation unit and each one parses the same engine
-# headers; that parse was ~80% of a card file's compile time. src/pch.h holds
-# those headers. A change to one of them still rebuilds every file, but each
-# file then costs code generation only.
-#
-# With ccache as the compiler launcher, GCC needs -fpch-preprocess and ccache
-# needs `sloppiness = pch_defines,time_macros` (set it on the build dir's
-# launcher, e.g.
-#   -DCMAKE_CXX_COMPILER_LAUNCHER="env;CCACHE_SLOPPINESS=pch_defines,time_macros;ccache"
-# ) or it will not cache compilations that use the PCH.
-option(RIFTBOUND_USE_PCH "Precompile the common engine headers (src/pch.h)" ON)
-if(RIFTBOUND_USE_PCH)
-    target_precompile_headers(riftbound_core PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/pch.h)
-    if(CMAKE_CXX_COMPILER_LAUNCHER MATCHES "ccache" AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-        target_compile_options(riftbound_core PRIVATE -fpch-preprocess)
-    endif()
-endif()
-
-target_link_libraries(riftbound_core PUBLIC
-    Boost::boost
-    Boost::system
-    Boost::context   # userspace fibers for the engine's step machine
-    Threads::Threads
-    nlohmann_json::nlohmann_json
-)
+riftbound_use_pch(riftbound_core)
+target_link_libraries(riftbound_core PUBLIC ${RIFTBOUND_CORE_LIBS})
 
 # ─── Engine library ──────────────────────────────────────────────────────────
 # (will grow as we add engine, rules, agents, io modules)
