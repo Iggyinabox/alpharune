@@ -187,14 +187,15 @@ void TriggerManager::fireBattlefieldTriggers(TriggerType t, PlayerId player,
 // "when YOU play a spell" fires only on your legend, but we still need to
 // check both legend zones since either player may be the one acting).
 void TriggerManager::fireLegendTrigger(TriggerType t, PlayerId relevant_player,
-                                        int triggering_spell_energy_spent) {
+                                        int triggering_spell_energy_spent,
+                                        GameObjectId subject) {
     for (auto pid : {PlayerId::Player1, PlayerId::Player2}) {
         if (relevant_player != PlayerId::None && pid != relevant_player) continue;
         auto legend_id = state_.player(pid).legend_zone;
         if (legend_id == kInvalidId || !state_.objectExists(legend_id)) continue;
         auto& legend = state_.getObject(legend_id);
         if (cardFiresOn(card_registry_, legend.card_def_id, t)) {
-            fireTrigger(legend_id, pid, triggering_spell_energy_spent, t);
+            fireTrigger(legend_id, pid, triggering_spell_energy_spent, t, subject);
         }
     }
 }
@@ -237,6 +238,12 @@ void TriggerManager::fireTrigger(GameObjectId source, PlayerId controller,
         fired = getTrigger(card_registry_, obj.card_def_id);
     }
     if (fired == TriggerType::None) return;
+
+    // The card's intervening condition ("When a BUFFED friendly unit dies"):
+    // if it isn't met the ability does not trigger.
+    if (const Card* card = card_registry_.get(obj.card_def_id);
+        card && !card->triggerCondition(state_, source, controller, fired, subject))
+        return;
 
     events_.logDebug("TRIGGER: " + obj.name + " (" + toString(controller) +
                      ") fires ability");
@@ -645,7 +652,8 @@ void TriggerManager::onUnitDied(const UnitDiedEvent& e) {
         if (other.controller == e.controller &&
             cardFiresOn(card_registry_, other.card_def_id,
                         TriggerType::WhenAFriendlyUnitDies)) {
-            fireTrigger(id, e.controller, 0, TriggerType::WhenAFriendlyUnitDies);
+            fireTrigger(id, e.controller, 0, TriggerType::WhenAFriendlyUnitDies,
+                        /*subject=*/e.object);
         }
         if (other.controller == opp &&
             cardFiresOn(card_registry_, other.card_def_id,
@@ -692,13 +700,19 @@ void TriggerManager::onScore(const ScoreEvent& e) {
     // Deceiver have "When you conquer or hold," text encoded as the
     // WhenIConquerOrHold trigger on a LegendCard subclass. The legend
     // lives in champion zone, so the unit loop below won't reach it.
+    // The subject is the scored battlefield's card object, so "there" /
+    // "if you assigned N excess damage" can tell which battlefield it was
+    // (card_helpers.h: triggeringBattlefield).
+    GameObjectId scored_bf_card = kInvalidId;
+    for (const auto& bf : state_.battlefields)
+        if (bf.id == e.battlefield) scored_bf_card = bf.card_object_id;
     if (e.method == ScoreMethod::Conquer) {
-        fireLegendTrigger(TriggerType::WhenIConquer, e.player);
+        fireLegendTrigger(TriggerType::WhenIConquer, e.player, 0, scored_bf_card);
     }
     if (e.method == ScoreMethod::Hold) {
-        fireLegendTrigger(TriggerType::WhenIHold, e.player);
+        fireLegendTrigger(TriggerType::WhenIHold, e.player, 0, scored_bf_card);
     }
-    fireLegendTrigger(TriggerType::WhenIConquerOrHold, e.player);
+    fireLegendTrigger(TriggerType::WhenIConquerOrHold, e.player, 0, scored_bf_card);
 
     for (auto uid : units) {
         if (!state_.objectExists(uid)) continue;
@@ -1107,6 +1121,25 @@ void TriggerManager::onObjectStateChanged(const ObjectStateChangedEvent& e) {
         if (dobj.card_def_id != kInvalidId &&
             cardFiresOn(card_registry_, dobj.card_def_id, TriggerType::WhenIAmDiscarded))
             fireTrigger(e.object, dobj.owner, 0, TriggerType::WhenIAmDiscarded);
+        return;
+    }
+
+    if (e.what_changed == "ability_activated") {
+        // "When you play ... an activated ability" (Curator of the Sands).
+        int energy = 0;
+        if (auto it = state_.getObject(e.object).card_counters.find("__ability_energy_cost");
+            it != state_.getObject(e.object).card_counters.end()) energy = it->second;
+        std::vector<GameObjectId> watchers;
+        for (auto& [id, obj] : state_.objects) {
+            if (obj.controller != controller) continue;
+            if (!obj.location.has_value() && obj.zone != ZoneType::LegendZone) continue;
+            if (obj.card_def_id == kInvalidId) continue;
+            if (cardFiresOn(card_registry_, obj.card_def_id, TriggerType::WhenYouActivateAnAbility))
+                watchers.push_back(id);
+        }
+        for (auto wid : watchers)
+            fireTrigger(wid, controller, energy, TriggerType::WhenYouActivateAnAbility,
+                        /*subject=*/e.object);
         return;
     }
 

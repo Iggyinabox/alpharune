@@ -1,4 +1,5 @@
 #include "cards/card.h"
+#include "cards/card_helpers.h"
 #include "cards/card_registry.h"
 #include "core/game_state.h"
 #include "core/events.h"
@@ -16,19 +17,20 @@ public:
     const CardDef& def() const override { return def_; }
     // "When I conquer after an attack, if you assigned 5 or more excess
     //  damage to enemy units, you score 1 point."
-    // Excess-damage assignment is not surfaced to triggers (same engine gap as
-    // Piltover Enforcer / Hextech Gauntlets); the condition is treated as
-    // satisfied (documented approximation).
     TriggerType triggerType() const override { return TriggerType::WhenIConquer; }
+    bool triggerCondition(const GameState& state, GameObjectId source, PlayerId controller,
+                          TriggerType, GameObjectId) const override {
+        if (!state.objectExists(source)) return false;
+        const auto bf = state.getObject(source).battlefieldId();
+        if (!bf) return false;
+        const auto& ps = state.player(controller);
+        // "after an attack": the conquer follows a combat here that I attacked in.
+        return ps.last_combat_bf == *bf && ps.last_combat_attacker &&
+               excessCombatDamageAt(state, controller, *bf) >= 5;
+    }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
-        // ENGINE-GAP: "after an attack, if you assigned 5 or more excess damage
-        // to enemy units" is not checked — the combat-damage step records no
-        // per-player excess damage assigned (needed: e.g.
-        // PlayerState::excess_combat_damage_assigned_this_combat plus the
-        // attacker flag surviving until the conquer trigger resolves).
         ctx.executor.scorePoints(ctx.controller, 1);   // CR 194.1.c
-        ctx.events.logTrace("TRYNDAMERE: conquer -> score 1 point "
-                            "(excess-damage condition not engine-checked)");
+        ctx.events.logTrace("TRYNDAMERE: conquered after an attack with 5+ excess damage -> score 1");
     }
 private:
     const CardDef def_ = [] {

@@ -30,12 +30,10 @@ public:
     // condition ("[Empowered][>]", "if you've played ...") are checked by the
     // unit's own onTrigger when its item resolves, as they are for a real one.
     //
-    // ENGINE-GAP: a card has no API to put a triggered ability on the chain
-    // (EffectExecutor has no chain access), so this writes the ChainItem
-    // itself, mirroring ChainManager::addAbility. Needed: e.g.
-    // `EffectExecutor::queueTriggeredAbility(source, controller, TriggerType)`
-    // forwarding to TriggerManager::fireTrigger; this body then becomes one
-    // call per unit.
+    // The engine queues it (EffectExecutor::queueTriggeredAbility ->
+    // TriggerManager::fireTrigger, with its suppression and trigger-condition
+    // checks). A bare executor with no engine behind it (unit tests) has no
+    // trigger manager, so queueConquerAbility writes the item itself there.
     // Conquer effects an Equipment gives its unit ("When I conquer, ..." in the
     // gear's effect text) are run inline through Card::onEquippedTrigger, which
     // is how TriggerManager::fireEquippedTriggers runs them for a real conquer.
@@ -102,12 +100,16 @@ public:
             // The unit's own conquer abilities, one chain item each.
             const CardDefId def_id = ctx.state.getObject(uid).card_def_id;
             if (Card* uc = (def_id != kInvalidId ? ctx.registry->get(def_id) : nullptr)) {
-                if (!suppressed(ctx, uid, *my_bf)) {
-                    for (auto t : uc->triggerTypes()) {
-                        if (!isConquerTrigger(t)) continue;
+                const PlayerId uctrl = ctx.state.getObject(uid).controller;
+                for (auto t : uc->triggerTypes()) {
+                    if (!isConquerTrigger(t)) continue;
+                    if (ctx.executor.canQueueTriggers())
+                        ctx.executor.queueTriggeredAbility(uid, uctrl, t);
+                    else if (!suppressed(ctx, uid, *my_bf))
                         queueConquerAbility(ctx, uid, t);
-                        ++activated;
-                    }
+                    else
+                        continue;
+                    ++activated;
                 }
             }
             // Conquer effects granted by attached Equipment.

@@ -21,28 +21,10 @@ public:
     // hand, ignoring its cost. If it's a unit, play it here." [C] = one Power of
     // my domain (Mind): floating Mind (or universal) power, else a Mind rune
     // recycled through payOnePower.
-    // ENGINE-GAP: payOnePower only recycles READY runes, while CR 164.2.b lets
-    // an exhausted rune be recycled for power too; there is no domain-specific
-    // counterpart of EffectExecutor::payAnyPower to call instead.
     bool canPayC(CardContext& ctx) const {
-        const auto& pool = ctx.state.player(ctx.controller).rune_pool;
-        if (pool.power[static_cast<int>(Domain::Mind)] > 0 || pool.universal_power > 0)
-            return true;
-        LocationId base{BaseLocation{ctx.controller}};
-        for (const auto& [id, obj] : ctx.state.objects) {
-            if (!obj.isRune() || obj.controller != ctx.controller || obj.is_exhausted) continue;
-            if (!obj.location.has_value() || *obj.location != base) continue;
-            for (auto d : obj.domains) if (d == Domain::Mind) return true;
-        }
-        return false;
+        return payableOnePower(ctx.state, ctx.controller, Domain::Mind);
     }
-    bool payC(CardContext& ctx) const {
-        auto& pool = ctx.state.player(ctx.controller).rune_pool;
-        int& mind = pool.power[static_cast<int>(Domain::Mind)];
-        if (mind > 0) { --mind; return true; }
-        if (pool.universal_power > 0) { --pool.universal_power; return true; }
-        return payOnePower(ctx, ctx.controller, Domain::Mind);
-    }
+    bool payC(CardContext& ctx) const { return payOnePower(ctx, ctx.controller, Domain::Mind); }
     std::vector<GameObjectId> hiddenInHand(CardContext& ctx) const {
         std::vector<GameObjectId> out;
         const auto& ps = ctx.state.player(ctx.controller);

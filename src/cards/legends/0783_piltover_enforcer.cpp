@@ -1,4 +1,5 @@
 #include "cards/card.h"
+#include "cards/card_helpers.h"
 #include "cards/card_registry.h"
 #include "core/game_state.h"
 #include "core/events.h"
@@ -16,9 +17,14 @@ public:
     const CardDef& def() const override { return def_; }
     unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     TriggerType triggerType() const override { return TriggerType::WhenIConquer; }
+    // "if you assigned 3 or more excess damage": in the combat at the
+    // battlefield just conquered (the trigger's subject is its card).
+    bool triggerCondition(const GameState& state, GameObjectId, PlayerId controller,
+                          TriggerType, GameObjectId subject) const override {
+        const auto bf = battlefieldOfCard(state, subject);
+        return bf && excessCombatDamageAt(state, controller, *bf) >= 3;
+    }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>&) override {
-        // "if you assigned 3 or more excess damage" — not surfaced to triggers;
-        // treated as satisfied (documented approximation).
         if (!ctx.state.objectExists(ctx.source)) return;
         auto findTargets = [&]() {
             std::vector<GameObjectId> out;
@@ -47,7 +53,7 @@ public:
         ctx.executor.readyObject(target);
         ctx.events.logTrace("PILTOVER ENFORCER: exhaust me -> ready " +
                             ctx.state.getObject(target).name +
-                            " (excess-damage condition not engine-checked)");
+                            "");
     }
 private:
     const CardDef def_ = [] {

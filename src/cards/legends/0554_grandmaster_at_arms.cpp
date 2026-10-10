@@ -15,6 +15,10 @@ class GrandmasterAtArms : public LegendCard {
 public:
     const CardDef& def() const override { return def_; }
 
+    // Both abilities choose a unit (the default target enumeration reads this).
+    TargetRequirements getTargetRequirements() const override {
+        return TargetRequirements{.count = 1, .must_be_unit = true};
+    }
     std::vector<ActivatedAbility> activatedAbilities() const override {
         ActivatedAbility a0;  // [1],[E]: attach a detached Equipment
         a0.cost = ActivationCost{.exhaust = true, .energy = 1};

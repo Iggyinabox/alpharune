@@ -967,6 +967,7 @@ TEST_F(RulesCards2Test, RulesCards2_HungryWolf_GateAndOncePerTurnWhileOnTheChain
     item.is_activated_ability = true;
     item.ability_index = 0;
     state.chain.items.push_back(item);
+    state.getObject(wolf).card_counters["__ability_used_turn_0"] = state.turn.turn_number + 1;   // as GameEngine does on activation
     EXPECT_FALSE(card->canActivateAbilityAt(state, P1, wolf, 0))
         << "\"only once each turn\": not a second time while the first is on the chain";
 
@@ -996,6 +997,7 @@ TEST_F(RulesCards2Test, RulesCards2_HungryWolf_AnotherWolfsActivationDoesNotBloc
     item.is_ability = true;
     item.is_activated_ability = true;
     state.chain.items.push_back(item);
+    state.getObject(other).card_counters["__ability_used_turn_0"] = state.turn.turn_number + 1;   // as GameEngine does on activation
 
     EXPECT_TRUE(card->canActivateAbilityAt(state, P1, wolf, 0)) << "once each turn PER wolf";
     EXPECT_FALSE(card->canActivateAbilityAt(state, P1, other, 0));
@@ -1232,9 +1234,13 @@ TEST_F(RulesCards2Test, RulesCards2_Deceiver_ControllerChoosesTheUnitToCopy) {
     auto elsewhere = addUnit(P1, kPunchingPoro, 0, /*at_bf=*/1);
     auto card_in_hand = addToHand(P1, kInvalidId);
     Seen seen;
+    // The conquered battlefield's card: a conquer / hold trigger's subject.
+    auto scored_bf = state.createObject();
+    state.getObject(scored_bf).card_type = CardType::Battlefield;
+    state.battlefields[0].card_object_id = scored_bf;
 
     driveTrigger(kDeceiver, P1, legend, TriggerType::WhenIConquerOrHold,
-                 pickObj(small, &seen), exec);
+                 pickObj(small, &seen), exec, scored_bf);
 
     EXPECT_TRUE(state.getObject(legend).is_exhausted);
     EXPECT_TRUE(inTrash(P1, card_in_hand));

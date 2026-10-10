@@ -591,8 +591,9 @@ private:
     /// Energy + power affordability / payment for an activated ability whose
     /// cost has a power component (honors ActivationCost::power_any_domain).
     bool canPayActivationResources(PlayerId player, int energy,
-                                   const ActivationCost& cost) const;
-    bool payActivationResources(PlayerId player, int energy, const ActivationCost& cost);
+                                   const ActivationCost& cost, bool for_unit = false) const;
+    bool payActivationResources(PlayerId player, int energy, const ActivationCost& cost,
+                                bool for_unit = false);
     /// Apply `assigned` combat damage to a unit through the replacement
     /// effects that govern it (CR 467.2.c.5).
     void applyCombatDamage(GameObjectId target, int assigned);
@@ -614,9 +615,9 @@ private:
     /// Rebuild the standing [Flow] play-from-trash grants (called from recalculateAuras).
     void refreshFlowGrants();
     bool canPayAdditionalCost(PlayerId player, int energy, int power,
-                                Domain domain) const;
+                                Domain domain, bool for_unit = false) const;
     bool payAdditionalCost(PlayerId player, int energy, int power,
-                            Domain domain);
+                            Domain domain, bool for_unit = false);
 
     /// Pays the matching PlayerState::TrashReplayGrant's override cost for
     /// `card_id` (auto-spends via payAdditionalCost; an [A] grant picks the
@@ -653,7 +654,7 @@ private:
     void maybePayOptionalAdditionalCost(PlayerId player, GameObjectId card_id);
 
     /// Count available Energy from ready runes (exhaust potential).
-    int availableEnergy(PlayerId player) const;
+    int availableEnergy(PlayerId player, bool for_unit = false) const;
 
     /// Count available Power of a specific domain (recycle potential).
     int availablePower(PlayerId player, Domain domain) const;

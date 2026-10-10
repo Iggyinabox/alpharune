@@ -17,17 +17,17 @@ public:
     const CardDef& def() const override { return def_; }
     // "When you play a unit, gear, or activated ability with Energy cost [7] or
     // more, you may exhaust me to ready up to 2 runes."
-    // ENGINE-GAP: activated abilities don't emit a "played" event carrying
-    // their Energy cost, so only the unit / gear half triggers. Needs the
-    // ActivateAbility path to fire WhenYouPlayACard-style triggers with the
-    // ability's Energy cost.
-    TriggerType triggerType() const override { return TriggerType::WhenYouPlayACard; }
+    std::vector<TriggerType> triggerTypes() const override {
+        return {TriggerType::WhenYouPlayACard, TriggerType::WhenYouActivateAnAbility};
+    }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         const auto& ri = ctx.state.chain.resuming.value();
-        const GameObjectId played = ri.triggering_subject;
-        if (played == kInvalidId || !ctx.state.objectExists(played)) return;
-        const auto& p = ctx.state.getObject(played);
-        if (!p.isUnit() && !p.isGear()) return;
+        if (ctx.firing_trigger != TriggerType::WhenYouActivateAnAbility) {
+            const GameObjectId played = ri.triggering_subject;
+            if (played == kInvalidId || !ctx.state.objectExists(played)) return;
+            const auto& p = ctx.state.getObject(played);
+            if (!p.isUnit() && !p.isGear()) return;
+        }
         if (ri.triggering_spell_energy_spent < 7) return;
 
         auto exhausted_runes = [&ctx]() {

@@ -25,11 +25,16 @@ namespace riftbound {
 
 struct RunePool {
     int energy = 0;
+    // Energy that may be spent "only to play units or activated abilities of
+    // units" (Butcher of the Sands). Counted and spent first when the engine
+    // pays for one of those; invisible to every other payment.
+    int unit_energy = 0;
     int power[static_cast<int>(Domain::Count)] = {};  // per-domain
     int universal_power = 0;  // [A] — any domain
 
     void clear() {
         energy = 0;
+        unit_energy = 0;
         universal_power = 0;
         for (int i = 0; i < static_cast<int>(Domain::Count); ++i)
             power[i] = 0;
@@ -222,6 +227,14 @@ struct PlayerState {
     int cards_burned_this_turn = 0;       // cards this player Burned this turn (CR 441)
     int cards_banished_this_turn = 0;     // owned cards banished this turn
     bool chose_enemy_unit_this_turn = false;   // Hungry Wolf
+
+    // This player's most recent combat this turn: where it was, whether they
+    // attacked, and how much combat damage they assigned beyond what was
+    // needed for lethal ("if you assigned N or more excess damage").
+    // last_combat_bf is kInvalidId when they have not been in a combat this turn.
+    BattlefieldId last_combat_bf = kInvalidId;
+    bool last_combat_attacker = false;
+    int excess_combat_damage = 0;
     bool played_nontoken_unit_this_turn = false;  // Swain, Visionary
     bool played_nontoken_gear_this_turn = false;
     bool played_spell_this_turn = false;
@@ -248,6 +261,9 @@ struct PlayerState {
         cards_burned_this_turn = 0;
         cards_banished_this_turn = 0;
         chose_enemy_unit_this_turn = false;
+        last_combat_bf = kInvalidId;
+        last_combat_attacker = false;
+        excess_combat_damage = 0;
         played_nontoken_unit_this_turn = false;
         played_nontoken_gear_this_turn = false;
         played_spell_this_turn = false;

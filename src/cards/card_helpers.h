@@ -21,22 +21,47 @@ constexpr CardDefId kGoldGearCardDefId = 326;
 
 // ── Equip: pay one power (of `domain`, or any rune if nullopt), then attach ──
 // Complements the energy+Domain `standardEquip` overload in gear/equip_base.h.
+// One Power of `domain` (any domain if nullopt), the way CR 164.2 lets it be
+// paid: floating Power of that domain, then universal Power, then recycling a
+// matching rune — ready or exhausted (an exhausted one first, since a ready
+// rune can still be exhausted for Energy).
+inline bool runeMatchesDomain(const GameObject& rune, std::optional<Domain> domain) {
+    if (!domain.has_value()) return true;
+    for (auto d : rune.domains) if (d == *domain) return true;
+    return false;
+}
+inline bool payableOnePower(const GameState& state, PlayerId player,
+                            std::optional<Domain> domain) {
+    const auto& pool = state.player(player).rune_pool;
+    if (pool.universal_power > 0) return true;
+    if (domain.has_value()) { if (pool.power[static_cast<int>(*domain)] > 0) return true; }
+    else if (pool.totalPower() > 0) return true;
+    const LocationId base{BaseLocation{player}};
+    for (const auto& [id, obj] : state.objects)
+        if (obj.isRune() && obj.controller == player && obj.location.has_value() &&
+            *obj.location == base && runeMatchesDomain(obj, domain)) return true;
+    return false;
+}
 inline bool payOnePower(CardContext& ctx, PlayerId player,
                         std::optional<Domain> domain) {
     auto& state = ctx.state;
-    auto base_loc = BaseLocation{player};
+    auto& pool = state.player(player).rune_pool;
+    if (domain.has_value()) {
+        int& own = pool.power[static_cast<int>(*domain)];
+        if (own > 0) { --own; return true; }
+    } else {
+        for (int di = 0; di < static_cast<int>(Domain::Count); ++di)
+            if (pool.power[di] > 0) { --pool.power[di]; return true; }
+    }
+    if (pool.universal_power > 0) { --pool.universal_power; return true; }
+    const LocationId base_loc{BaseLocation{player}};
     GameObjectId rune = kInvalidId;
     for (auto& [id, obj] : state.objects) {
         if (!obj.isRune() || obj.controller != player) continue;
-        if (obj.is_exhausted) continue;
-        if (!obj.location.has_value() || *obj.location != LocationId{base_loc}) continue;
-        if (domain.has_value()) {
-            bool match = false;
-            for (auto d : obj.domains) if (d == *domain) { match = true; break; }
-            if (!match) continue;
-        }
-        rune = id;
-        break;
+        if (!obj.location.has_value() || *obj.location != base_loc) continue;
+        if (!runeMatchesDomain(obj, domain)) continue;
+        if (rune == kInvalidId || (obj.is_exhausted && !state.getObject(rune).is_exhausted))
+            rune = id;
     }
     if (rune == kInvalidId) return false;
     auto& dr = state.getObject(rune);
@@ -45,6 +70,23 @@ inline bool payOnePower(CardContext& ctx, PlayerId player,
     state.player(player).rune_deck.insert(state.player(player).rune_deck.begin(), rune);
     ctx.events.logTrace("  ADDL_COST: recycled " + dr.name + " for power");
     return true;
+}
+
+// ── Battlefields and combat ──
+/// The battlefield whose card object is `card_object` (a battlefield card's
+/// own ctx.source, or a conquer / hold trigger's subject on a legend).
+inline std::optional<BattlefieldId> battlefieldOfCard(const GameState& state,
+                                                      GameObjectId card_object) {
+    if (card_object == kInvalidId) return std::nullopt;
+    for (const auto& bf : state.battlefields)
+        if (bf.card_object_id == card_object) return bf.id;
+    return std::nullopt;
+}
+/// Combat damage `player` assigned beyond lethal in their combat at `bf` this
+/// turn — 0 if their most recent combat was somewhere else (or there was none).
+inline int excessCombatDamageAt(const GameState& state, PlayerId player, BattlefieldId bf) {
+    const auto& ps = state.player(player);
+    return ps.last_combat_bf == bf ? ps.excess_combat_damage : 0;
 }
 
 inline bool standardEquip(CardContext& ctx, GameObjectId gear_id,

@@ -23,6 +23,7 @@ namespace riftbound {
 
 // Forward declarations
 class GameState;
+struct GameObject;
 class EventBus;
 class EffectExecutor;
 class CardRegistry;
@@ -431,6 +432,26 @@ public:
         return enumerateLegalTargets(state, controller);
     }
 
+    /// What the engine calls for an activated ability: also given the object
+    /// whose ability it is, for targets defined relative to it ("a unit
+    /// here", "an attacker at my battlefield"). Default ignores `source`.
+    virtual std::vector<GameObjectId> enumerateLegalTargets(
+        const GameState& state, PlayerId controller,
+        int ability_index, GameObjectId /*source*/) const {
+        return enumerateLegalTargets(state, controller, ability_index);
+    }
+
+    /// An intervening condition on a triggered ability ("When a BUFFED
+    /// friendly unit dies", "..., if you ..."): checked when the event
+    /// happens; false means the ability does not trigger at all. `subject` is
+    /// the event's object (the unit that died, the card that was played),
+    /// kInvalidId when the event has none.
+    virtual bool triggerCondition(const GameState& /*state*/, GameObjectId /*source*/,
+                                  PlayerId /*controller*/, TriggerType /*trigger*/,
+                                  GameObjectId /*subject*/) const {
+        return true;
+    }
+
     /// Universal legality gate for play / activate intents.
     ///
     /// Returns true if this card can legally be played (or its activated
@@ -676,6 +697,13 @@ public:
     virtual bool entersReadyOnPlay(const GameState& /*state*/,
                                     PlayerId /*controller*/) const {
         return entersReadyOnPlay();
+    }
+
+    /// What the engine calls: also given the unit being played, already at its
+    /// destination ("If you play me to a battlefield, I enter ready").
+    virtual bool entersReadyOnPlay(const GameState& state, PlayerId controller,
+                                    const GameObject& /*self*/) const {
+        return entersReadyOnPlay(state, controller);
     }
 
 };

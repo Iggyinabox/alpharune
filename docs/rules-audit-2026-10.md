@@ -19,7 +19,7 @@ CH `src/cards/card_helpers.h`.
 ## Status after the fix batches (2026-10-10, branch `vendetta-rules-update`)
 
 The table further down is the ORIGINAL audit. This is where each item stands
-now. "Fixed" means implemented with tests that run in the suite (1473 passing)
+now. "Fixed" means implemented with tests that run in the suite (1482 passing)
 and exercised by random-game smoke runs.
 
 | # | Item | Now |
@@ -64,11 +64,27 @@ the ten cards that build their own choice prompts (Dazzling Aurora, Bottled
 Constellation and others; `grep -L choicesAtFinalization` over the cards whose
 `onTrigger` calls `requestChoice`).
 
-Still needing a core-header change (one batched rebuild): a restricted-Energy pool (Butcher of the Sands), an
-alternative Empower cost (Legion Marauder), free-form "name a card" (Fallen
-Feline), a battlefield-sourced additional cost (Dragon Roost), ability
-activations as "played" events (Curator of the Sands). `grep -rn ENGINE-GAP
-src/cards` lists every card-level gap (28 notes in 23 files).
+Card-level gaps closed in batch 10: excess combat damage is recorded per
+player and combat (Tryndamere, Piltover Enforcer, Hextech Gauntlets, Trapping
+Grounds were treating the condition as always met); Butcher of the Sands'
+Energy can only pay for units and unit abilities (`RunePool::unit_energy`);
+triggered abilities have an intervening-condition hook checked when the event
+happens (`Card::triggerCondition`; Vanguard Helm); Shadow enters ready only at
+a battlefield and only targets attackers there; Deceiver and Piltover Enforcer
+are told which battlefield was scored; Curator of the Sands sees ability
+activations; Hungry Wolf's once-per-turn counts a countered activation;
+Reckoner's Arena queues abilities through the trigger manager. An Energy-only
+ability cost now spends floating Energy (it exhausted runes directly and left
+the pool alone, so the ability was free whenever the pool covered it).
+
+Still open at card level (`grep -rn ENGINE-GAP src/cards`): an alternative
+Empower cost (Legion Marauder), free-form "name a card" (Fallen Feline), a
+battlefield-sourced additional cost (Dragon Roost), an Equip cost hook (Jax,
+Unrelenting), per-token play locations (Arise), re-choosing a locked target
+(Rebuttal), split damage declared as targets (Volibear, Alpha Strike), the
+target-dependent discount at payment time (Sandswept Tomb), and Shady
+Spectacles' three notes. `RunePool::unit_energy` is not in the ML feature
+vector yet (adding it changes `kStateFeatureDim`).
 
 ## Audit table
 

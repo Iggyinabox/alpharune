@@ -752,6 +752,7 @@ TEST_F(VendettaCTest, Vendetta_HungryWolf_ReadiesAndBuffsOncePerTurn) {
     EXPECT_TRUE(c->canActivateAbilityAt(state, P1, wolf, 0));
 
     CardContext ctx{state, events, exec, P1, wolf};
+    state.getObject(wolf).card_counters["__ability_used_turn_0"] = state.turn.turn_number + 1;   // as GameEngine does on activation
     c->onActivate(ctx, 0, {});
     EXPECT_FALSE(state.getObject(wolf).is_exhausted);
     EXPECT_EQ(state.getObject(wolf).temp_might_bonus, 1);

@@ -139,6 +139,8 @@ public:
     // These helpers are called directly from Card::onTrigger / onActivate
     // bodies; no chain bookkeeping required.
     void addFloatingEnergy(PlayerId player, int amount);
+    /// Energy that can only pay for units and activated abilities of units.
+    void addUnitOnlyEnergy(PlayerId player, int amount);
     void addFloatingPower(PlayerId player, Domain domain, int amount);
     /// Universal power ([A]). Counted separately from domain-specific power
     /// and spendable for any cost.
@@ -254,6 +256,18 @@ public:
     /// other spell (injected by the engine: the executor has no chain access).
     using QueueSpellFn = std::function<void(PlayerId, GameObjectId)>;
     void setQueueSpell(QueueSpellFn fn) { queue_spell_ = std::move(fn); }
+
+    /// Put `source`'s triggered ability for `trigger` on the chain as if the
+    /// event had happened ("activate the conquer effects of units here").
+    /// Goes through TriggerManager::fireTrigger, so the usual suppression and
+    /// trigger conditions apply. No-op without an engine (bare executor).
+    using QueueTriggerFn = std::function<void(GameObjectId, PlayerId, TriggerType, GameObjectId)>;
+    void setQueueTrigger(QueueTriggerFn fn) { queue_trigger_ = std::move(fn); }
+    bool canQueueTriggers() const { return static_cast<bool>(queue_trigger_); }
+    void queueTriggeredAbility(GameObjectId source, PlayerId controller, TriggerType trigger,
+                               GameObjectId subject = kInvalidId) {
+        if (queue_trigger_) queue_trigger_(source, controller, trigger, subject);
+    }
     void setPlayCostFns(CanAffordFn can, PayCostFn pay) {
         can_afford_ = std::move(can);
         pay_cost_ = std::move(pay);
@@ -326,6 +340,7 @@ private:
     std::function<void()> aura_recalc_;
     CanAffordFn can_afford_;
     QueueSpellFn queue_spell_;
+    QueueTriggerFn queue_trigger_;
     PayCostFn pay_cost_;
     const CardRegistry* card_registry_ = nullptr;  // optional; needed for playIgnoringCost onPlay dispatch
     std::mt19937_64* rng_ = nullptr;

@@ -17,9 +17,6 @@ public:
     const CardDef& def() const override { return def_; }
     // "[Reaction][>] [A][A], [E]: [Add] [2]. Spend this Energy only to play units
     // or activated abilities of units."
-    // ENGINE-GAP: the rune pool has no restricted-energy bucket, so the added
-    // Energy is unrestricted. Needs a "units / unit abilities only" floating
-    // pool consulted by the cost-payment path.
     bool hasActivatedAbility() const override { return true; }
     ActivationCost getActivationCost() const override {
         ActivationCost c;
@@ -30,7 +27,7 @@ public:
     }
     bool isReactionAbility() const override { return true; }
     void onActivate(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
-        ctx.executor.addFloatingEnergy(ctx.controller, 2);
+        ctx.executor.addUnitOnlyEnergy(ctx.controller, 2);
     }
 private:
     const CardDef def_ = [] {

@@ -1162,5 +1162,162 @@ TEST_F(BattlefieldAbilityTest, WhileYouControlThisBattlefield_OnlyTheControllers
     EXPECT_TRUE(predicts(P1));
 }
 
+// ─── Excess combat damage ("if you assigned N or more excess damage") ───────
+TEST_F(RulesComplianceTest, ExcessCombatDamage_IsWhatWasAssignedBeyondLethal) {
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    auto small = engineUnit(P2, 2, /*at_bf=*/0);
+    auto big   = engineUnit(P2, 4, /*at_bf=*/0);
+    s().player(P1).last_combat_bf = 0;
+
+    Intent assign;
+    assign.type = IntentType::AssignCombatDamage;
+    assign.player = P1;
+    assign.damage_assignments = {{small, 2}, {big, 9}};   // lethal, then 5 over lethal
+    engine_->testHook_executeIntent(assign);
+
+    EXPECT_EQ(s().player(P1).excess_combat_damage, 5);
+    EXPECT_EQ(excessCombatDamageAt(s(), P1, 0), 5);
+    EXPECT_EQ(excessCombatDamageAt(s(), P1, 1), 0) << "a combat elsewhere doesn't count";
+    EXPECT_EQ(s().player(P2).excess_combat_damage, 0);
+}
+
+TEST_F(RulesComplianceTest, ExcessCombatDamage_TryndamereNeedsFiveAfterAnAttackHere) {
+    constexpr CardDefId kTryndamere = 34;
+    makeEngine();
+    auto tryn = engineUnit(P1, 8, /*at_bf=*/0, kTryndamere);
+    const Card* card = card_registry.get(kTryndamere);
+    auto fires = [&] {
+        return card->triggerCondition(s(), tryn, P1, TriggerType::WhenIConquer, kInvalidId);
+    };
+    EXPECT_FALSE(fires()) << "no combat this turn";
+    auto& ps = s().player(P1);
+    ps.last_combat_bf = 0; ps.last_combat_attacker = true; ps.excess_combat_damage = 4;
+    EXPECT_FALSE(fires()) << "4 excess is not enough";
+    ps.excess_combat_damage = 5;
+    EXPECT_TRUE(fires());
+    ps.last_combat_attacker = false;
+    EXPECT_FALSE(fires()) << "\"after an attack\": not when defending";
+    ps.last_combat_attacker = true; ps.last_combat_bf = 1;
+    EXPECT_FALSE(fires()) << "the combat was at another battlefield";
+}
+
+// ─── Trigger conditions are checked when the event happens ──────────────────
+TEST_F(RulesComplianceTest, TriggerCondition_VanguardHelmOnlyForABuffedUnit) {
+    constexpr CardDefId kVanguardHelm = 228;   // "When a buffed friendly unit dies, ..."
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    auto helm = s().createObject();
+    {
+        auto& g = s().getObject(helm);
+        g.owner = g.controller = P1;
+        g.card_type = CardType::Gear;
+        g.card_def_id = kVanguardHelm;
+        g.name = "Vanguard Helm";
+        g.zone = ZoneType::Base;
+        g.location = BaseLocation{P1};
+    }
+    engineUnit(P1, 2);                         // someone to buff
+    auto plain  = engineUnit(P1, 2);
+    auto buffed = engineUnit(P1, 2);
+    s().getObject(buffed).buff_count = 1;
+
+    engine_->testHook_executor().killObject(plain);
+    EXPECT_TRUE(s().chain.items.empty()) << "an unbuffed unit's death doesn't trigger it";
+    engine_->testHook_executor().killObject(buffed);
+    ASSERT_EQ(s().chain.items.size(), 1u);
+    EXPECT_EQ(s().chain.items.back().source, helm);
+}
+
+// ─── Energy that only pays for units and their abilities ────────────────────
+TEST_F(CostPaymentRulesTest, UnitOnlyEnergy_PaysForAUnitButNothingElse) {
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    s().player(P1).rune_pool.unit_energy = 4;
+    auto unit = cardInHand(P1, 813);            // Field Musicians: [4]
+    EXPECT_TRUE(engine_->testHook_canAfford(P1, unit));
+    EXPECT_FALSE(engine_->testHook_canPayAdditionalCost(P1, 1, 0, Domain::Fury))
+        << "an ordinary cost can't use it";
+    ASSERT_TRUE(engine_->testHook_payCardCost(P1, unit));
+    EXPECT_EQ(s().player(P1).rune_pool.unit_energy, 0);
+}
+
+TEST_F(CostPaymentRulesTest, UnitOnlyEnergy_PaysForAUnitsActivatedAbility) {
+    constexpr CardDefId kRenektonBrute = 879;   // "[1]: Give me +1 [M] this turn."
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    s().turn.ns_state = NeutralShowdownState::Neutral;
+    s().turn.oc_state = OpenClosedState::Open;
+    auto ren = engineUnit(P1, 3, -1, kRenektonBrute);
+    s().player(P1).rune_pool.unit_energy = 1;
+    Intent act;
+    act.type = IntentType::ActivateActionAbility;
+    act.player = P1;
+    act.ability_source = ren;
+    engine_->testHook_executeIntent(act);
+    EXPECT_EQ(s().player(P1).rune_pool.unit_energy, 0);
+    EXPECT_EQ(s().getObject(ren).temp_might_bonus, 1);
+}
+
+TEST_F(CostPaymentRulesTest, AbilityEnergyCostSpendsFloatingEnergy) {
+    // An Energy-only ability cost is paid from floating Energy first — it used
+    // to exhaust runes directly and leave the pool untouched.
+    constexpr CardDefId kRenektonBrute = 879;
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    s().turn.ns_state = NeutralShowdownState::Neutral;
+    s().turn.oc_state = OpenClosedState::Open;
+    auto ren = engineUnit(P1, 3, -1, kRenektonBrute);
+    auto r = rune(P1, Domain::Fury);
+    s().player(P1).rune_pool.energy = 1;
+    Intent act;
+    act.type = IntentType::ActivateActionAbility;
+    act.player = P1;
+    act.ability_source = ren;
+    engine_->testHook_executeIntent(act);
+    EXPECT_EQ(s().player(P1).rune_pool.energy, 0);
+    EXPECT_FALSE(s().getObject(r).is_exhausted) << "the rune is not needed";
+    EXPECT_EQ(s().getObject(ren).temp_might_bonus, 1);
+}
+
+// ─── Hooks given the object they are about ──────────────────────────────────
+TEST_F(RulesComplianceTest, Shadow_EntersReadyOnlyAtABattlefield) {
+    constexpr CardDefId kShadow = 752;
+    makeEngine();
+    const Card* card = card_registry.get(kShadow);
+    auto at_bf   = engineUnit(P1, 2, /*at_bf=*/0, kShadow);
+    auto at_base = engineUnit(P1, 2, -1, kShadow);
+    EXPECT_TRUE(card->entersReadyOnPlay(s(), P1, s().getObject(at_bf)));
+    EXPECT_FALSE(card->entersReadyOnPlay(s(), P1, s().getObject(at_base)));
+}
+
+TEST_F(RulesComplianceTest, Shadow_OnlyAttackersAtItsBattlefieldAreLegalTargets) {
+    constexpr CardDefId kShadow = 752;
+    makeEngine();
+    const Card* card = card_registry.get(kShadow);
+    auto shadow = engineUnit(P1, 2, /*at_bf=*/0, kShadow);
+    auto here      = engineUnit(P2, 2, /*at_bf=*/0);
+    auto elsewhere = engineUnit(P2, 2, /*at_bf=*/1);
+    s().getObject(here).combat_designation = CombatDesignation::Attacker;
+    s().getObject(elsewhere).combat_designation = CombatDesignation::Attacker;
+    auto legal = card->enumerateLegalTargets(s(), P1, 0, shadow);
+    EXPECT_EQ(legal, std::vector<GameObjectId>{here});
+}
+
+// ─── "When you play ... an activated ability with Energy cost [7] or more" ──
+TEST_F(RulesComplianceTest, AbilityActivationTriggersCuratorOfTheSands) {
+    constexpr CardDefId kCurator = 932;
+    makeEngine();
+    auto legend = setLegend(P1, kCurator);
+    setLegend(P2);
+    auto src = engineUnit(P1, 3);
+    s().getObject(src).card_counters["__ability_energy_cost"] = 7;
+    events.emit(ObjectStateChangedEvent{src, "ability_activated"});
+    ASSERT_EQ(s().chain.items.size(), 1u);
+    EXPECT_EQ(s().chain.items.back().source, legend);
+    EXPECT_EQ(s().chain.items.back().triggering_spell_energy_spent, 7);
+    EXPECT_EQ(s().chain.items.back().fired_trigger, TriggerType::WhenYouActivateAnAbility);
+}
+
 }  // namespace
 }  // namespace riftbound::test

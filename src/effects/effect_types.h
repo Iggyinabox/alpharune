@@ -191,6 +191,9 @@ enum class TriggerType : uint8_t {
     WhenAnEnemyUnitDiesHere,     // "when an enemy unit here dies," (Nasus, Guardian of Knowledge)
     WhenIBecomeReady,            // "When I become ready," — any readying, including the
                                  // Awaken phase (WhenIAmReadied only covers "you ready me" effects)
+    WhenYouActivateAnAbility,    // "When you play ... an activated ability" (Curator of the
+                                 // Sands); triggering_subject = the ability's source, and the
+                                 // ability's Energy cost rides in triggering_spell_energy_spent
 };
 
 // ─── Conditions ─────────────────────────────────────────────────────────────

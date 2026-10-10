@@ -18,7 +18,7 @@ public:
     // ── behaviour (Vendetta batch C) ──
     // "[Y]: Ready me and give me +1 [M] this turn. Use only if you've chosen
     //  an enemy unit this turn and only once each turn."
-    static constexpr const char* kUsedKey = "__hungry_wolf_used_turn";
+    static constexpr const char* kUsedKey = "__ability_used_turn_0";   // written by the engine
     bool hasActivatedAbility() const override { return true; }
     ActivationCost getActivationCost() const override {
         ActivationCost c;
@@ -35,28 +35,12 @@ public:
     }
     // "...and only once each turn" (per Hungry Wolf). The stamp holds
     // turn_number + 1 so the default 0 never matches turn 0.
-    // The stamp is written when the ability resolves; an activation of mine
-    // that is still on the chain (or resolving) counts as this turn's use too,
-    // so a second one can't be stacked on top of it.
-    // ENGINE-GAP: an activation that is COUNTERED never resolves and so never
-    // stamps — the ability could then be used again that turn. Needed: a
-    // per-source "activated this turn" stamp written by GameEngine when the
-    // activation cost is paid (PlayerState::abilities_activated_this_turn is
-    // per player, not per source).
-    static bool isMyPendingActivation(const ChainItem& item, GameObjectId source, int index) {
-        return item.is_ability && item.is_activated_ability && item.source == source &&
-               item.granted_ability_def == 0 && item.ability_index == index;
-    }
+    // The engine stamps the activation when its cost is paid, so a countered
+    // activation is still this turn's use and a second can't be stacked on it.
     bool canActivateAbilityAt(const GameState& state, PlayerId controller,
                               GameObjectId source, int ability_index) const override {
         if (!Card::canActivateAbilityAt(state, controller, source, ability_index)) return false;
         if (!state.objectExists(source)) return false;
-        if (ability_index == 0) {
-            for (const auto& item : state.chain.items)
-                if (isMyPendingActivation(item, source, 0)) return false;
-            if (state.chain.resuming.has_value() &&
-                isMyPendingActivation(*state.chain.resuming, source, 0)) return false;
-        }
         const auto& self = state.getObject(source);
         auto it = self.card_counters.find(kUsedKey);
         return it == self.card_counters.end() || it->second != state.turn.turn_number + 1;
@@ -65,7 +49,6 @@ public:
         if (!ctx.state.objectExists(ctx.source)) return;
         auto& self = ctx.state.getObject(ctx.source);
         if (!self.location.has_value()) return;
-        self.card_counters[kUsedKey] = ctx.state.turn.turn_number + 1;
         ctx.executor.readyObject(ctx.source);
         ctx.executor.giveTemporaryMight(ctx.source, 1);
     }

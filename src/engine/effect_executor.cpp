@@ -1003,6 +1003,12 @@ void EffectExecutor::channelRunes(PlayerId player, int count, bool enter_exhaust
 // Add abilities (CR 429) — floating energy / power / universal power
 // ═══════════════════════════════════════════════════════════════════════════════
 
+void EffectExecutor::addUnitOnlyEnergy(PlayerId player, int amount) {
+    state_.player(player).rune_pool.unit_energy += amount;
+    events_.logTrace("EFFECT: " + std::string(toString(player)) + " adds " +
+                     std::to_string(amount) + " Energy for units / unit abilities only");
+}
+
 void EffectExecutor::addFloatingEnergy(PlayerId player, int amount) {
     state_.player(player).rune_pool.energy += amount;
     events_.logTrace("EFFECT: " + std::string(toString(player)) + " adds " +

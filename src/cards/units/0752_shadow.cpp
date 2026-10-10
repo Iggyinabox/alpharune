@@ -15,17 +15,28 @@ namespace {
 class Shadow : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
-    // ENGINE-GAP: "If you play me to a battlefield, I enter ready." onPlay runs
-    // before GameEngine::resolvePermanent, which then recomputes is_exhausted
-    // from Accelerate / Card::entersReadyOnPlay(state, controller) and
-    // overwrites what is set here. That hook receives neither the object nor
-    // its destination, so the card cannot express "ready only at a
-    // battlefield" through it. Missing: an entersReadyOnPlay overload that is
-    // given the played GameObject (or its LocationId).
-    void onPlay(CardContext& ctx) override {
-        if (!ctx.state.objectExists(ctx.source)) return;
-        auto& self = ctx.state.getObject(ctx.source);
-        if (self.isAtBattlefield()) self.is_exhausted = false;
+    // "If you play me to a battlefield, I enter ready."
+    bool entersReadyOnPlay(const GameState&, PlayerId, const GameObject& self) const override {
+        return self.isAtBattlefield();
+    }
+    TargetRequirements getTargetRequirements() const override {
+        return TargetRequirements{.count = 1, .must_be_unit = true, .must_be_enemy = true,
+                                  .must_be_at_battlefield = true};
+    }
+    // "[Stun] an attacking unit here": only attackers at my battlefield.
+    std::vector<GameObjectId> enumerateLegalTargets(const GameState& state, PlayerId controller,
+                                                    int ability_index,
+                                                    GameObjectId source) const override {
+        std::vector<GameObjectId> out;
+        if (!state.objectExists(source)) return out;
+        const auto my_bf = state.getObject(source).battlefieldId();
+        if (!my_bf) return out;
+        for (auto t : Card::enumerateLegalTargets(state, controller, ability_index)) {
+            const auto& u = state.getObject(t);
+            if (u.combat_designation == CombatDesignation::Attacker && u.battlefieldId() == my_bf)
+                out.push_back(t);
+        }
+        return out;
     }
     std::vector<ActivatedAbility> activatedAbilities() const override {
         return {{
@@ -46,7 +57,7 @@ public:
         if (!targets.empty()) {
             picked = targets[0];
         } else {
-            auto legal = enumerateLegalTargets(ctx.state, ctx.controller, 0);
+            auto legal = enumerateLegalTargets(ctx.state, ctx.controller, 0, ctx.source);
             picked = pickTarget(ctx, "Shadow", legal);
         }
         if (picked == kInvalidId || !ctx.state.objectExists(picked)) return;
@@ -58,11 +69,7 @@ public:
         // verify combat is in progress at THIS BF.
         auto& tgt = ctx.state.getObject(picked);
         if (tgt.combat_designation != CombatDesignation::Attacker) return;
-        // "attacking here": the attacker must be at my battlefield.
-        // ENGINE-GAP: Card::enumerateLegalTargets(state, controller, index) is
-        // not given the source object, so the action generator cannot limit
-        // the offered targets to my battlefield; an attacker elsewhere is
-        // rejected here instead (the ability then does nothing).
+        // "attacking here": the attacker must (still) be at my battlefield.
         if (!ctx.state.objectExists(ctx.source)) return;
         auto my_bf = ctx.state.getObject(ctx.source).battlefieldId();
         if (!my_bf || tgt.battlefieldId() != my_bf) return;

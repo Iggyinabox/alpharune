@@ -17,25 +17,12 @@ public:
     const CardDef& def() const override { return def_; }
     TriggerType triggerType() const override { return TriggerType::WhenIConquerOrHold; }
 
-    // ENGINE-GAP: "there" is the battlefield that was conquered or held, but a
-    // legend's WhenIConquerOrHold trigger is fired without it
-    // (TriggerManager::fireLegendTrigger passes no subject / battlefield). This
-    // takes the first battlefield the controller controls, else the first with
-    // a friendly unit. Needed: the scored BattlefieldId on the chain item
-    // (e.g. ChainItem::triggering_battlefield set from ScoreEvent).
+    // "there" is the battlefield that was conquered or held: the trigger's
+    // subject is that battlefield's card object.
     static std::optional<BattlefieldId> scoredBattlefield(GameState& state,
-                                                           PlayerId controller) {
-        for (auto& bf : state.battlefields) {
-            if (bf.controller.has_value() && *bf.controller == controller)
-                return bf.id;
-        }
-        for (auto& bf : state.battlefields) {
-            for (auto& [id, obj] : state.objects) {
-                if (!obj.isUnit() || obj.controller != controller) continue;
-                if (obj.battlefieldId() == bf.id) return bf.id;
-            }
-        }
-        return std::nullopt;
+                                                           PlayerId /*controller*/) {
+        if (!state.chain.resuming.has_value()) return std::nullopt;
+        return battlefieldOfCard(state, state.chain.resuming->triggering_subject);
     }
 
     // Resume points: 0-2 confirmOptional ("you may"), kAwaitDiscard the card

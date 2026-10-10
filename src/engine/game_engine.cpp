@@ -73,6 +73,10 @@ void GameEngine::initSubsystems() {
     trigger_manager_ = std::make_unique<TriggerManager>(
         state_, events_, card_db_, *chain_manager_, card_registry_);
     trigger_manager_->setEffectExecutor(effect_executor_.get());
+    effect_executor_->setQueueTrigger(
+        [this](GameObjectId source, PlayerId controller, TriggerType t, GameObjectId subject) {
+            trigger_manager_->queueTrigger(source, controller, t, subject);
+        });
     trigger_manager_->subscribe();
 }
 
@@ -1213,7 +1217,7 @@ void GameEngine::chooseTargetsAtFinalize(ChainItem& item) {
             if (card->choicesAtFinalization() & Card::kFinalizeActivate) runFinalizePass(item);
             return;
         }
-        legal = card->enumerateLegalTargets(state_, item.controller, item.ability_index);
+        legal = card->enumerateLegalTargets(state_, item.controller, item.ability_index, item.source);
     }
     if (legal.empty()) return;   // nothing to choose now: the card handles it as it resolves
 
@@ -1380,20 +1384,8 @@ bool GameEngine::payAndQueueAbility(const Intent& intent) {
         killUnit(intent.targets[0]);
     // Pay energy (+ power) cost. Abilities with a power component pay
     // both through the shared resource path (floating pool, then runes).
-    if (act_cost.power > 0) {
-        payActivationResources(intent.player, act_cost.energy, act_cost);
-    } else if (act_cost.energy > 0) {
-        int needed = act_cost.energy;
-        auto base_loc = BaseLocation{intent.player};
-        for (auto& [id, obj] : state_.objects) {
-            if (needed <= 0) break;
-            if (!obj.isRune() || obj.controller != intent.player || obj.is_exhausted) continue;
-            if (!obj.location.has_value() || *obj.location != LocationId{base_loc}) continue;
-            obj.is_exhausted = true;
-            needed--;
-            events_.emit(ObjectStateChangedEvent{id, "exhausted"});
-        }
-    }
+    if (act_cost.power > 0 || act_cost.energy > 0)
+        payActivationResources(intent.player, act_cost.energy, act_cost, source.isUnit());
     // Pay recycle-self cost [C]
     if (act_cost.recycle_self) {
         events_.logTrace("ACTIVATE_COST: recycle self " + source.name);
@@ -1443,6 +1435,24 @@ bool GameEngine::payAndQueueAbility(const Intent& intent) {
     // dispatches to the granting card's onActivate (Forge/Gardens/Heimer).
     if (intent.granted_ability_def != 0 && !state_.chain.items.empty())
         state_.chain.items.back().granted_ability_def = intent.granted_ability_def;
+    if (state_.objectExists(intent.ability_source)) {
+        auto& src = state_.getObject(intent.ability_source);
+        // "Only once each turn" abilities count the activation, not the
+        // resolution: a countered activation is still this turn's use.
+        src.card_counters["__ability_used_turn_" + std::to_string(intent.ability_index)] =
+            state_.turn.turn_number + 1;
+        // "When you play ... an activated ability with Energy cost N" (the
+        // printed cost, before reductions).
+        int printed_energy = 0;
+        if (cost_card) {
+            auto abilities = cost_card->activatedAbilities();
+            if (intent.ability_index >= 0 &&
+                intent.ability_index < static_cast<int>(abilities.size()))
+                printed_energy = abilities[intent.ability_index].cost.energy;
+        }
+        src.card_counters["__ability_energy_cost"] = printed_energy;
+        events_.emit(ObjectStateChangedEvent{intent.ability_source, "ability_activated"});
+    }
     return true;
 }
 
@@ -1875,7 +1885,7 @@ void GameEngine::resolveSpell(const ChainItem& item) {
                     item.ability_index < static_cast<int>(abs.size())) {
                     reqs = abs[item.ability_index].targets;
                     legal = acard->enumerateLegalTargets(state_, item.controller,
-                                                         item.ability_index);
+                                                         item.ability_index, item.source);
                 }
             }
         }
@@ -1985,11 +1995,11 @@ void GameEngine::resolvePermanent(const ChainItem& item) {
             // 805.1.b.2: a unit with no domain pays it with [A].
             std::optional<Domain> domain_to_pay;
             if (card.domains.empty()) {
-                if (canPayAdditionalCost(item.controller, 1, 1, Domain::Count))
+                if (canPayAdditionalCost(item.controller, 1, 1, Domain::Count, true))
                     domain_to_pay = Domain::Count;
             } else {
                 for (Domain d : card.domains) {
-                    if (canPayAdditionalCost(item.controller, 1, 1, d)) {
+                    if (canPayAdditionalCost(item.controller, 1, 1, d, true)) {
                         domain_to_pay = d;
                         break;
                     }
@@ -2021,7 +2031,7 @@ void GameEngine::resolvePermanent(const ChainItem& item) {
                 bool wants_pay = chosen.chosen_value.value_or(0) == 1;
                 if (wants_pay) {
                     events_.logTrace("ACCELERATE: " + card.name + " pays [1] + power to enter ready");
-                    payAdditionalCost(item.controller, 1, 1, *domain_to_pay);
+                    payAdditionalCost(item.controller, 1, 1, *domain_to_pay, true);
                     enters_ready = true;
                 } else {
                     events_.logTrace("ACCELERATE: " + card.name + " declined");
@@ -2038,7 +2048,7 @@ void GameEngine::resolvePermanent(const ChainItem& item) {
                 // Prefer the state-aware overload so cards with
                 // conditional ready (Monch) can consult state. Default
                 // impl falls through to the no-arg version.
-                if (cdef->entersReadyOnPlay(state_, card.controller)) enters_ready = true;
+                if (cdef->entersReadyOnPlay(state_, card.controller, card)) enters_ready = true;
             }
         }
         card.is_exhausted = !enters_ready;
@@ -2311,6 +2321,14 @@ bool GameEngine::anyDamageIsLethalFor(PlayerId damager) const {
 void GameEngine::applyCombatDamage(GameObjectId target_id, int assigned) {
     if (assigned <= 0 || !state_.objectExists(target_id)) return;
     auto& t = state_.getObject(target_id);
+    // Damage assigned beyond what this unit needed for lethal is excess
+    // ("if you assigned N or more excess damage").
+    {
+        const PlayerId assigner = opponent(t.controller);
+        const int needed = canTakeCombatDamage(t)
+            ? combatDamageNeededForLethal(t, anyDamageIsLethalFor(assigner)) : 0;
+        if (assigned > needed) state_.player(assigner).excess_combat_damage += assigned - needed;
+    }
     const int dealt = combatDamageDealt(t, assigned);
     // Consume the prevention that applied to this instance.
     if (t.prevent_next_damage_this_turn) {
@@ -2839,7 +2857,7 @@ std::vector<Intent> GameEngine::generateShowdownActions(PlayerId player) const {
             if (ab.cost.exhaust && obj.is_exhausted) continue;
 
             auto legal_targets = card->enumerateLegalTargets(
-                state_, player, static_cast<int>(ai));
+                state_, player, static_cast<int>(ai), id);
             if (ab.targets.count > 0 && legal_targets.empty() &&
                 !ab.targets.optional) continue;
 
@@ -3045,9 +3063,9 @@ std::vector<Intent> GameEngine::generateClosedStateActions(
                 if (ab.cost.exhaust && obj.is_exhausted) continue;
                 int net_energy = std::max(0, ab.cost.energy -
                     activationEnergyReduction(*card_obj, player, id, (int)ai));
-                if (net_energy > 0 && availableEnergy(player) < net_energy) continue;
+                if (net_energy > 0 && availableEnergy(player, obj.isUnit()) < net_energy) continue;
                 if (ab.cost.power > 0 &&
-                    !canPayActivationResources(player, net_energy, ab.cost)) continue;
+                    !canPayActivationResources(player, net_energy, ab.cost, obj.isUnit())) continue;
                 if (ab.cost.discard && ab.cost.discard_count > 0 &&
                     static_cast<int>(state_.player(player).hand.size()) <
                         ab.cost.discard_count) continue;
@@ -3055,7 +3073,7 @@ std::vector<Intent> GameEngine::generateClosedStateActions(
                     state_.player(player).xp < ab.cost.xp_cost) continue;
 
                 auto legal_targets = card_obj->enumerateLegalTargets(
-                    state_, player, static_cast<int>(ai));
+                    state_, player, static_cast<int>(ai), id);
                 if (ab.targets.count > 0 && legal_targets.empty() &&
                     !ab.targets.optional) continue;
 
@@ -3368,9 +3386,9 @@ void GameEngine::generateActivateAbilityActions(PlayerId player,
             if (act_cost.exhaust && obj.is_exhausted) continue;
             int net_energy = std::max(0, act_cost.energy -
                 activationEnergyReduction(*card, player, id, (int)ai));
-            if (net_energy > 0 && availableEnergy(player) < net_energy) continue;
+            if (net_energy > 0 && availableEnergy(player, obj.isUnit()) < net_energy) continue;
             if (act_cost.power > 0 &&
-                !canPayActivationResources(player, net_energy, act_cost)) continue;
+                !canPayActivationResources(player, net_energy, act_cost, obj.isUnit())) continue;
             if (act_cost.discard && act_cost.discard_count > 0) {
                 int matching = 0;
                 for (auto hid : state_.player(player).hand) {
@@ -3395,7 +3413,7 @@ void GameEngine::generateActivateAbilityActions(PlayerId player,
             // at Turn 0 with no units on the board).
             if (ab.targets.count > 0 && !ab.targets.optional) {
                 auto legal = card->enumerateLegalTargets(state_, player,
-                                                          static_cast<int>(ai));
+                                                          static_cast<int>(ai), id);
                 if (legal.empty()) continue;
             } else if (abilities.size() == 1 &&
                         !card->hasLegalTargets(state_, player)) {
@@ -3424,7 +3442,7 @@ void GameEngine::generateActivateAbilityActions(PlayerId player,
                 actions.push_back(activate);
             } else {
                 auto legal_targets = card->enumerateLegalTargets(
-                    state_, player, static_cast<int>(ai));
+                    state_, player, static_cast<int>(ai), id);
                 for (auto target : legal_targets) {
                     Intent activate;
                     activate.type = IntentType::ActivateAbility;
@@ -3448,8 +3466,8 @@ void GameEngine::generateActivateAbilityActions(PlayerId player,
                 ref.ability_index >= static_cast<int>(gabs.size())) continue;
             const auto& gcost = gabs[ref.ability_index].cost;
             if (gcost.exhaust && obj.is_exhausted) continue;           // bearer must be ready
-            if (gcost.energy > 0 && availableEnergy(player) < gcost.energy) continue;
-            if (gcost.power > 0 && !canPayActivationResources(player, gcost.energy, gcost)) continue;
+            if (gcost.energy > 0 && availableEnergy(player, obj.isUnit()) < gcost.energy) continue;
+            if (gcost.power > 0 && !canPayActivationResources(player, gcost.energy, gcost, obj.isUnit())) continue;
             if (gcost.xp_cost > 0 && state_.player(player).xp < gcost.xp_cost) continue;
             Intent activate;
             activate.type = IntentType::ActivateAbility;
@@ -3705,6 +3723,12 @@ void GameEngine::runCombat(BattlefieldId bf_id) {
         }
     }
 
+    for (PlayerId p : {*bf.attacker, *bf.defender}) {
+        auto& cps = state_.player(p);
+        cps.last_combat_bf = bf_id;
+        cps.last_combat_attacker = (p == *bf.attacker);
+        cps.excess_combat_damage = 0;
+    }
     events_.emit(CombatStartedEvent{bf_id, *bf.attacker, *bf.defender});
 
     // Drain any WhenIAttack / WhenIDefend / WhenIAttackOrDefend triggers
@@ -5166,7 +5190,7 @@ void GameEngine::shuffleRuneDeck(PlayerId player) {
 // Cost payment
 // ═══════════════════════════════════════════════════════════════════════════════
 
-int GameEngine::availableEnergy(PlayerId player) const {
+int GameEngine::availableEnergy(PlayerId player, bool for_unit) const {
     // Energy comes from exhausting ready runes (CR 163.2.a: [E]: Add [1])
     // Each ready rune in base can be exhausted for 1 Energy
     int count = 0;
@@ -5179,6 +5203,7 @@ int GameEngine::availableEnergy(PlayerId player) const {
     }
     // Also count Energy already in the pool
     count += state_.player(player).rune_pool.energy;
+    if (for_unit) count += state_.player(player).rune_pool.unit_energy;
     return count;
 }
 
@@ -5588,7 +5613,7 @@ bool GameEngine::canAfford(PlayerId player, GameObjectId card_obj) const {
 
     // Energy can come from the pool's existing energy AND from
     // exhausting ready runes (each gives 1 energy).
-    int energy_available = ready_total + pool.energy;
+    int energy_available = ready_total + pool.energy + (card.isUnit() ? pool.unit_energy : 0);
     if (energy_available < energy_needed) return false;
 
     // Power can come from:
@@ -5761,7 +5786,13 @@ GameEngine::CostPaymentAdvance GameEngine::beginCostPayment(
     events_.logTrace("PAY_COST: " + card.name + " E=" + std::to_string(energy_needed) +
                      " P=" + std::to_string(power_needed));
 
-    // Spend pool energy first (no agent decision needed)
+    // Spend pool energy first (no agent decision needed): Energy restricted to
+    // units before unrestricted Energy.
+    if (energy_needed > 0 && card.isUnit()) {
+        int from_units = std::min(ps.rune_pool.unit_energy, energy_needed);
+        ps.rune_pool.unit_energy -= from_units;
+        energy_needed -= from_units;
+    }
     if (energy_needed > 0) {
         int from_pool = std::min(ps.rune_pool.energy, energy_needed);
         ps.rune_pool.energy -= from_pool;
@@ -5897,15 +5928,16 @@ GameEngine::CostPaymentAdvance GameEngine::resolveCostPaymentDecision(
 }
 
 bool GameEngine::canPayActivationResources(PlayerId player, int energy,
-                                            const ActivationCost& cost) const {
+                                            const ActivationCost& cost,
+                                            bool for_unit) const {
     return canPayAdditionalCost(player, energy, cost.power,
-        cost.power_any_domain ? Domain::Count : cost.power_domain);
+        cost.power_any_domain ? Domain::Count : cost.power_domain, for_unit);
 }
 
 bool GameEngine::payActivationResources(PlayerId player, int energy,
-                                         const ActivationCost& cost) {
+                                         const ActivationCost& cost, bool for_unit) {
     return payAdditionalCost(player, energy, cost.power,
-        cost.power_any_domain ? Domain::Count : cost.power_domain);
+        cost.power_any_domain ? Domain::Count : cost.power_domain, for_unit);
 }
 
 // Extra (energy, power) charge on top of — or instead of — a card's base cost:
@@ -5930,10 +5962,12 @@ std::vector<GameObjectId> runesInBase(const GameState& state, PlayerId player) {
 }
 }  // namespace
 
+// `for_unit`: the payment is for playing a unit or for a unit's activated
+// ability, so Energy restricted to those (RunePool::unit_energy) may be used.
 bool GameEngine::canPayAdditionalCost(PlayerId player, int energy, int power,
-                                       Domain domain) const {
+                                       Domain domain, bool for_unit) const {
     const auto& pool = state_.player(player).rune_pool;
-    int e_need = std::max(0, energy) - pool.energy;
+    int e_need = std::max(0, energy) - pool.energy - (for_unit ? pool.unit_energy : 0);
     int p_need = std::max(0, power) - pool.universal_power;
     if (domain == Domain::Count) {
         for (int di = 0; di < static_cast<int>(Domain::Count); ++di) p_need -= pool.power[di];
@@ -5952,8 +5986,8 @@ bool GameEngine::canPayAdditionalCost(PlayerId player, int energy, int power,
 }
 
 bool GameEngine::payAdditionalCost(PlayerId player, int energy, int power,
-                                    Domain domain) {
-    if (!canPayAdditionalCost(player, energy, power, domain)) return false;
+                                    Domain domain, bool for_unit) {
+    if (!canPayAdditionalCost(player, energy, power, domain, for_unit)) return false;
     auto& ps = state_.player(player);
     int e_need = std::max(0, energy);
     int p_need = std::max(0, power);
@@ -5964,6 +5998,7 @@ bool GameEngine::payAdditionalCost(PlayerId player, int energy, int power,
         from -= n;
         need -= n;
     };
+    if (for_unit) take(ps.rune_pool.unit_energy, e_need);   // restricted Energy first
     take(ps.rune_pool.energy, e_need);
     if (domain == Domain::Count) {
         for (int di = 0; di < static_cast<int>(Domain::Count); ++di)

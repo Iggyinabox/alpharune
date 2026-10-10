@@ -824,14 +824,13 @@ TEST_F(ShadowUnitTest, OnPlayClearsExhaustedAtBattlefield) {
     auto unit = addUnit(P1, kShadow, /*might=*/3, /*at_bf=*/0);
     state.getObject(unit).is_exhausted = true;  // simulate "enters exhausted by default"
 
-    EffectExecutor exec(state, events, card_db);
-    CardContext ctx{state, events, exec, P1, unit};
     Card* c = card_registry.get(kShadow);
     ASSERT_NE(c, nullptr);
-    c->onPlay(ctx);
-
-    EXPECT_FALSE(state.getObject(unit).is_exhausted)
+    // The engine asks the card as the unit resolves onto the board.
+    EXPECT_TRUE(c->entersReadyOnPlay(state, P1, state.getObject(unit)))
         << "Shadow enters ready when played to a battlefield";
+    auto at_base = addUnit(P1, kShadow, /*might=*/3, /*at_bf=*/-1);
+    EXPECT_FALSE(c->entersReadyOnPlay(state, P1, state.getObject(at_base)));
 }
 
 TEST_F(ShadowUnitTest, OnPlayDoesNotAffectBaseLocation) {

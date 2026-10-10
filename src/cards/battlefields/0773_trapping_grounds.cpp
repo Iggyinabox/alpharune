@@ -1,4 +1,5 @@
 #include "cards/card.h"
+#include "cards/card_helpers.h"
 #include "cards/card_registry.h"
 #include "core/game_state.h"
 #include "core/events.h"
@@ -17,16 +18,18 @@ public:
     TriggerType triggerType() const override { return TriggerType::WhenYouConquerHere; }
     // "When you conquer here, if you assigned 3 or more excess damage, play a
     //  1 [M] Bird unit token with [Deflect]."
-    // The "3+ excess damage" condition is not surfaced to triggers (same as
-    // Piltover Enforcer 783) — treated as satisfied (documented approximation).
+    bool triggerCondition(const GameState& state, GameObjectId source, PlayerId controller,
+                          TriggerType, GameObjectId) const override {
+        const auto bf = battlefieldOfCard(state, source);
+        return bf && excessCombatDamageAt(state, controller, *bf) >= 3;
+    }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         KeywordSet kw; kw.set(Keyword::Deflect);
         ctx.executor.createToken(ctx.controller, CardType::Unit, "Bird",
                                   /*might=*/1, /*tags=*/{"Bird"}, kw,
                                   BaseLocation{ctx.controller},
                                   /*enter_ready=*/false);
-        ctx.events.logTrace("TRAPPING GROUNDS: conquer -> 1[M] Bird w/ [Deflect] "
-                            "(excess-damage condition not engine-checked)");
+        ctx.events.logTrace("TRAPPING GROUNDS: conquer with 3+ excess damage -> 1[M] Bird w/ [Deflect]");
     }
 private:
     const CardDef def_ = [] {

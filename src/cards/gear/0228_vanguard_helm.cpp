@@ -16,13 +16,14 @@ public:
     const CardDef& def() const override { return def_; }
     unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // "When a buffed friendly unit dies, buff another friendly unit."
-    // ENGINE-GAP: the "buffed" condition is not checked. The dying unit's
-    // last-known buff count exists (GameObject::last_known.buff_count, CR
-    // 383.2.c.3.b), but TriggerManager::onUnitDied fires WhenAFriendlyUnitDies
-    // without a subject, so this card cannot tell WHICH unit died. Needed:
-    // fireTrigger(..., WhenAFriendlyUnitDies, /*subject=*/e.object) so
-    // ChainItem::triggering_subject names it. Until then every friendly death
-    // triggers this.
+    // The condition is on the unit that died, as it last existed on the board
+    // (CR 383.2.c.3.b).
+    bool triggerCondition(const GameState& state, GameObjectId, PlayerId, TriggerType,
+                          GameObjectId subject) const override {
+        if (subject == kInvalidId || !state.objectExists(subject)) return false;
+        const auto& dead = state.getObject(subject);
+        return (dead.last_known.valid ? dead.last_known.buff_count : dead.buff_count) > 0;
+    }
     TriggerType triggerType() const override { return TriggerType::WhenAFriendlyUnitDies; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         // Prefer to buff a friendly unit ("if it doesn't have a buff, +1").
