@@ -212,13 +212,27 @@ bool ChainManager::stepFinalize(
         item.status = ChainItemStatus::Finalized;
         finalized_any = true;
 
-        events_.emit(ChainItemFinalizedEvent{item.id, item.source,
-                                              item.controller});
+        // Choices made at finalization (targets; see setFinalizeChoices). The
+        // callback may put triggered abilities on the chain, so re-take the
+        // reference afterwards.
+        if (finalize_choices_ && !item.is_permanent) {
+            const ChainItemId fid = item.id;
+            finalize_choices_(item);
+            bool found = false;
+            for (size_t k = 0; k < state_.chain.items.size(); ++k)
+                if (state_.chain.items[k].id == fid) { i = k; found = true; break; }
+            if (!found) continue;
+        }
+
+        {
+            const auto& fin = state_.chain.items[i];
+            events_.emit(ChainItemFinalizedEvent{fin.id, fin.source, fin.controller});
+        }
 
         // CR 337.1.c: Permanents resolve immediately on finalize.
         // They leave the chain and become game objects on the board.
-        if (item.is_permanent) {
-            ChainItem resolved_item = item; // copy before erasing
+        if (state_.chain.items[i].is_permanent) {
+            ChainItem resolved_item = state_.chain.items[i]; // copy before erasing
             state_.chain.items.erase(state_.chain.items.begin() +
                                       static_cast<ptrdiff_t>(i));
             --i; // adjust index

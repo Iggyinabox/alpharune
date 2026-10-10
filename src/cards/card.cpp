@@ -322,6 +322,26 @@ GameObjectId Card::pickTarget(CardContext& ctx, const std::string& label,
     // re-entry.
     if (ri.resume_point < 6) ri.resume_point = 6;
 
+    // The target was already chosen when this item was finalized (CR 355;
+    // GameEngine::chooseTargetsAtFinalize). Deflect was paid then. If it is no
+    // longer a legal target the instruction is a mistarget and is ignored
+    // (CR 359.3.e.6) — the caller sees "no target".
+    if (ri.resume_point == 6 && ri.resume_data.size() > 5 && ri.resume_data[5] == 1 &&
+        !ri.targets.empty()) {
+        ri.resume_data[5] = 0;
+        GameObjectId t = ri.targets.front();
+        const bool still_legal =
+            std::find(legal_targets_in.begin(), legal_targets_in.end(), t) != legal_targets_in.end();
+        if (!still_legal) {
+            ctx.events.logTrace("TGT_MISTARGET: " + label + " — the chosen target is no longer legal");
+            t = kInvalidId;
+        }
+        while (ri.resume_data.size() < 3) ri.resume_data.push_back(0);
+        ri.resume_data[2] = static_cast<int32_t>(t);
+        ri.resume_point = 8;
+        return t;
+    }
+
     if (ri.resume_point == 6) {
         if (legal_targets.empty()) {
             ctx.events.logTrace("TGT_NOT_OFFERED: " + label +

@@ -801,5 +801,104 @@ TEST_F(CostPaymentRulesTest, SpellTax_AnyDomainPowerIsOwedOnTop) {
     EXPECT_EQ(runesInBase(P1), 0) << "the Order rune paid the [A]";
 }
 
+// ─── CR 355 — targets are chosen when the spell is finalized ───────────────
+
+namespace {
+// Records the order of decisions and picks a given object when offered.
+class TargetingAgent : public AgentInterface {
+public:
+    GameObjectId want = kInvalidId;
+    std::vector<std::string> log;
+    Intent selectAction(const GameState&, const std::vector<Intent>& legal) override {
+        if (legal.empty()) return Intent{};
+        bool object_choice = false;
+        for (const auto& i : legal)
+            if (i.type == IntentType::MakeChoice && !i.chosen_objects.empty()) object_choice = true;
+        if (object_choice) {
+            log.push_back("target");
+            for (const auto& i : legal)
+                if (!i.chosen_objects.empty() && i.chosen_objects.front() == want) return i;
+            return legal.front();
+        }
+        for (const auto& i : legal)
+            if (i.type == IntentType::PassPriority) { log.push_back("pass"); return i; }
+        log.push_back("other");
+        return legal.front();
+    }
+};
+}  // namespace
+
+TEST_F(CostPaymentRulesTest, Targeting_ChosenAtFinalizationBeforeAnyoneGetsPriority) {
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    TargetingAgent p1, p2;
+    engine_->testHook_setAgents(&p1, &p2);
+    s().turn.ns_state = NeutralShowdownState::Neutral;
+    s().turn.oc_state = OpenClosedState::Open;
+    auto first  = engineUnit(P1, 2);
+    auto second = engineUnit(P1, 2);
+    p1.want = second;
+    // Floating resources so no rune-choice decisions get in the way.
+    s().player(P1).rune_pool.energy = 1;
+    s().player(P1).rune_pool.power[static_cast<int>(Domain::Body)] = 2;
+    auto spell = cardInHand(P1, kPunchFirst);     // "Give a unit +5 [M] this turn."
+
+    Intent play;
+    play.type = IntentType::PlayCard;
+    play.player = P1;
+    play.card = spell;
+    engine_->testHook_executeIntent(play);
+
+    ASSERT_FALSE(p1.log.empty());
+    EXPECT_EQ(p1.log.front(), "target") << "the target is chosen before priority passes";
+    EXPECT_EQ(std::count(p1.log.begin(), p1.log.end(), "target"), 1)
+        << "and it is not asked for again as the spell resolves";
+    EXPECT_EQ(s().getObject(second).temp_might_bonus, 5);
+    EXPECT_EQ(s().getObject(first).temp_might_bonus, 0);
+}
+
+TEST_F(CostPaymentRulesTest, Targeting_MistargetedSpellDoesNothing) {
+    // The target chosen at finalization leaves the board before resolution:
+    // the instruction is ignored (CR 359.3.e.6) — no new target is picked.
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    TargetingAgent p1;
+    // P2 "responds" by doing nothing; the test removes the target mid-chain.
+    class RemoveTargetAgent : public AgentInterface {
+    public:
+        GameState* st = nullptr; GameObjectId victim = kInvalidId; bool done = false;
+        Intent selectAction(const GameState&, const std::vector<Intent>& legal) override {
+            if (!done && st) {            // first time P2 has priority
+                done = true;
+                auto& u = st->getObject(victim);
+                u.location = std::nullopt;
+                u.zone = ZoneType::Trash;
+            }
+            for (const auto& i : legal) if (i.type == IntentType::PassPriority) return i;
+            return legal.empty() ? Intent{} : legal.front();
+        }
+    } p2;
+    engine_->testHook_setAgents(&p1, &p2);
+    s().turn.ns_state = NeutralShowdownState::Neutral;
+    s().turn.oc_state = OpenClosedState::Open;
+    auto target = engineUnit(P1, 2);
+    auto other  = engineUnit(P1, 2);
+    p1.want = target;
+    p2.st = &s();
+    p2.victim = target;
+    s().player(P1).rune_pool.energy = 1;
+    s().player(P1).rune_pool.power[static_cast<int>(Domain::Body)] = 2;
+    auto spell = cardInHand(P1, kPunchFirst);
+
+    Intent play;
+    play.type = IntentType::PlayCard;
+    play.player = P1;
+    play.card = spell;
+    engine_->testHook_executeIntent(play);
+
+    EXPECT_EQ(std::count(p1.log.begin(), p1.log.end(), "target"), 1) << "no re-targeting";
+    EXPECT_EQ(s().getObject(other).temp_might_bonus, 0) << "the buff does not jump to another unit";
+}
+
 }  // namespace
 }  // namespace riftbound::test

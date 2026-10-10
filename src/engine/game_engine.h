@@ -600,6 +600,8 @@ private:
     bool anyDamageIsLethalFor(PlayerId damager) const;
     int activationEnergyReduction(const Card& card, PlayerId player,
                                   GameObjectId source, int index) const;
+    /// Make the choices the rules place at finalization for `item` (targets).
+    void chooseTargetsAtFinalize(ChainItem& item);
     /// Pay an activated ability's costs and add it to the chain (no chain run).
     bool payAndQueueAbility(const Intent& intent);
     /// CR 323.6: recall unattached gear at battlefields and permanents / runes

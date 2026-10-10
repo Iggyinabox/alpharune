@@ -67,6 +67,7 @@ void GameEngine::initSubsystems() {
         [this](PlayerId p, GameObjectId card) { return canAfford(p, card); },
         [this](PlayerId p, GameObjectId card) { return payCardCost(p, card); });
     chain_manager_->setEffectExecutor(effect_executor_.get());
+    chain_manager_->setFinalizeChoices([this](ChainItem& item) { chooseTargetsAtFinalize(item); });
     chain_manager_->setActivateAbility(
         [this](const Intent& i) { return payAndQueueAbility(i); });
     trigger_manager_ = std::make_unique<TriggerManager>(
@@ -1171,6 +1172,88 @@ int GameEngine::activationEnergyReduction(const Card& card, PlayerId player,
         state_.objectExists(source) && state_.getObject(source).isGear())
         r += ps.first_gear_ability_discount;
     return r;
+}
+
+// CR 355: the targets of a spell or ability are chosen as it is played — when
+// it becomes a finalized chain item — not as it resolves. Cards that take one
+// target through Card::pickTarget (needsPlayTimeTarget / an ability's
+// needs_activation_time_target) get that choice here, so the target is visible
+// on the chain to both players, Deflect (CR 809) is paid now, and abilities
+// that trigger on being chosen go on the chain above the item. The card's
+// pickTarget then returns this choice at resolution, or nothing if it is no
+// longer legal (a mistarget: the instruction is ignored).
+void GameEngine::chooseTargetsAtFinalize(ChainItem& item) {
+    if (!item.targets.empty() || item.card_def_id == kInvalidId) return;
+    if (item.is_ability && !item.is_activated_ability) return;   // triggered: card decides
+    const Card* card = (item.is_ability && item.granted_ability_def != 0)
+        ? card_registry_.get(item.granted_ability_def)
+        : card_registry_.get(item.card_def_id);
+    if (!card) return;
+
+    std::vector<GameObjectId> legal;
+    if (item.is_spell) {
+        if (!card->needsPlayTimeTarget()) return;
+        legal = card->enumerateLegalTargets(state_, item.controller);
+    } else {
+        auto abs = card->activatedAbilities();
+        if (item.ability_index < 0 || item.ability_index >= static_cast<int>(abs.size())) return;
+        if (!abs[item.ability_index].needs_activation_time_target) return;
+        legal = card->enumerateLegalTargets(state_, item.controller, item.ability_index);
+    }
+    if (legal.empty()) return;   // nothing to choose now: the card handles it as it resolves
+
+    std::vector<Intent> options;
+    options.reserve(legal.size());
+    for (auto t : legal) {
+        Intent i;
+        i.type = IntentType::MakeChoice;
+        i.player = item.controller;
+        i.chosen_objects = {t};
+        options.push_back(std::move(i));
+    }
+    const std::string source_name = state_.objectExists(item.source)
+        ? state_.getObject(item.source).name : std::string("?");
+    state_.decision_index++;
+    events_.logTrace("DECISION #" + std::to_string(state_.decision_index) + " (" +
+                     toString(item.controller) + "): choose a target for " + source_name +
+                     " [" + std::to_string(options.size()) + " options]");
+    const PlayerId chooser = item.controller;
+    const ChainItemId item_id = item.id;
+    auto chosen = getAgent(chooser).selectAction(state_, options);
+    recordAppliedIntent(chosen);
+    if (on_decision) on_decision(state_, options, chosen);
+    GameObjectId t = legal.front();
+    if (!chosen.chosen_objects.empty() &&
+        std::find(legal.begin(), legal.end(), chosen.chosen_objects.front()) != legal.end())
+        t = chosen.chosen_objects.front();
+
+    // The agent call may have reallocated the chain: find the item again.
+    ChainItem* it = nullptr;
+    for (auto& ci : state_.chain.items) if (ci.id == item_id) { it = &ci; break; }
+    if (!it) return;
+    it->targets = {t};
+    it->chosen_objects.push_back(t);
+    while (it->resume_data.size() < 6) it->resume_data.push_back(0);
+    it->resume_data[5] = 1;   // "target was chosen at finalization" (read by Card::pickTarget)
+    events_.logTrace("TARGET (finalize): " + source_name + " -> " + state_.getObject(t).name);
+
+    // CR 809: Deflect is a mandatory additional cost of choosing the object.
+    if (!card->ignoresDeflect()) {
+        const int deflect = deflectCostFor(state_, chooser, t);
+        if (deflect > 0) {
+            effect_executor_->payAnyPower(chooser, deflect);
+            events_.logTrace("DEFLECT: " + std::string(toString(chooser)) + " pays " +
+                             std::to_string(deflect) + " [A] to choose " +
+                             state_.getObject(t).name);
+        }
+    }
+    const auto& tobj = state_.getObject(t);
+    if (tobj.isUnit() && tobj.location.has_value()) {
+        if (tobj.controller == chooser)
+            events_.emit(ObjectStateChangedEvent{t, "chosen_by_controller"});
+        else
+            state_.player(chooser).chose_enemy_unit_this_turn = true;
+    }
 }
 
 // Pay an activated ability's costs and put it on the chain. Returns true if a

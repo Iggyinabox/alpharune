@@ -16,6 +16,54 @@ Abbreviations: GE `src/engine/game_engine.cpp`, EE `src/engine/effect_executor.c
 CM `src/engine/chain_manager.cpp`, TM `src/engine/trigger_manager.cpp`,
 CH `src/cards/card_helpers.h`.
 
+## Status after the fix batches (2026-10-10, branch `vendetta-rules-update`)
+
+The table further down is the ORIGINAL audit. This is where each item stands
+now. "Fixed" means implemented with tests that run in the suite (1465 passing)
+and exercised by random-game smoke runs.
+
+| # | Item | Now |
+|---|---|---|
+| 1 | Payment optional / effect-driven plays | Fixed. Effect costs pay from runes; plays that still owe a cost go through `playPayingCost`; spells played by effects resolve on the chain. |
+| 2 | [C] / [A] power | Fixed. Any-domain power may mix domains; the out-of-bounds read is gone; one rune can pay Energy and Power. |
+| 3 | Damage replacement at assignment | Fixed. |
+| 4 | Token is intrinsic | Fixed. |
+| 5 | Contested removal / application | Fixed. |
+| 6 | "When I die" last-known info | Fixed for the cards that depend on it (`GameObject::last_known`). Vanguard Helm still lacks the dying unit as a subject. |
+| 7 | "You may" / costs at finalization | **Open.** Single TARGETS are now chosen at finalization (see 9), but a triggered ability's "you may" and its "[X] to [Y]" cost are still decided as it resolves. Needs a per-card split of choice and effect (core header + card migration). |
+| 8 | Expired delayed abilities | **Open.** End-of-turn delayed abilities still fire only for the turn player. |
+| 9 | Targeting | Mostly fixed. One-target spells and abilities choose at finalization, pay Deflect then, are visible on the chain, and mistarget instead of re-picking. **Open:** two-target spells (`pickTargetPair`) and triggered abilities still choose at resolution; "restriction is not a target" is not modelled. |
+| 10 | Split damage | Partly fixed. The controller chooses the split; it is still chosen at resolution and capped at 12 prompts. |
+| 11 | Accelerate | Fixed (domain rule; the granted Accelerate is optional). The grant is still keyed on a hard-coded card id in the engine. |
+| 12 | "Play" semantics | Fixed. |
+| 13 | Battlefield ability control | **Open.** |
+| 14 | "Then banish it" / enters | Fixed for countered Flow spells and "enters exhausted". Shadow's "enter ready at a battlefield" is open. |
+| 15 | "Activate" a named trigger | Fixed in Reckoner's Arena (each ability is its own chain item). |
+| 16 | Unified lethal damage | Fixed (assignment and cleanup agree; "your damage" is attributed). |
+| 17 | Copy layer | Partly fixed (printed traits only; copied supertype). Copies are still not a tracked, removable effect in general. |
+| 18 | Units can't be attached | Not modelled (first needed by Radiance). |
+| 19 | Negated vs ignored | Partly: a finalization-time target that becomes illegal is ignored. No general linked-instruction model. |
+| 20 | Requirements / restrictions | **Open** (Perched Grimwyrm ordering, Dragon Roost). |
+| 21 | New choices | **Open** (Mystic Reversal, Rebuttal change control only). |
+| 23 | Ambush | Fixed. |
+| 24 | Burn Out | Fixed. |
+| 25 | Cleanup order | Fixed for 323.2, 323.6, 323.10 and the cleanup before scoring. No cleanup between chain items yet. |
+
+Also fixed: Deflect is charged (CR 809); gear is shed on bounce / banish; death
+replacements apply only under their printed condition; [Reaction] abilities
+work while the chain is open; the 3-rune affordability bug; floating Power on
+base costs; "can't be countered"; sideboard limit 10.
+
+Not rules, but found and fixed: combat damage options were enumerated by
+permuting every unit (a 16-defender combat never returned).
+
+Still needing a core-header change (one batched rebuild): trigger choices at
+finalization (7), a restricted-Energy pool (Butcher of the Sands), an
+alternative Empower cost (Legion Marauder), free-form "name a card" (Fallen
+Feline), a battlefield-sourced additional cost (Dragon Roost), ability
+activations as "played" events (Curator of the Sands). `grep -rn ENGINE-GAP
+src/cards` lists every card-level gap (28 notes in 23 files).
+
 ## Audit table
 
 | # | Item | Rules | Engine | Verdict | Explanation / failing scenario |
