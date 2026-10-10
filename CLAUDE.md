@@ -12,6 +12,10 @@ RIFTBOUND_ROOT=. ./build/riftbound_tests
 
 First configure clones OpenSpiel v1.6.14 + abseil-cpp + nlohmann/json + pybind11_json + DDS into `build/_deps/` (~10s configure + one-time ~30s build of `open_spiel_core`). OpenSpiel is mandatory — MCTS/ISMCTS agents in `riftbound_openspiel` depend on it.
 
+**Build structure.** `src/pch.h` is precompiled once (`riftbound_pch`) and reused by `riftbound_core` and the card groups. Each `src/cards/<type>/` directory is an OBJECT library (`riftbound_cards_<type>`) folded into `riftbound_core`, compiled as unity batches. Options: `-DRIFTBOUND_USE_PCH=OFF`, `-DRIFTBOUND_UNITY_CARDS=OFF` (one compile per card, e.g. for clangd), `-DRIFTBOUND_CARD_UNITY_BATCH=<n>` (default 16). With ccache, configure with `-DCMAKE_CXX_COMPILER_LAUNCHER="env;CCACHE_SLOPPINESS=pch_defines,time_macros;ccache"` or PCH compiles are not cached.
+
+**Card files share a translation unit with their neighbours.** File-scope names in a card file must be unique within its directory: a reprint's class carries its card id (`KarmaChanneler_235` / `KarmaChanneler_548`), and helpers needed by more than one card go in `src/cards/card_helpers.h` rather than being copied.
+
 **Dependencies:** cmake, g++ (C++20), libboost-all-dev, nlohmann-json3-dev, ninja-build.
 
 Training pipelines (model architectures, self-play loops, checkpoints) live in the sibling **riftbound-trainer** repo. Engine repo has no torch dependency.
@@ -83,7 +87,7 @@ The GameEngine handles game flow (phases, turns, chain FEPR loop, cleanup, scori
 - **Counter spells must NOT directly manipulate the chain.** Use peek-and-pop: the counter resolves (popped by FEPR), then pops the next spell. Never set flags or scan the chain — if the counter is countered first, its `onResolve` never runs, so the target is naturally preserved.
 - **AoE damage must collect targets BEFORE killing.** Deal damage to all targets first, then iterate again to kill lethally damaged units. Killing during the damage loop causes iterator invalidation.
 - **`addAbility()` must close state** (`oc_state = Closed`). Without this, `generateSpellActions` falls through to `isNeutralOpen()` and allows Action spells during ability chain resolution.
-- **Duplicate card names across sets** exist (e.g., "Karma, Channeler" IDs 235 and 548). Code-gen handles with `_card_id` suffix. Each needs its own Card object.
+- **Duplicate card names across sets** exist (e.g., "Karma, Channeler" IDs 235 and 548). Each needs its own Card object, with the card id suffixed to the class name.
 - **Channeled runes enter READY during channel phase** (CR 316), but card effects that say "channel N runes exhausted" must enter EXHAUSTED. The `channelRunes()` method has an `enter_exhausted` parameter.
 - **The mulligan is a single atomic decision** — agent picks which cards (0-2) to set aside in one intent. Cards are removed, replacements drawn, then set-aside recycled. The agent cannot see drawn replacements before deciding. Order: set aside → draw → recycle (CR 118).
 - **Replacement effects still use raw `ability_text` matching** in `killUnit()`. Intentional — replacements intercept game actions, not chain resolution. Future: structured ReplacementEffect type on Card.

@@ -11,7 +11,7 @@
 namespace riftbound {
 namespace {
 
-class KarmaChanneler : public UnitCard {
+class KarmaChanneler_235 : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
     // Clause 1: "[Vision]" — engine-handled (TriggerManager peeks the top card on
@@ -68,7 +68,7 @@ When you recycle one or more cards to your Main Deck, buff a friendly unit. (If 
 }  // anonymous namespace
 
 void register_card_235(CardRegistry& r) {
-    r.registerCard(235, std::make_unique<KarmaChanneler>());
+    r.registerCard(235, std::make_unique<KarmaChanneler_235>());
 }
 
 } // namespace riftbound

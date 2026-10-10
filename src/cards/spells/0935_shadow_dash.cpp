@@ -12,33 +12,6 @@
 namespace riftbound {
 namespace {
 
-// [vendetta-E] local helpers
-Intent objChoice(PlayerId p, GameObjectId id) {
-    Intent c;
-    c.type = IntentType::MakeChoice;
-    c.player = p;
-    c.chosen_objects = {id};
-    return c;
-}
-GameObjectId takenObject(CardContext& ctx) {
-    auto c = ctx.executor.takeChoice();
-    return (c && !c->chosen_objects.empty()) ? c->chosen_objects[0] : kInvalidId;
-}
-
-Intent valChoice(PlayerId p, int v, const std::string& label) {
-    Intent c;
-    c.type = IntentType::MakeChoice;
-    c.player = p;
-    c.chosen_value = v;
-    c.choice_label = label;
-    return c;
-}
-
-int takenValue(CardContext& ctx, int fallback) {
-    auto c = ctx.executor.takeChoice();
-    return (c && c->chosen_value.has_value()) ? *c->chosen_value : fallback;
-}
-
 // Battlefields where `player` has at least one unit.
 std::vector<BattlefieldId> battlefieldsWithUnitsOf(const GameState& state, PlayerId player) {
     std::vector<BattlefieldId> out;

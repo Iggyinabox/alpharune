@@ -11,7 +11,7 @@
 namespace riftbound {
 namespace {
 
-class Gold : public GearCard {
+class Gold_564 : public GearCard {
 public:
     const CardDef& def() const override { return def_; }
     // "[Reaction] [>] Kill this, [E]: [Add] [A]." Mirrors the SFD Gold token
@@ -52,7 +52,7 @@ private:
 }  // anonymous namespace
 
 void register_card_564(CardRegistry& r) {
-    r.registerCard(564, std::make_unique<Gold>());
+    r.registerCard(564, std::make_unique<Gold_564>());
 }
 
 } // namespace riftbound

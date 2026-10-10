@@ -12,54 +12,6 @@
 namespace riftbound {
 namespace {
 
-// [vendetta-E] local helpers
-Intent objChoice(PlayerId p, GameObjectId id) {
-    Intent c;
-    c.type = IntentType::MakeChoice;
-    c.player = p;
-    c.chosen_objects = {id};
-    return c;
-}
-GameObjectId takenObject(CardContext& ctx) {
-    auto c = ctx.executor.takeChoice();
-    return (c && !c->chosen_objects.empty()) ? c->chosen_objects[0] : kInvalidId;
-}
-
-Intent valChoice(PlayerId p, int v, const std::string& label) {
-    Intent c;
-    c.type = IntentType::MakeChoice;
-    c.player = p;
-    c.chosen_value = v;
-    c.choice_label = label;
-    return c;
-}
-
-int takenValue(CardContext& ctx, int fallback) {
-    auto c = ctx.executor.takeChoice();
-    return (c && c->chosen_value.has_value()) ? *c->chosen_value : fallback;
-}
-
-// Destinations a card effect may move `u` to, int-coded for MakeChoice:
-// 0 = its controller's base, 1 + i = battlefield i. Excludes where it is now.
-std::vector<int> moveDests(const GameState& state, const GameObject& u) {
-    std::vector<int> out;
-    if (!u.location.has_value()) return out;
-    if (!u.isAtBase()) out.push_back(0);
-    for (const auto& bf : state.battlefields) {
-        auto here = u.battlefieldId();
-        if (here.has_value() && *here == bf.id) continue;
-        out.push_back(1 + static_cast<int>(bf.id));
-    }
-    return out;
-}
-std::string destLabel(int d) {
-    return d <= 0 ? std::string("Base") : "Battlefield #" + std::to_string(d - 1);
-}
-void moveTo(CardContext& ctx, GameObjectId u, int dest) {
-    if (dest <= 0) ctx.executor.moveToBase(u);
-    else ctx.executor.moveToBattlefield(u, static_cast<BattlefieldId>(dest - 1));
-}
-
 class TwilightStep : public SpellCard {
 public:
     const CardDef& def() const override { return def_; }

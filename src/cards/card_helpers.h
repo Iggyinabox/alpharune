@@ -453,4 +453,60 @@ inline int otherFriendlyUnitsHere(const GameState& state, const GameObject& self
     return n;
 }
 
+// ── Agent choices by hand ──
+// For cards whose resolution asks a custom question (a unit from a computed
+// list, then a destination, …) and so build their own MakeChoice options
+// rather than going through Card::pickTarget.
+
+/// A MakeChoice option that picks object `id`.
+inline Intent objChoice(PlayerId p, GameObjectId id) {
+    Intent c;
+    c.type = IntentType::MakeChoice;
+    c.player = p;
+    c.chosen_objects = {id};
+    return c;
+}
+/// The object the agent picked from objChoice options (kInvalidId if none).
+inline GameObjectId takenObject(CardContext& ctx) {
+    auto c = ctx.executor.takeChoice();
+    return (c && !c->chosen_objects.empty()) ? c->chosen_objects[0] : kInvalidId;
+}
+
+/// A MakeChoice option carrying the int `v`, shown to the agent as `label`.
+inline Intent valChoice(PlayerId p, int v, const std::string& label) {
+    Intent c;
+    c.type = IntentType::MakeChoice;
+    c.player = p;
+    c.chosen_value = v;
+    c.choice_label = label;
+    return c;
+}
+/// The int the agent picked from valChoice options (`fallback` if none).
+inline int takenValue(CardContext& ctx, int fallback) {
+    auto c = ctx.executor.takeChoice();
+    return (c && c->chosen_value.has_value()) ? *c->chosen_value : fallback;
+}
+
+/// Destinations a card effect may move `u` to, int-coded for valChoice:
+/// 0 = its controller's base, 1 + i = battlefield i. Excludes where it is now.
+inline std::vector<int> moveDests(const GameState& state, const GameObject& u) {
+    std::vector<int> out;
+    if (!u.location.has_value()) return out;
+    if (!u.isAtBase()) out.push_back(0);
+    for (const auto& bf : state.battlefields) {
+        auto here = u.battlefieldId();
+        if (here.has_value() && *here == bf.id) continue;
+        out.push_back(1 + static_cast<int>(bf.id));
+    }
+    return out;
+}
+inline std::string destLabel(int d) {
+    return d <= 0 ? std::string("Base") : "Battlefield #" + std::to_string(d - 1);
+}
+/// Move `u` to a moveDests destination.
+inline void moveTo(CardContext& ctx, GameObjectId u, int dest) {
+    if (dest <= 0) ctx.executor.moveToBase(u);
+    else ctx.executor.moveToBattlefield(u, static_cast<BattlefieldId>(dest - 1));
+}
+
 } // namespace riftbound

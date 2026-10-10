@@ -12,19 +12,6 @@
 namespace riftbound {
 namespace {
 
-// [vendetta-E] local helpers
-Intent objChoice(PlayerId p, GameObjectId id) {
-    Intent c;
-    c.type = IntentType::MakeChoice;
-    c.player = p;
-    c.chosen_objects = {id};
-    return c;
-}
-GameObjectId takenObject(CardContext& ctx) {
-    auto c = ctx.executor.takeChoice();
-    return (c && !c->chosen_objects.empty()) ? c->chosen_objects[0] : kInvalidId;
-}
-
 class CataclysmicDuel : public SpellCard {
 public:
     const CardDef& def() const override { return def_; }

@@ -12,7 +12,7 @@
 namespace riftbound {
 namespace {
 
-class PlunderingPoro : public UnitCard {
+class PlunderingPoro_392 : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
     // "When I conquer, play a Gold gear token exhausted."
@@ -46,7 +46,7 @@ private:
 }  // anonymous namespace
 
 void register_card_392(CardRegistry& r) {
-    r.registerCard(392, std::make_unique<PlunderingPoro>());
+    r.registerCard(392, std::make_unique<PlunderingPoro_392>());
 }
 
 } // namespace riftbound

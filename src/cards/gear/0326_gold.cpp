@@ -12,7 +12,7 @@
 namespace riftbound {
 namespace {
 
-class Gold : public GearCard {
+class Gold_326 : public GearCard {
 public:
     const CardDef& def() const override { return def_; }
     bool hasActivatedAbility() const override { return true; }
@@ -53,7 +53,7 @@ private:
 }  // anonymous namespace
 
 void register_card_326(CardRegistry& r) {
-    r.registerCard(326, std::make_unique<Gold>());
+    r.registerCard(326, std::make_unique<Gold_326>());
 }
 
 } // namespace riftbound

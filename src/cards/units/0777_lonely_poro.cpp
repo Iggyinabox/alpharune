@@ -11,7 +11,7 @@
 namespace riftbound {
 namespace {
 
-class LonelyPoro : public UnitCard {
+class LonelyPoro_777 : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
     TriggerType triggerType() const override { return TriggerType::WhenIDie; }
@@ -71,7 +71,7 @@ private:
 }  // anonymous namespace
 
 void register_card_777(CardRegistry& r) {
-    r.registerCard(777, std::make_unique<LonelyPoro>());
+    r.registerCard(777, std::make_unique<LonelyPoro_777>());
 }
 
 } // namespace riftbound

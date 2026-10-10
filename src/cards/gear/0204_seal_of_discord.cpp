@@ -11,7 +11,7 @@
 namespace riftbound {
 namespace {
 
-class SealOfDiscord : public GearCard {
+class SealOfDiscord_204 : public GearCard {
 public:
     const CardDef& def() const override { return def_; }
     bool hasActivatedAbility() const override { return true; }
@@ -49,7 +49,7 @@ private:
 }  // anonymous namespace
 
 void register_card_204(CardRegistry& r) {
-    r.registerCard(204, std::make_unique<SealOfDiscord>());
+    r.registerCard(204, std::make_unique<SealOfDiscord_204>());
 }
 
 } // namespace riftbound

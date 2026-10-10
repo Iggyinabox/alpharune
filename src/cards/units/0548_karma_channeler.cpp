@@ -15,7 +15,7 @@ namespace {
 //  recycle it.) When you recycle one or more cards to your Main Deck, buff a
 //  friendly unit."
 
-class KarmaChanneler : public UnitCard {
+class KarmaChanneler_548 : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
 
@@ -73,7 +73,7 @@ When you recycle one or more cards to your Main Deck, buff a friendly unit. (If 
 }  // anonymous namespace
 
 void register_card_548(CardRegistry& r) {
-    r.registerCard(548, std::make_unique<KarmaChanneler>());
+    r.registerCard(548, std::make_unique<KarmaChanneler_548>());
 }
 
 } // namespace riftbound

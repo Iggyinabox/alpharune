@@ -12,7 +12,7 @@
 namespace riftbound {
 namespace {
 
-class VayneHunter : public UnitCard {
+class VayneHunter_35 : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
 
@@ -75,7 +75,7 @@ When I conquer, you may pay [1] to return me to my owner's hand.)RB";
 }  // anonymous namespace
 
 void register_card_35(CardRegistry& r) {
-    r.registerCard(35, std::make_unique<VayneHunter>());
+    r.registerCard(35, std::make_unique<VayneHunter_35>());
 }
 
 } // namespace riftbound

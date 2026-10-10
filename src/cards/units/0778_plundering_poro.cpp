@@ -12,7 +12,7 @@
 namespace riftbound {
 namespace {
 
-class PlunderingPoro : public UnitCard {
+class PlunderingPoro_778 : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
     TriggerType triggerType() const override { return TriggerType::WhenIConquer; }
@@ -46,7 +46,7 @@ private:
 }  // anonymous namespace
 
 void register_card_778(CardRegistry& r) {
-    r.registerCard(778, std::make_unique<PlunderingPoro>());
+    r.registerCard(778, std::make_unique<PlunderingPoro_778>());
 }
 
 } // namespace riftbound

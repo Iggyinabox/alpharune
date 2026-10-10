@@ -11,7 +11,7 @@
 namespace riftbound {
 namespace {
 
-class PoutyPoro : public UnitCard {
+class PoutyPoro_776 : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
 private:
@@ -42,7 +42,7 @@ private:
 }  // anonymous namespace
 
 void register_card_776(CardRegistry& r) {
-    r.registerCard(776, std::make_unique<PoutyPoro>());
+    r.registerCard(776, std::make_unique<PoutyPoro_776>());
 }
 
 } // namespace riftbound

@@ -13,7 +13,7 @@ namespace {
 
 // "[Ganking] The third time I move in a turn, you score 1 point."
 
-class YasuoWindrider : public UnitCard {
+class YasuoWindrider_546 : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
     TriggerType triggerType() const override { return TriggerType::WhenIMove; }
@@ -61,7 +61,7 @@ The third time I move in a turn, you score 1 point.)RB";
 }  // anonymous namespace
 
 void register_card_546(CardRegistry& r) {
-    r.registerCard(546, std::make_unique<YasuoWindrider>());
+    r.registerCard(546, std::make_unique<YasuoWindrider_546>());
 }
 
 } // namespace riftbound

@@ -12,7 +12,7 @@
 namespace riftbound {
 namespace {
 
-class VeteranPoro : public WeaponmasterUnit {
+class VeteranPoro_779 : public WeaponmasterUnit {
 public:
     const CardDef& def() const override { return def_; }
 private:
@@ -42,7 +42,7 @@ private:
 }  // anonymous namespace
 
 void register_card_779(CardRegistry& r) {
-    r.registerCard(779, std::make_unique<VeteranPoro>());
+    r.registerCard(779, std::make_unique<VeteranPoro_779>());
 }
 
 } // namespace riftbound

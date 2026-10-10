@@ -11,7 +11,7 @@
 namespace riftbound {
 namespace {
 
-class AhriInquisitive : public UnitCard {
+class AhriInquisitive_119 : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
     // "When I attack or defend, give an enemy unit here -2 [M] this turn, to
@@ -64,7 +64,7 @@ private:
 }  // anonymous namespace
 
 void register_card_119(CardRegistry& r) {
-    r.registerCard(119, std::make_unique<AhriInquisitive>());
+    r.registerCard(119, std::make_unique<AhriInquisitive_119>());
 }
 
 } // namespace riftbound

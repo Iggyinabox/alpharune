@@ -11,7 +11,7 @@
 namespace riftbound {
 namespace {
 
-class LonelyPoro : public UnitCard {
+class LonelyPoro_359 : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
     // "[Deathknell] — If I died alone, draw 1." Alone = no OTHER friendly
@@ -68,7 +68,7 @@ private:
 }  // anonymous namespace
 
 void register_card_359(CardRegistry& r) {
-    r.registerCard(359, std::make_unique<LonelyPoro>());
+    r.registerCard(359, std::make_unique<LonelyPoro_359>());
 }
 
 } // namespace riftbound

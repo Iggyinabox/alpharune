@@ -15,7 +15,7 @@ namespace {
 // "[Assault 3] If an opponent controls a battlefield, I enter ready. When I
 //  conquer, you may pay [1] to return me to my owner's hand."
 
-class VayneHunter : public UnitCard {
+class VayneHunter_537 : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
 
@@ -74,7 +74,7 @@ When I conquer, you may pay [1] to return me to my owner's hand.)RB";
 }  // anonymous namespace
 
 void register_card_537(CardRegistry& r) {
-    r.registerCard(537, std::make_unique<VayneHunter>());
+    r.registerCard(537, std::make_unique<VayneHunter_537>());
 }
 
 } // namespace riftbound

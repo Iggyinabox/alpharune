@@ -295,7 +295,7 @@ endfunction()
 # its group (unity merges the files' anonymous namespaces). A reprint's class
 # carries its card id (KarmaChanneler_235 / _548); shared helpers live in
 # src/cards/card_helpers.h, not copied between cards.
-option(RIFTBOUND_UNITY_CARDS "Unity-build each card group" OFF)
+option(RIFTBOUND_UNITY_CARDS "Unity-build each card group" ON)
 set(RIFTBOUND_CARD_UNITY_BATCH 16 CACHE STRING
     "Card source files per unity compile (with RIFTBOUND_UNITY_CARDS)")
 
