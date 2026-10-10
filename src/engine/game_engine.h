@@ -185,6 +185,7 @@ public:
     void testHook_drawCards(PlayerId p, int n) { drawCards(p, n); }
     void testHook_processLethalDamage() { processLethalDamage(); }
     void testHook_cleanup() { cleanup(); }
+    EffectExecutor& testHook_executor() { return *effect_executor_; }
     bool testHook_canAfford(PlayerId p, GameObjectId card) const { return canAfford(p, card); }
     bool testHook_payCardCost(PlayerId p, GameObjectId card) { return payCardCost(p, card); }
     bool testHook_canPayAdditionalCost(PlayerId p, int energy, int power, Domain d) const {
@@ -597,6 +598,8 @@ private:
     void applyCombatDamage(GameObjectId target, int assigned);
     /// Whether `damager`'s damage kills in any amount (CR 142.4.c).
     bool anyDamageIsLethalFor(PlayerId damager) const;
+    int activationEnergyReduction(const Card& card, PlayerId player,
+                                  GameObjectId source, int index) const;
     /// Pay an activated ability's costs and add it to the chain (no chain run).
     bool payAndQueueAbility(const Intent& intent);
     /// CR 323.6: recall unattached gear at battlefields and permanents / runes

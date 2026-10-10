@@ -64,14 +64,17 @@ public:
                 pc.location = std::nullopt;
                 ps.banishment.push_back(picked);
                 // Remove from banishment before playing for free.
-                auto it = std::find(ps.banishment.begin(), ps.banishment.end(), picked);
-                if (it != ps.banishment.end()) ps.banishment.erase(it);
                 std::optional<LocationId> loc;
                 if (pc.isUnit() && ctx.state.objectExists(ctx.source)) {
                     auto bf = ctx.state.getObject(ctx.source).battlefieldId();
                     if (bf) loc = LocationId{BattlefieldLocation{*bf}};  // "play it here"
                 }
-                ctx.executor.playIgnoringCost(ctx.controller, picked, loc);
+                // The cost is not waived (CR 356.1.b.2): unpaid, it stays banished.
+                if (ctx.executor.canPlayPayingCost(ctx.controller, picked)) {
+                    auto it = std::find(ps.banishment.begin(), ps.banishment.end(), picked);
+                    if (it != ps.banishment.end()) ps.banishment.erase(it);
+                    ctx.executor.playPayingCost(ctx.controller, picked, loc);
+                }
             }
             // Recycle the rest.
             std::vector<GameObjectId> rest;

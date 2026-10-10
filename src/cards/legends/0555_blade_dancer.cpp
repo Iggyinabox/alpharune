@@ -43,44 +43,35 @@ public:
         }
 
         if (ctx.firing_trigger == TriggerType::WhenYouChooseAFriendlyUnit) {
-            // "you may exhaust me and pay [A] to ready it." Find ready-able
-            // (exhausted) friendly units to ready.
+            // "you may exhaust me and pay [A] to ready IT" — the friendly unit
+            // that was just chosen, which the trigger carries as the chain
+            // item's triggering_subject (TriggerManager: "chosen_by_controller").
+            // Nothing else may be readied; with no known subject there is no
+            // "it" and nothing happens.
             if (!ctx.state.objectExists(ctx.source)) return;
-            auto& self = ctx.state.getObject(ctx.source);
-            if (self.is_exhausted) return;  // need to exhaust me as cost
-            auto findTargets = [&]() {
-                std::vector<GameObjectId> out;
-                for (auto& [id, obj] : ctx.state.objects) {
-                    if (id == ctx.source) continue;
-                    if (obj.controller != ctx.controller) continue;
-                    if (!obj.isUnit() || !obj.location.has_value()) continue;
-                    if (!obj.is_exhausted) continue;
-                    out.push_back(id);
-                }
-                return out;
-            };
-            auto still_legal = [&ctx, &findTargets]() {
+            const GameObjectId chosen = ctx.state.chain.resuming.has_value()
+                ? ctx.state.chain.resuming->triggering_subject : kInvalidId;
+            auto still_legal = [&ctx, chosen]() {
                 if (!ctx.state.objectExists(ctx.source)) return false;
-                if (ctx.state.getObject(ctx.source).is_exhausted) return false;
+                if (ctx.state.getObject(ctx.source).is_exhausted) return false;  // "exhaust me"
+                if (chosen == kInvalidId || !ctx.state.objectExists(chosen)) return false;
+                const auto& u = ctx.state.getObject(chosen);
+                if (!u.isUnit() || !u.location.has_value()) return false;
+                if (u.controller != ctx.controller) return false;
+                // Not gated on the unit being exhausted: the cost may be paid
+                // whatever the unit's state is (CR 383.3.b, 445.2).
                 // [A] = power of any Domain: floating power, or a rune recycled
                 // for it (CR 164.2.b) — not only what already floats.
-                if (ctx.executor.payableAnyPower(ctx.controller) < 1) return false;
-                return !findTargets().empty();
+                return ctx.executor.payableAnyPower(ctx.controller) >= 1;
             };
-            if (!still_legal()) return;
             int conf = confirmOptional(ctx,
-                "Blade Dancer: exhaust me + pay [A] to ready a unit?", still_legal);
-            if (conf == -1) return;
-            if (conf == 0) return;
-            auto target = pickTarget(ctx, "Blade Dancer: ready a friendly unit",
-                                     findTargets());
-            if (target == kInvalidId) return;
-            // Pay [A] once, after the target is known (pickTarget re-enters).
+                "Blade Dancer: exhaust me + pay [A] to ready the chosen unit?", still_legal);
+            if (conf != 1) return;
             if (!ctx.executor.payAnyPower(ctx.controller, 1)) return;
             ctx.executor.exhaustObject(ctx.source);
-            ctx.executor.readyObject(target);
+            ctx.executor.readyObject(chosen);
             ctx.events.logTrace("BLADE DANCER: exhaust me + [A] -> ready " +
-                                 ctx.state.getObject(target).name);
+                                 ctx.state.getObject(chosen).name);
             return;
         }
     }

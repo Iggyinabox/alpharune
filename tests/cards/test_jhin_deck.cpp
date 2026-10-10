@@ -1691,7 +1691,10 @@ TEST_F(JhinDeckTest, ProductionSurge_MechToken_AlsoTriggersCostReduction) {
     mt.controller = P1;
     mt.card_type = CardType::Unit;
     mt.super_type = SuperType::Token;
-    mt.name = "Mech";  // matches Production Surge's text search
+    mt.name = "Mech";
+    // CR 187.4: a Mech token has the Mech tag. "If you control a Mech" reads
+    // the tag (it used to substring-match the unit's name).
+    mt.tags = {"Mech"};
     mt.base_might = 3;
     mt.current_might = 3;
     mt.zone = ZoneType::Base;

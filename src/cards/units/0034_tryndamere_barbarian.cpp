@@ -21,7 +21,12 @@ public:
     // satisfied (documented approximation).
     TriggerType triggerType() const override { return TriggerType::WhenIConquer; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
-        ctx.state.player(ctx.controller).score += 1;
+        // ENGINE-GAP: "after an attack, if you assigned 5 or more excess damage
+        // to enemy units" is not checked — the combat-damage step records no
+        // per-player excess damage assigned (needed: e.g.
+        // PlayerState::excess_combat_damage_assigned_this_combat plus the
+        // attacker flag surviving until the conquer trigger resolves).
+        ctx.executor.scorePoints(ctx.controller, 1);   // CR 194.1.c
         ctx.events.logTrace("TRYNDAMERE: conquer -> score 1 point "
                             "(excess-damage condition not engine-checked)");
     }

@@ -18,8 +18,12 @@ public:
     TriggerType triggerType() const override { return TriggerType::WhenIDie; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         if (!ctx.state.objectExists(ctx.source)) return;
-        auto& self = ctx.state.getObject(ctx.source);
-        if (!isMighty(self)) {
+        const auto& self = ctx.state.getObject(ctx.source);
+        // "If I WAS [Mighty]": my Might just before I died (CR 383.2.c.3.b) —
+        // gear is shed and "this turn" Might is not kept once I'm in the trash.
+        const bool was_mighty = self.last_known.valid ? self.last_known.might >= 5
+                                                      : isMighty(self);
+        if (!was_mighty) {
             ctx.events.logTrace("UNSUNG HERO: died not Mighty — no draw");
             return;
         }

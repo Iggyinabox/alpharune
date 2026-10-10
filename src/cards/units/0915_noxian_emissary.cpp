@@ -21,14 +21,13 @@ public:
     // "[Empowered][>][>>][Deathknell][>] Play two 1 [M] Recruit unit tokens to
     //  your base. (When I die while Empowered, get the effect.)"
     // Empowered is cleared once the unit is off the board, so this reads the
-    // last-known count both kill paths stamp in card_counters["__died_empowered"].
+    // last-known information the kill paths snapshot (CR 383.2.c.3.b).
     TriggerType triggerType() const override { return TriggerType::WhenIDie; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         if (!ctx.state.objectExists(ctx.source)) return;
         const auto& self = ctx.state.getObject(ctx.source);
-        auto it = self.card_counters.find("__died_empowered");
-        const bool was_empowered =
-            self.isEmpowered() || (it != self.card_counters.end() && it->second > 0);
+        const bool was_empowered = self.last_known.valid ? self.last_known.empowered > 0
+                                                         : self.isEmpowered();
         if (!was_empowered) return;
         for (int i = 0; i < 2; ++i)
             ctx.executor.createToken(ctx.controller, CardType::Unit, "Recruit", 1,

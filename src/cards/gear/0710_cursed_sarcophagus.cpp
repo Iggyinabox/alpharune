@@ -78,12 +78,14 @@ public:
             return;  // suspended
         }
         if (picked == kInvalidId || !ctx.state.objectExists(picked)) return;
+        // "(You must pay its costs.)" — CR 356.1.b.2 / 445.2: full cost, optional.
+        if (!ctx.executor.canPlayPayingCost(ctx.controller, picked)) return;
         // Remove from owner's banishment zone before re-playing.
         auto& bz = ctx.state.player(ctx.state.getObject(picked).owner).banishment;
         bz.erase(std::remove(bz.begin(), bz.end(), picked), bz.end());
         auto& tr = self.tracked_objects;
         tr.erase(std::remove(tr.begin(), tr.end(), picked), tr.end());
-        ctx.executor.playIgnoringCost(ctx.controller, picked);
+        ctx.executor.playPayingCost(ctx.controller, picked);
         ctx.events.logTrace("CURSED SARCOPHAGUS: played a banished unit");
     }
 private:

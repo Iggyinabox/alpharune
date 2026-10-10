@@ -19,17 +19,8 @@ public:
     //  from among them and play it, reducing its Energy cost by [5]. Recycle
     //  the rest. Then you may do this: Empower it."
     //
-    // ENGINE-GAP: cards cannot reach GameEngine::payCardCost, so the remainder
-    // of the played card's cost (Energy above [5], plus all of its Power) is
-    // paid here straight from the controller's runes: exhaust ready runes for
-    // Energy, then recycle runes of the card's domain for Power. That bypasses
-    // the engine's cost path — CostModifiers / selfCostReduction, the floating
-    // rune pool, the agent's choice of which runes to spend, and the
-    // power_spent_this_turn tracker. Needed: an
-    // `EffectExecutor::playWithCostReduction(player, card, energy_reduction,
-    // location)` that routes through payCardCost with a staged discount (as
-    // transient_play_discount does) and then plays the card; a card is only
-    // offered here if its remainder is payable from runes alone.
+    // The reduced cost is paid through the engine's cost path
+    // (EffectExecutor::playPayingCost) when the card is put into play.
     static constexpr int kEnergyReduction = 5;
 
     static bool isBaseRune(const GameObject& o, PlayerId p) {
@@ -42,44 +33,8 @@ public:
             if (std::find(d.domains.begin(), d.domains.end(), rd) != d.domains.end()) return true;
         return false;
     }
-    static bool canPayRemainder(const GameState& state, PlayerId p, const CardDef& d) {
-        const int energy = std::max(0, d.energy_cost - kEnergyReduction);
-        int ready = 0, matching = 0;
-        for (const auto& [id, o] : state.objects) {
-            if (!isBaseRune(o, p)) continue;
-            if (!o.is_exhausted) ++ready;
-            if (runePaysFor(o, d)) ++matching;
-        }
-        return ready >= energy && matching >= d.power_cost;
-    }
-    static void payRemainder(CardContext& ctx, const CardDef& d) {
-        int energy = std::max(0, d.energy_cost - kEnergyReduction);
-        for (auto& [id, o] : ctx.state.objects) {
-            if (energy <= 0) break;
-            if (!isBaseRune(o, ctx.controller) || o.is_exhausted) continue;
-            o.is_exhausted = true;
-            --energy;
-            ctx.events.logTrace("  WILD CLAW COST: exhaust " + o.name);
-        }
-        // Power: recycle matching runes, already-exhausted ones first.
-        int power = d.power_cost;
-        std::vector<GameObjectId> spend;
-        for (bool want_exhausted : {true, false}) {
-            for (auto& [id, o] : ctx.state.objects) {
-                if (static_cast<int>(spend.size()) >= power) break;
-                if (!isBaseRune(o, ctx.controller) || o.is_exhausted != want_exhausted) continue;
-                if (runePaysFor(o, d)) spend.push_back(id);
-            }
-        }
-        auto& rune_deck = ctx.state.player(ctx.controller).rune_deck;
-        for (auto id : spend) {
-            auto& rune = ctx.state.getObject(id);
-            rune.location = std::nullopt;
-            rune.zone = ZoneType::RuneDeck;
-            rune_deck.insert(rune_deck.begin(), id);
-            ctx.events.logTrace("  WILD CLAW COST: recycle " + rune.name);
-        }
-    }
+    static constexpr EffectPlayCost kReduced{.ignore_energy = false, .ignore_power = false,
+                                              .energy_reduction = 5};
     static std::vector<GameObjectId> topFive(const GameState& state, PlayerId p) {
         const auto& deck = state.player(p).main_deck;
         std::vector<GameObjectId> out;
@@ -94,7 +49,9 @@ public:
             const auto& o = ctx.state.getObject(cid);
             if (!o.isUnit() && !o.isGear()) continue;
             if (o.card_def_id == kInvalidId) continue;
-            if (canPayRemainder(ctx.state, ctx.controller, ctx.executor.cardDB().get(o.card_def_id)))
+            // "reducing its Energy cost by [5]": the rest is owed (CR 356.1.b.2)
+            // and goes through the engine's cost path.
+            if (ctx.executor.canPlayPayingCost(ctx.controller, cid, kReduced))
                 out.push_back(cid);
         }
         return out;
@@ -170,7 +127,6 @@ public:
                 ctx.executor.banishObject(chosen);
                 auto& bz = ps.banishment;
                 bz.erase(std::remove(bz.begin(), bz.end(), chosen), bz.end());
-                payRemainder(ctx, ctx.executor.cardDB().get(ctx.state.getObject(chosen).card_def_id));
             }
             if (!rest.empty()) ctx.executor.recycleCards(ctx.controller, rest);
             if (chosen == kInvalidId) {
@@ -194,7 +150,7 @@ public:
                 ri.resume_point = 2;
                 return;
             }
-            ctx.executor.playIgnoringCost(ctx.controller, chosen);
+            ctx.executor.playPayingCost(ctx.controller, chosen, std::nullopt, kReduced);
             ri.resume_point = 3;
         }
 
@@ -206,7 +162,7 @@ public:
             if (v >= 1 && static_cast<size_t>(v) <= bfs.size() &&
                 bfs[v - 1].controller.has_value() && *bfs[v - 1].controller == ctx.controller)
                 loc = BattlefieldLocation{bfs[v - 1].id};
-            ctx.executor.playIgnoringCost(ctx.controller, chosen, loc);
+            ctx.executor.playPayingCost(ctx.controller, chosen, loc, kReduced);
             ri.resume_point = 3;
         }
 

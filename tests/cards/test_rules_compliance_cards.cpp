@@ -384,8 +384,31 @@ TEST_F(RulesCardsTest, RulesCards_CR164_BladeDancer_PaysPowerByRecyclingARune) {
     auto rune = addRune(P1, Domain::Chaos);
     ASSERT_EQ(state.player(P1).rune_pool.totalPower(), 0);
 
-    driveResumableTrigger(kBladeDancer, P1, legend, yesThen(unit), exec,
-                          TriggerType::WhenYouChooseAFriendlyUnit);
+    // "... to ready IT": the unit readied is the one that was chosen, which
+    // the trigger carries as ChainItem::triggering_subject. The fixture's
+    // driveResumableTrigger sets no subject, so the loop is run here.
+    {
+        ChainItem ri;
+        ri.id = state.chain.allocateId();
+        ri.controller = P1;
+        ri.is_ability = true;
+        ri.source = legend;
+        ri.card_def_id = kBladeDancer;
+        ri.fired_trigger = TriggerType::WhenYouChooseAFriendlyUnit;
+        ri.triggering_subject = unit;
+        state.chain.resuming = ri;
+        Card* card = card_registry.get(kBladeDancer);
+        ASSERT_NE(card, nullptr);
+        CardContext ctx{state, events, exec, P1, legend};
+        ctx.firing_trigger = TriggerType::WhenYouChooseAFriendlyUnit;
+        card->onTrigger(ctx, {});
+        while (exec.hasPendingChoice()) {
+            auto pending = exec.consumePendingChoice();
+            exec.recordChoice(yes(pending.legal));
+            card->onTrigger(ctx, {});
+        }
+        state.chain.resuming.reset();
+    }
 
     EXPECT_FALSE(state.getObject(unit).is_exhausted) << "paid [A] -> ready the unit";
     EXPECT_TRUE(state.getObject(legend).is_exhausted) << "\"exhaust me\"";
@@ -433,6 +456,11 @@ TEST_F(RulesCardsTest, RulesCards_CR445_JaxUnrelenting_RiderPaysWithAReadyRune) 
 
     driveResumableTrigger(kJaxUnrelenting, P1, jax, &RulesCardsTest::yes, exec,
                           TriggerType::WhenYouPlayMe);
+    // "When you attach an Equipment to me, you may pay [1] to draw 1" is its
+    // own triggered ability (CR 383), fired by the attach — not a rider run
+    // inside the play trigger.
+    driveResumableTrigger(kJaxUnrelenting, P1, jax, &RulesCardsTest::yes, exec,
+                          TriggerType::WhenEquipmentAttachedToMe);
 
     EXPECT_EQ(state.getObject(gear).attached_to.value_or(kInvalidId), jax);
     EXPECT_EQ(handSize(P1), 1) << "CR 445.2: [1] paid from a rune -> draw 1";

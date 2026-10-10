@@ -24,8 +24,9 @@ public:
         auto& ps = ctx.state.player(ctx.controller);
         if (!ps.played_nontoken_unit_this_turn || !ps.played_nontoken_gear_this_turn ||
             !ps.played_spell_this_turn) return;
-        if (ps.cannot_gain_points) return;            // Tianna Crownguard lock
-        ps.score++;                                   // card effect: no Winning Point gate (CR 466)
+        // CR 194.1.c: a point from an ability. scorePoints honours the Tianna
+        // Crownguard lock and ends the game at once at the Victory Score.
+        if (ctx.executor.scorePoints(ctx.controller, 1) == 0) return;
         ctx.events.logTrace("SWAIN, VISIONARY: unit + gear + spell this turn -> score 1 -> " +
                             std::to_string(ps.score));
     }

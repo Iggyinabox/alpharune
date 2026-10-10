@@ -21,12 +21,9 @@ public:
     // "[Empowered][>] Your spells cost [1][A] less, to a minimum of [1]."
     // Asserts the continuous per-player discount; each Empowered copy stacks.
     // The energy half is applied by GameEngine::canAfford / payCardCost
-    // (spell_discount_energy, floored at [1]).
-    // ENGINE-GAP: the [A] half is not applied. PlayerState::spell_discount_power
-    // is reset every aura pass but nothing reads it: the spell cost path
-    // (GameEngine::canAfford / payCardCost, where spell_discount_energy is
-    // handled) must also reduce the spell's power cost by spell_discount_power
-    // (any domain), keeping the total cost at a minimum of [1].
+    // (spell_discount_energy, floored at [1]); the [A] half is
+    // PlayerState::spell_discount_power, subtracted from a spell's Power cost
+    // by the same path.
     void applyPassiveAura(GameState& state, PlayerId controller) const override {
         forEachEmpoweredSelf(*this, state, controller,
             [&](GameObjectId, GameObject&) {

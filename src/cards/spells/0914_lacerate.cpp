@@ -18,15 +18,10 @@ public:
     // [vendetta-E]
     // "Choose a unit. If it's [Empowered], disempower it. Then kill it if it
     //  has 3 [M] or less."
-    // ENGINE-GAP: a card cannot force an aura recalculation mid-resolution.
     // Might granted by the unit's own "[Empowered][>] I have +N [M]" passive
-    // is an AuraEffect folded into current_might by
-    // GameEngine::recalculateAuras, which only runs in cleanup AFTER this
-    // spell has resolved. So the "3 [M] or less" check below still sees the
-    // pre-disempower Might for such units. Needed: an EffectExecutor hook
-    // (e.g. `recomputeContinuousEffects()` forwarding to
-    // GameEngine::recalculateAuras) callable between the disempower and the
-    // Might check.
+    // is an AuraEffect, so continuous effects are recomputed between the
+    // disempower and the Might check ("Then ...": the second instruction sees
+    // the result of the first).
     TargetRequirements getTargetRequirements() const override {
         return TargetRequirements{.count = 1, .must_be_unit = true};
     }
@@ -36,7 +31,11 @@ public:
         std::sort(legal.begin(), legal.end());
         GameObjectId picked = pickTarget(ctx, "Lacerate", legal);
         if (picked == kInvalidId || !ctx.state.objectExists(picked)) return;
-        if (ctx.state.getObject(picked).isEmpowered()) ctx.executor.disempower(picked);
+        if (ctx.state.getObject(picked).isEmpowered()) {
+            ctx.executor.disempower(picked);
+            ctx.executor.recalculateContinuousEffects();
+        }
+        if (!ctx.state.objectExists(picked)) return;
         auto& unit = ctx.state.getObject(picked);
         unit.recomputeMight();
         if (unit.location.has_value() && unit.current_might <= 3)

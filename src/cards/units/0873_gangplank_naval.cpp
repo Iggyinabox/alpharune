@@ -18,16 +18,23 @@ public:
 
     // "[Empower] [O][O]"
     EmpowerSpec empowerSpec() const override { return empowerCost(0, 2, Domain::Body); }
-    // ENGINE-GAP: "[Empowered][>] If a spell or ability that chooses me would
-    // stun me, give me -[M], or return me to hand, give me +3 [M] instead." is a
-    // replacement effect and no hook exists for it. Needed: a Card virtual (e.g.
-    // `bool replaceChosenEffect(CardContext&, GameObjectId self)`) consulted by
-    // EffectExecutor::stunUnit / stunUnitBy, giveTemporaryMight (amount < 0) and
-    // bounceToHand before they apply, called only when the currently resolving
-    // chain item (state.chain.resuming) is a spell/ability whose chosen targets
-    // include the affected object; when it returns true the executor skips the
-    // original effect. This card would return true while Empowered after
-    // calling giveTemporaryMight(self, +3). Only the Empower cost is implemented.
+    // "[Empowered][>] If a spell or ability that chooses me would stun me, give
+    // me -[M], or return me to hand, give me +3 [M] instead."
+    // A replacement effect: the executor asks this hook before stunning,
+    // reducing the Might of, or bouncing a unit, and only for effects of the
+    // resolving chain item that chose me (ChainItem::chosen_objects / targets).
+    // The +3 [M] lasts this turn (Radiance patch-notes FAQ: "replaced with him
+    // being given +3 [M] this turn"). The replacement is itself a positive
+    // amount, so it cannot recurse into this hook.
+    bool replaceHostileEffect(CardContext& ctx, GameObjectId self,
+                              HostileEffect /*kind*/) override {
+        if (!ctx.state.objectExists(self)) return false;
+        const auto& me = ctx.state.getObject(self);
+        if (!me.isEmpowered() || !me.location.has_value()) return false;
+        ctx.executor.giveTemporaryMight(self, 3);
+        ctx.events.logTrace("GANGPLANK, NAVAL: Empowered -> +3 [M] this turn instead");
+        return true;
+    }
 private:
     const CardDef def_ = [] {
         CardDef d;

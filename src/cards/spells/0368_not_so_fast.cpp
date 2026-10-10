@@ -15,32 +15,50 @@ namespace {
 class NotSoFast : public SpellCard {
 public:
     const CardDef& def() const override { return def_; }
-    // Counter an enemy spell/ability that targets a friendly UNIT or GEAR.
-    // Not playable unless the chain top matches.
-    bool hasLegalTargets(const GameState& state, PlayerId controller) const override {
+    // "Counter an enemy spell or ability that chooses a friendly unit or gear."
+    // Peek-and-pop: the item answered is the top of the chain. What it chooses
+    // is ChainItem::chosen_objects (everything it has chosen) together with its
+    // play-time targets.
+    // ENGINE-GAP: a spell or ability that makes its choice at resolution
+    // (needsPlayTimeTarget + Card::pickTarget) has chosen nothing while it
+    // waits on the chain, so this can't be played against it. Needed:
+    // resolve-time-target cards choosing at play time (CR 355).
+    static bool choosesFriendlyUnitOrGear(const GameState& state, PlayerId controller) {
         if (state.chain.items.empty()) return false;
         const auto& top = state.chain.items.back();
-        if (top.controller == controller) return false;
-        for (auto tid : top.targets) {
-            if (!state.objectExists(tid)) continue;
-            const auto& t = state.getObject(tid);
-            if (t.controller == controller && (t.isUnit() || t.isGear())) return true;
-        }
-        return false;
+        if (top.controller == controller) return false;            // "an enemy ..."
+        if (!top.is_spell && !top.is_ability) return false;        // "... spell or ability"
+        auto scan = [&](const std::vector<GameObjectId>& ids) {
+            for (auto tid : ids) {
+                if (!state.objectExists(tid)) continue;
+                const auto& t = state.getObject(tid);
+                if (t.controller == controller && t.location.has_value() &&
+                    (t.isUnit() || t.isGear())) return true;
+            }
+            return false;
+        };
+        return scan(top.chosen_objects) || scan(top.targets);
+    }
+    bool hasLegalTargets(const GameState& state, PlayerId controller) const override {
+        return choosesFriendlyUnitOrGear(state, controller);
     }
     void onResolve(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
-        if (ctx.state.chain.items.empty()) return;
-        const auto& top = ctx.state.chain.items.back();
-        if (top.controller == ctx.controller) return;
-        bool targets_friendly = false;
-        for (auto tid : top.targets) {
-            if (!ctx.state.objectExists(tid)) continue;
-            if (ctx.state.getObject(tid).controller == ctx.controller) {
-                targets_friendly = true; break;
-            }
+        if (!choosesFriendlyUnitOrGear(ctx.state, ctx.controller)) return;
+        auto& top = ctx.state.chain.items.back();
+        if (top.is_spell) {
+            counterChainTop(ctx);                       // asks isUncounterable itself
+            return;
         }
-        if (!targets_friendly) return;
-        counterChainTop(ctx);
+        // An ability (CR 426): it is removed from the chain; there is no card
+        // to move, its source stays where it is.
+        if (isUncounterable(ctx, top)) {
+            ctx.events.logTrace("NOT SO FAST: that ability can't be countered");
+            return;
+        }
+        std::string name = ctx.state.objectExists(top.source)
+            ? ctx.state.getObject(top.source).name : std::string("?");
+        ctx.state.chain.items.pop_back();
+        ctx.events.logTrace("COUNTER: ability of " + name + " countered (Not So Fast)");
     }
 private:
     const CardDef def_ = [] {

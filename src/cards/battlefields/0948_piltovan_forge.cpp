@@ -16,10 +16,13 @@ class PiltovanForge : public BattlefieldCard {
 public:
     const CardDef& def() const override { return def_; }
     // "While you control this battlefield, the first friendly gear activated
-    // ability played each turn costs [1] less."
-    // ENGINE-GAP: needs a per-player "gear abilities activated this turn"
-    // counter and a controller-scoped discount read by the activation cost
-    // path (Card::activationCostReductionFor sees only the source card).
+    // ability played each turn costs [1] less." The engine applies the
+    // published discount to the first gear ability its controller activates
+    // each turn (GameEngine::activationEnergyReduction).
+    void applyPassiveAura(GameState& state, PlayerId controller) const override {
+        if (controller == PlayerId::None) return;
+        state.player(controller).first_gear_ability_discount = 1;
+    }
 private:
     const CardDef def_ = [] {
         CardDef d;

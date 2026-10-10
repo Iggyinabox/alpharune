@@ -20,20 +20,136 @@ public:
     // "As this is attached to a unit, choose another friendly unit. The
     //  equipped unit becomes a copy of that unit for as long as this is
     //  attached to it."
-    // ENGINE-GAP (1): the copy is never undone. Needed: an "on unattach" hook
-    // (e.g. Card::onUnattached(ctx, gear, unit), called from
-    // EffectExecutor::unattachGear and from the kill/bounce/banish paths that
-    // clear `attached_to`) so this gear can restore the bearer's printed
-    // traits when it comes off.
+    //
+    // Ending the copy (CR 446 / 479.1: a copy effect lasts only as long as its
+    // duration). What the bearer was is remembered ON THE BEARER, just before
+    // EffectExecutor::copyUnit overwrites it:
+    //   card_counters  __spectacles_copies  how many Spectacles copies are on it
+    //                  __spectacles_def / _might / _kw / _super / _type /
+    //                  _assault / _shield / _deflect
+    //   string_state   __spectacles_name, __spectacles_tags (\x1f-separated),
+    //                  __spectacles_domains (one char per Domain)
+    // exactly the fields copyUnit writes. Keywords are saved without the
+    // "this turn" grants (temp_keywords) so restoring can't make them lasting.
+    // The gear remembers whom it turned into a copy in its own
+    // card_counters["__spectacles_bearer"] (id + 1). onUnattached restores the
+    // bearer when the last such copy comes off — which also covers plain
+    // tokens, whose invalid card_def_id is put back (audit item 4).
+    // With two Shady Spectacles on one unit, taking one off leaves the unit as
+    // the copy most recently applied (copy timestamps are not modelled).
+    //
+    // ENGINE-GAP (1): EffectExecutor::killObject does not call unattachGear —
+    // its unit branch clears the gear's `attached_to` directly and its gear
+    // branch does not detach at all — so onUnattached does not run when the
+    // bearer or this gear is killed by an effect (GameEngine::killUnit, bounce
+    // and banish do go through unattachGear). A bearer killed that way keeps
+    // the copied identity in the trash. The stale record is repaired the next
+    // time this gear is equipped (onEquip below); killObject must detach
+    // through unattachGear.
     // ENGINE-GAP (2): GameEngine runs onEquip outside the chain (no
     // ChainState::resuming), so pickTarget cannot suspend for the agent and
     // falls back to the first legal unit. Needed: equip activations resolved
     // through the resumable chain loop (as needsEquipTimeTarget assumes).
+    // ENGINE-GAP (3): GameEngine::killUnit detaches gear (ending the copy here)
+    // BEFORE it emits UnitDiedEvent, so the bearer's "When I die" abilities
+    // are looked up on its original card, not on the unit it was a copy of
+    // when it died (CR 383.2.c.3). Needed: death triggers queued before gear
+    // is shed, or the card def kept in GameObject::last_known.
+    static constexpr const char* kCopies = "__spectacles_copies";
+    static constexpr const char* kBearer = "__spectacles_bearer";
+
+    static void remember(GameObject& u) {
+        u.card_counters["__spectacles_def"] = static_cast<int>(u.card_def_id);
+        u.card_counters["__spectacles_might"] = u.base_might;
+        u.card_counters["__spectacles_kw"] =
+            static_cast<int>(u.keywords.bits & ~u.temp_keywords.bits);
+        u.card_counters["__spectacles_super"] = static_cast<int>(u.super_type);
+        u.card_counters["__spectacles_type"] = static_cast<int>(u.card_type);
+        u.card_counters["__spectacles_assault"] = u.assault_value;
+        u.card_counters["__spectacles_shield"] = u.shield_value;
+        u.card_counters["__spectacles_deflect"] = u.deflect_value;
+        u.string_state["__spectacles_name"] = u.name;
+        std::string tags;
+        for (size_t i = 0; i < u.tags.size(); ++i) {
+            if (i) tags += '\x1f';
+            tags += u.tags[i];
+        }
+        u.string_state["__spectacles_tags"] = tags;
+        u.card_counters["__spectacles_ntags"] = static_cast<int>(u.tags.size());
+        std::string doms;
+        for (auto d : u.domains) doms += static_cast<char>('a' + static_cast<int>(d));
+        u.string_state["__spectacles_domains"] = doms;
+    }
+    static void restore(GameObject& u) {
+        u.card_def_id = static_cast<CardDefId>(u.card_counters["__spectacles_def"]);
+        u.base_might = u.card_counters["__spectacles_might"];
+        // Keep whatever is granted "this turn" right now; drop the copied rest.
+        u.keywords.bits = static_cast<uint32_t>(u.card_counters["__spectacles_kw"]) |
+                          u.temp_keywords.bits;
+        u.super_type = static_cast<SuperType>(u.card_counters["__spectacles_super"]);
+        u.card_type = static_cast<CardType>(u.card_counters["__spectacles_type"]);
+        u.assault_value = u.card_counters["__spectacles_assault"];
+        u.shield_value = u.card_counters["__spectacles_shield"];
+        u.deflect_value = u.card_counters["__spectacles_deflect"];
+        u.name = u.string_state["__spectacles_name"];
+        u.tags.clear();
+        if (u.card_counters["__spectacles_ntags"] > 0) {
+            const std::string& tags = u.string_state["__spectacles_tags"];
+            size_t start = 0;
+            while (true) {
+                size_t end = tags.find('\x1f', start);
+                u.tags.push_back(tags.substr(start, end == std::string::npos
+                                                        ? std::string::npos : end - start));
+                if (end == std::string::npos) break;
+                start = end + 1;
+            }
+        }
+        u.domains.clear();
+        for (char c : u.string_state["__spectacles_domains"])
+            u.domains.push_back(static_cast<Domain>(c - 'a'));
+        for (const char* k : {"__spectacles_def", "__spectacles_might", "__spectacles_kw",
+                              "__spectacles_super", "__spectacles_type",
+                              "__spectacles_assault", "__spectacles_shield",
+                              "__spectacles_deflect", "__spectacles_ntags"})
+            u.card_counters.erase(k);
+        for (const char* k : {"__spectacles_name", "__spectacles_tags", "__spectacles_domains"})
+            u.string_state.erase(k);
+        u.recomputeMight();
+    }
+    /// End the copy this gear applied to `unit` (if it did).
+    static void endCopy(CardContext& ctx, GameObjectId gear_id, GameObjectId unit) {
+        if (!ctx.state.objectExists(gear_id)) return;
+        auto& gear = ctx.state.getObject(gear_id);
+        auto it = gear.card_counters.find(kBearer);
+        if (it == gear.card_counters.end() || it->second != static_cast<int>(unit) + 1) return;
+        gear.card_counters.erase(it);
+        if (!ctx.state.objectExists(unit)) return;
+        auto& u = ctx.state.getObject(unit);
+        auto n = u.card_counters.find(kCopies);
+        if (n == u.card_counters.end() || n->second <= 0) return;
+        if (--n->second > 0) return;          // another Spectacles copy is still on it
+        u.card_counters.erase(n);
+        restore(u);
+        ctx.events.logTrace("SHADY SPECTACLES: came off " + u.name +
+                            " -> it is itself again");
+    }
+    void onUnattached(CardContext& ctx, GameObjectId unit) override {
+        endCopy(ctx, ctx.source, unit);
+    }
+
     bool hasEquipAbility() const override { return true; }
     bool onEquip(CardContext& ctx, GameObjectId unit) override {
         if (!ctx.state.objectExists(unit)) return false;
         if (!standardEquip(ctx, ctx.source, unit, /*energy_cost=*/1, Domain::Order))
             return false;
+        // A copy this gear left behind on an earlier bearer (it came off by a
+        // path that skipped onUnattached) ends now at the latest.
+        {
+            auto& gear = ctx.state.getObject(ctx.source);
+            auto it = gear.card_counters.find(kBearer);
+            if (it != gear.card_counters.end() && it->second != static_cast<int>(unit) + 1)
+                endCopy(ctx, ctx.source, static_cast<GameObjectId>(it->second - 1));
+        }
         std::vector<GameObjectId> others;
         for (const auto& [id, obj] : ctx.state.objects) {
             if (id == unit || !obj.isUnit() || obj.controller != ctx.controller) continue;
@@ -43,8 +159,13 @@ public:
         std::sort(others.begin(), others.end());
         GameObjectId chosen = pickTarget(ctx, "Shady Spectacles: copy which friendly unit?",
                                          others);
-        if (chosen != kInvalidId && ctx.state.objectExists(chosen))
+        if (chosen != kInvalidId && ctx.state.objectExists(chosen)) {
+            auto& u = ctx.state.getObject(unit);
+            if (u.card_counters[kCopies]++ == 0) remember(u);
+            ctx.state.getObject(ctx.source).card_counters[kBearer] =
+                static_cast<int>(unit) + 1;
             ctx.executor.copyUnit(unit, chosen);
+        }
         return true;
     }
 private:

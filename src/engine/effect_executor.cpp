@@ -1505,6 +1505,146 @@ std::vector<GameObjectId> EffectExecutor::revealAndChoose(PlayerId player, int c
     return chosen_cards;
 }
 
+namespace {
+// Stage the "what is ignored" flags on the player for the duration of one cost
+// query / payment, and always clear them.
+struct StagedEffectCost {
+    PlayerState& ps;
+    StagedEffectCost(PlayerState& p, const EffectExecutor::EffectPlayCost& c) : ps(p) {
+        ps.transient_ignore_energy = c.ignore_energy;
+        ps.transient_ignore_power = c.ignore_power;
+        ps.transient_play_discount += c.energy_reduction;
+        reduction_ = c.energy_reduction;
+    }
+    ~StagedEffectCost() {
+        ps.transient_ignore_energy = false;
+        ps.transient_ignore_power = false;
+        ps.transient_play_discount -= reduction_;
+    }
+    int reduction_ = 0;
+};
+}  // namespace
+
+// Plain cost path used when no engine cost path is attached (an executor driven
+// directly, outside a game): the card's printed cost less what is staged as
+// ignored or reduced, paid from the floating pool and then from runes. It has
+// none of the engine path's cost modifiers or rune choices.
+namespace {
+struct PlainCost { int energy = 0; int power = 0; std::vector<Domain> domains; };
+
+PlainCost plainCostOf(const GameState& state, const CardDB& db, PlayerId player,
+                      GameObjectId card) {
+    PlainCost c;
+    const auto& obj = state.getObject(card);
+    if (obj.card_def_id == kInvalidId) return c;
+    const auto& def = db.get(obj.card_def_id);
+    const auto& ps = state.player(player);
+    c.domains = def.domains;
+    c.energy = ps.transient_ignore_energy ? 0
+        : std::max(0, def.energy_cost - ps.transient_play_discount);
+    c.power = ps.transient_ignore_power ? 0
+        : std::max(0, def.power_cost - ps.transient_power_discount);
+    return c;
+}
+
+bool runeMatches(const GameObject& rune, const std::vector<Domain>& domains) {
+    for (auto d : domains)
+        for (auto rd : rune.domains) if (d == rd) return true;
+    return false;
+}
+
+// With `pay` false this only answers whether the cost is payable.
+bool plainPay(GameState& state, EventBus& events, PlayerId player, const PlainCost& cost,
+              bool pay) {
+    auto& ps = state.player(player);
+    int e = cost.energy - ps.rune_pool.energy;
+    int p = cost.power - ps.rune_pool.universal_power;
+    for (auto d : cost.domains) p -= ps.rune_pool.power[static_cast<int>(d)];
+    LocationId base{BaseLocation{player}};
+    std::vector<GameObjectId> runes;
+    for (auto& [id, obj] : state.objects)
+        if (obj.isRune() && obj.controller == player &&
+            obj.location.has_value() && *obj.location == base) runes.push_back(id);
+    int ready = 0, matching = 0;
+    for (auto rid : runes) {
+        const auto& r = state.getObject(rid);
+        if (!r.is_exhausted) ++ready;
+        if (runeMatches(r, cost.domains)) ++matching;
+    }
+    if (ready < e || matching < p) return false;
+    if (!pay) return true;
+
+    auto take = [](int& from, int& need) {
+        int n = std::min(from, std::max(0, need));
+        from -= n;
+        need -= n;
+    };
+    int e_need = cost.energy, p_need = cost.power;
+    take(ps.rune_pool.energy, e_need);
+    for (auto d : cost.domains) take(ps.rune_pool.power[static_cast<int>(d)], p_need);
+    take(ps.rune_pool.universal_power, p_need);
+    // Energy from runes that can't pay the Power first; then recycle matching
+    // runes, exhausted ones first (CR 164.2).
+    std::stable_sort(runes.begin(), runes.end(), [&](GameObjectId a, GameObjectId b) {
+        return runeMatches(state.getObject(a), cost.domains) <
+               runeMatches(state.getObject(b), cost.domains);
+    });
+    for (auto rid : runes) {
+        if (e_need <= 0) break;
+        auto& r = state.getObject(rid);
+        if (r.is_exhausted) continue;
+        r.is_exhausted = true;
+        events.emit(ObjectStateChangedEvent{rid, "exhausted"});
+        --e_need;
+    }
+    std::stable_sort(runes.begin(), runes.end(), [&](GameObjectId a, GameObjectId b) {
+        return state.getObject(a).is_exhausted > state.getObject(b).is_exhausted;
+    });
+    for (auto rid : runes) {
+        if (p_need <= 0) break;
+        auto& r = state.getObject(rid);
+        if (!runeMatches(r, cost.domains)) continue;
+        r.location = std::nullopt;
+        r.zone = ZoneType::RuneDeck;
+        r.is_exhausted = false;
+        ps.rune_deck.insert(ps.rune_deck.begin(), rid);
+        ps.power_spent_this_turn++;
+        --p_need;
+    }
+    return true;
+}
+}  // namespace
+
+bool EffectExecutor::canPlayPayingCost(PlayerId player, GameObjectId card,
+                                       EffectPlayCost cost) const {
+    if (!state_.objectExists(card)) return false;
+    if (!can_afford_) {
+        StagedEffectCost staged(state_.player(player), cost);
+        return plainPay(state_, events_, player,
+                        plainCostOf(state_, card_db_, player, card), /*pay=*/false);
+    }
+    StagedEffectCost staged(state_.player(player), cost);
+    return can_afford_(player, card);
+}
+
+bool EffectExecutor::playPayingCost(PlayerId player, GameObjectId card,
+                                    std::optional<LocationId> location,
+                                    EffectPlayCost cost) {
+    if (!state_.objectExists(card)) return false;
+    if (!can_afford_ || !pay_cost_) {
+        StagedEffectCost staged(state_.player(player), cost);
+        if (!plainPay(state_, events_, player,
+                      plainCostOf(state_, card_db_, player, card), /*pay=*/true))
+            return false;
+    } else {
+        StagedEffectCost staged(state_.player(player), cost);
+        if (!can_afford_(player, card)) return false;
+        if (!pay_cost_(player, card)) return false;
+    }
+    playIgnoringCost(player, card, location);   // costs are settled; put it into play
+    return true;
+}
+
 void EffectExecutor::playIgnoringCost(PlayerId player, GameObjectId card,
                                        std::optional<LocationId> location) {
     if (!state_.objectExists(card)) return;
@@ -1517,6 +1657,20 @@ void EffectExecutor::playIgnoringCost(PlayerId player, GameObjectId card,
     // created). Per CR 355.1, "As you play me" effects run DURING
     // the play, not after — that gives onPlay the opportunity to
     // redirect before any EnteredBoardEvent fires.
+    // A spell played by an effect is still played: it goes on the chain and
+    // resolves (above whatever is resolving now). It is not a permanent, so
+    // none of the board placement below applies.
+    if (obj.isSpell() && queue_spell_) {
+        obj.controller = player;
+        obj.location = std::nullopt;
+        auto& sps = state_.player(player);
+        sps.cards_played_this_turn++;
+        events_.emit(CardPlayedEvent{card, player, obj.card_type,
+                                     sps.cards_played_this_turn});
+        queue_spell_(player, card);
+        return;
+    }
+
     LocationId chosen_loc = location.value_or(LocationId{BaseLocation{player}});
     if (std::holds_alternative<BattlefieldLocation>(chosen_loc)) {
         obj.zone = ZoneType::BattlefieldZone;

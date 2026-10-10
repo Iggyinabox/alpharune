@@ -20,15 +20,10 @@ public:
     TriggerType equippedTriggerType() const override { return TriggerType::WhenIConquer; }
     void onEquippedTrigger(CardContext& ctx, GameObjectId unit,
                             const std::vector<GameObjectId>& targets) override {
-        auto loc = ctx.state.getObject(unit).location.value_or(BaseLocation{ctx.controller});
-        auto tok = ctx.executor.createToken(ctx.controller, CardType::Gear, "Gold",
-                                            0, {}, {}, loc);
-        if (ctx.state.objectExists(tok)) {
-            // CR 187.5: a Gold gear token has "[Reaction][>] Kill this, [E]:
-            // [Add] [A]" — carried by the registered Gold card.
-            ctx.state.getObject(tok).card_def_id = kGoldGearCardDefId;
-            ctx.state.getObject(tok).is_exhausted = true;   // "exhausted"
-        }
+        // CR 149.2: gear is played to its controller's Base unless an effect
+        // says otherwise — not to the battlefield the equipped unit conquered.
+        // createGoldExhausted: exhausted, in base, as the Gold card (CR 187.5).
+        createGoldExhausted(ctx);
     }
 private:
     const CardDef def_ = [] {

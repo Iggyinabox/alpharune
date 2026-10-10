@@ -16,11 +16,9 @@ class DecreeOfRage : public SpellCard {
 public:
     const CardDef& def() const override { return def_; }
     // "This can't be countered. Deal 4 to an enemy Calm ([G]) unit."
-    // ENGINE-GAP: Card::cantBeCountered() is consulted by card_helpers.h
-    // counterChainTop only. The four counter spells that pop the chain
-    // themselves — Defy (045), Hard Bargain (457), Flurry of Feathers (606)
-    // and Abandon (693) — do not ask it and still counter this; each must skip
-    // its pop when registry->get(top card)->cantBeCountered() is true.
+    // Every counter effect asks card_helpers.h isUncounterable() before it
+    // removes a chain item (counterChainTop, Defy, Hard Bargain, Flurry of
+    // Feathers, Abandon, Rebuttal).
     bool cantBeCountered() const override { return true; }
     static bool hasDomain(const GameObject& obj, Domain d) {
         return std::find(obj.domains.begin(), obj.domains.end(), d) != obj.domains.end();

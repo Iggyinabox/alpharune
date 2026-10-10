@@ -438,6 +438,17 @@ void ChainManager::stepResolve(
             auto& spell_obj = state_.getObject(resolved.source);
             // [Flow] / "then banish this": banished instead of trashed as it
             // leaves the chain (a replacement effect, Vendetta rules update).
+            // "Then recycle it" (Fizz, Trickster; Kai'Sa, Evolutionary): the
+            // same kind of leaving-the-chain replacement as "then banish it".
+            auto rit = spell_obj.card_counters.find("__recycle_on_leave_chain");
+            if (rit != spell_obj.card_counters.end() && rit->second != 0 && executor_) {
+                rit->second = 0;
+                spell_obj.location = std::nullopt;
+                spell_obj.zone = ZoneType::Trash;   // recycleCards moves it on from here
+                state_.player(spell_obj.owner).trash.push_back(resolved.source);
+                events_.emit(SpellResolvedEvent{resolved.source, resolved.controller});
+                executor_->recycleCards(spell_obj.owner, {resolved.source});
+            } else {
             const bool to_banish = spell_obj.banish_on_leave_chain;
             spell_obj.banish_on_leave_chain = false;
             const ZoneType dest = to_banish ? ZoneType::Banishment : ZoneType::Trash;
@@ -456,6 +467,7 @@ void ChainManager::stepResolve(
                 dest, false});
             if (to_banish)
                 events_.emit(ObjectStateChangedEvent{resolved.source, "banished_owned"});
+            }
         }
     }
     // Triggered/activated abilities leave their source on the board — no

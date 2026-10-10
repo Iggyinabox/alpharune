@@ -30,23 +30,12 @@ public:
         if (conf < 1) return;
         if (!payEnergy(ctx, ctx.controller, 1)) return;
 
-        // "here" = the battlefield this card lives at; place the token there.
-        LocationId loc{BaseLocation{ctx.controller}};
-        for (auto& bf : ctx.state.battlefields) {
-            if (bf.card_object_id == ctx.source) {
-                loc = LocationId{BattlefieldLocation{bf.id}};
-                break;
-            }
-        }
-        auto tok = ctx.executor.createToken(ctx.controller, CardType::Gear, "Gold",
-                                             0, {}, {}, loc, /*enter_ready=*/false);
-        // "exhausted" — gear normally enters ready, so force-exhaust.
-        if (ctx.state.objectExists(tok)) {
-            ctx.state.getObject(tok).is_exhausted = true;
-            // CR 187.5: a Gold gear token has "[Reaction][>] Kill this, [E]:
-            // [Add] [A]" — carried by the registered Gold card.
-            ctx.state.getObject(tok).card_def_id = kGoldGearCardDefId;
-        }
+        // CR 149.2: gear can only be played to a player's Base unless an effect
+        // says otherwise, and "play a Gold gear token exhausted" names no
+        // location ("here" only says where the conquer happened). The helper
+        // plays it exhausted, in the controller's base, as the Gold card
+        // (CR 187.5).
+        createGoldExhausted(ctx);
         ctx.events.logTrace("TREASURE HOARD: paid [1] -> Gold gear token (exhausted)");
     }
 private:

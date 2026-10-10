@@ -77,15 +77,18 @@ public:
         GameObjectId recyclable = find_recyclable();
         GameObjectId trash_mech = find_trash_mech();
         if (recyclable == kInvalidId || trash_mech == kInvalidId) return;
-        // Recycle the chosen friendly unit (to bottom of deck).
+        // "Reduce its Energy cost by the Might of the unit you recycled." The
+        // rest of the Mech's cost is still owed (CR 356.1.b.2); recycling the
+        // unit is the cost of the ability and happens either way.
+        const EffectExecutor::EffectPlayCost reduced{
+            .energy_reduction = ctx.state.getObject(recyclable).current_might};
         ctx.executor.recycleCards(ctx.controller, {recyclable});
-        // Play the Mech from trash (free — see header note on cost reduction).
-        // Remove from trash first so playIgnoringCost finds a clean source.
+        if (!ctx.executor.canPlayPayingCost(ctx.controller, trash_mech, reduced)) return;
         auto& ps = ctx.state.player(ctx.controller);
         auto it = std::find(ps.trash.begin(), ps.trash.end(), trash_mech);
         if (it != ps.trash.end()) ps.trash.erase(it);
-        ctx.executor.playIgnoringCost(ctx.controller, trash_mech,
-                                      LocationId{BaseLocation{ctx.controller}});
+        ctx.executor.playPayingCost(ctx.controller, trash_mech,
+                                    LocationId{BaseLocation{ctx.controller}}, reduced);
         ctx.events.logTrace("RUMBLE: conquer -> recycled a unit, played a Mech "
                             "from trash (cost reduction approximated as free)");
     }

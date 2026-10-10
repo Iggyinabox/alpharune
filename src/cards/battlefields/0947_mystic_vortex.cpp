@@ -17,12 +17,9 @@ public:
     const CardDef& def() const override { return def_; }
     // "During showdowns here, cards with [Reaction] cost [A] more to play.
     // (Hidden cards have [Reaction].)"
-    // ENGINE-GAP: the tax is published on the battlefield, but the play-cost
-    // path (canAfford / beginCostPayment) does not read
-    // BattlefieldState::reaction_tax_power yet. Needs: while a showdown is in
-    // progress at a battlefield with this flag, add that much any-domain power
-    // to the cost of cards with [Reaction] (including [Ambush] units played
-    // there and cards played from face down).
+    // The engine adds the published [A] to the cost of cards with [Reaction]
+    // (including [Ambush] units and cards played from face down) while a
+    // showdown or combat is in progress (extraAnyPowerCost).
     void applyPassiveAura(GameState& state, PlayerId /*controller*/) const override {
         for (auto& bf : state.battlefields) {
             if (!state.objectExists(bf.card_object_id)) continue;

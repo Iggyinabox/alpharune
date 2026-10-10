@@ -45,10 +45,13 @@ public:
             auto& deck = ps.main_deck;
             deck.erase(std::remove(deck.begin(), deck.end(), to_play), deck.end());
             ctx.executor.banishObject(to_play);
-            auto& bz = ps.banishment;
-            bz.erase(std::remove(bz.begin(), bz.end(), to_play), bz.end());
-            ctx.executor.playIgnoringCost(ctx.controller, to_play,
-                                          LocationId{BaseLocation{ctx.controller}});
+            const EffectExecutor::EffectPlayCost reduced{.energy_reduction = 2};
+            if (ctx.executor.canPlayPayingCost(ctx.controller, to_play, reduced)) {
+                auto& bz = ps.banishment;
+                bz.erase(std::remove(bz.begin(), bz.end(), to_play), bz.end());
+                ctx.executor.playPayingCost(ctx.controller, to_play,
+                                            LocationId{BaseLocation{ctx.controller}}, reduced);
+            }
             ctx.events.logTrace("VOID RUSH: banished + played top card "
                                 "(cost reduction [2] approximated as free)");
         }

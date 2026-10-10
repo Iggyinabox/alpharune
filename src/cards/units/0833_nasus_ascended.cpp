@@ -23,9 +23,9 @@ public:
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         if (!ctx.state.objectExists(ctx.source)) return;
         if (!ctx.state.getObject(ctx.source).isEmpowered()) return;
-        auto& ps = ctx.state.player(ctx.controller);
-        if (ps.cannot_gain_points) return;  // Tianna Crownguard
-        ps.score += 1;
+        // CR 194.1.c; scorePoints honours "can't gain points" (Tianna Crownguard).
+        if (ctx.executor.scorePoints(ctx.controller, 1) == 0) return;
+        const auto& ps = ctx.state.player(ctx.controller);
         ctx.events.logTrace("NASUS, ASCENDED: Empowered conquer -> score 1 point -> " +
                             std::to_string(ps.score));
     }

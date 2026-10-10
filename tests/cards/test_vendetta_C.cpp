@@ -916,7 +916,10 @@ TEST_F(VendettaCTest, Vendetta_KayleJustified_EmpowersUpToThreeTimes) {
     EXPECT_TRUE(exec.empower(kayle));
     EXPECT_FALSE(exec.empower(kayle)) << "capped at three";
     EXPECT_EQ(state.getObject(kayle).empowered, 3);
-    EXPECT_FALSE(c->canActivateAbilityAt(state, P1, kayle, idx));
+    // CR 827.1.c.5: an object that may be Empowered multiple times ignores
+    // "Play only if not Empowered" — the ability can be activated even at
+    // its maximum, where it does nothing.
+    EXPECT_TRUE(c->canActivateAbilityAt(state, P1, kayle, idx));
 }
 
 TEST_F(VendettaCTest, Vendetta_KayleJustified_MightPerEmpowerAndThreeStackKeywords) {

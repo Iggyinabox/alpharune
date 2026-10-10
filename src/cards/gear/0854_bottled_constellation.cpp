@@ -55,14 +55,13 @@ public:
                 if (ctx.state.getObject(id).isGear()) ctx.executor.unattachGear(id);
                 ctx.executor.killObject(id);
             }
-            auto& ps = ctx.state.player(ctx.controller);
-            if (ps.cannot_gain_points) {
+            // CR 194.1.c: scorePoints honours "can't gain points" and ends the
+            // game at once at the Victory Score.
+            if (ctx.executor.scorePoints(ctx.controller, 1) == 0)
                 ctx.events.logTrace("BOTTLED CONSTELLATION: can't gain points");
-                return;
-            }
-            ps.score++;
-            ctx.events.logTrace("BOTTLED CONSTELLATION: scored 1 point -> " +
-                                std::to_string(ps.score));
+            else
+                ctx.events.logTrace("BOTTLED CONSTELLATION: scored 1 point -> " +
+                    std::to_string(ctx.state.player(ctx.controller).score));
         };
         const int go = confirmOptional(
             ctx, "Bottled Constellation: kill 3 other friendly units/gear to score 1 point",

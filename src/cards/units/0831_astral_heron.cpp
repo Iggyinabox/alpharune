@@ -19,10 +19,8 @@ public:
     //  next card costs [2][A][A] less."
     // "First card each turn" is read at resolution as
     // PlayerState::cards_played_this_turn == 1 (the triggering play itself).
-    // ENGINE-GAP: only the [2] is discounted. CostModifier::power_reduction is
-    // set below but GameEngine::canAfford / payCardCost never read it; they
-    // must subtract it (any domain) from the card's power cost next to
-    // energy_reduction for the [A][A] half to apply.
+    // The [A][A] half is CostModifier::power_reduction, which the engine's
+    // cost path subtracts from the card's Power cost (clamped at 0).
     TriggerType triggerType() const override { return TriggerType::WhenYouPlayACard; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         if (!ctx.state.objectExists(ctx.source)) return;

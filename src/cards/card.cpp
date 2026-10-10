@@ -571,7 +571,12 @@ std::vector<GameObjectId> Card::enumerateLegalTargets(
         if (reqs.max_might > 0 && obj.current_might > reqs.max_might) continue;
 
         // CR 809: an opponent must be able to pay the Deflect cost to choose it.
-        if (!ignoresDeflect() && obj.controller != controller &&
+        // Only when a choice is being OFFERED: while an item is resolving its
+        // targets were already chosen and paid for (the engine re-validates
+        // them through this function), and resolve-time picks do their own
+        // affordability check in pickTarget.
+        if (!state.chain.resuming.has_value() &&
+            !ignoresDeflect() && obj.controller != controller &&
             deflectCostFor(state, controller, id) > payableAnyPower(state, controller))
             continue;
 
@@ -617,8 +622,10 @@ bool Card::canActivateAbilityAt(const GameState& state, PlayerId /*controller*/,
     if (!state.objectExists(source)) return false;
     const auto& obj = state.getObject(source);
     const auto& ab = abs[ability_index];
-    // CR 827.1.c.1: "Play only if not Empowered" (stacking objects: until full).
-    if (ab.is_empower && obj.empowered >= maxEmpower()) return false;
+    // CR 827.1.c.1: "Play only if not Empowered". CR 827.1.c.5: an object
+    // that may be Empowered multiple times ignores that restriction entirely —
+    // even at its maximum, where the activation simply does nothing.
+    if (ab.is_empower && maxEmpower() <= 1 && obj.isEmpowered()) return false;
     // "Disempower this" as a cost needs an Empowered status to remove.
     if (ab.cost.disempower_self && !obj.isEmpowered()) return false;
     return true;

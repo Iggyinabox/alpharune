@@ -25,7 +25,7 @@ public:
         const auto& self = ctx.state.getObject(ctx.source);
         if (!self.isAtBattlefield()) return;
         if (otherFriendlyUnitsHere(ctx.state, self) != 1) return;
-        ctx.state.player(ctx.controller).score += 1;
+        ctx.executor.scorePoints(ctx.controller, 1);   // CR 194.1.c
         ctx.events.logTrace("SHEN, LEADER OF THE KINKOU ORDER: hold with exactly one "
                             "other friendly unit here -> score 1 point");
     }

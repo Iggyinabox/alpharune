@@ -29,13 +29,8 @@ public:
     // additional -1 [M]."
     // The -[M] half is applied by EffectExecutor::giveTemporaryMight (cards
     // must not add extra_minus_might themselves); the counter half is honoured
-    // by card_helpers.h counterChainTop.
-    // ENGINE-GAP: the four counter spells that pop the chain themselves instead
-    // of calling counterChainTop — Defy (045), Hard Bargain (457), Flurry of
-    // Feathers (606) and Abandon (693) — do not consult
-    // PlayerState::spells_cant_be_countered, so they still counter my
-    // controller's spells. Each must skip its pop when
-    // state.player(top.controller).spells_cant_be_countered is set.
+    // by card_helpers.h isUncounterable(), which every counter effect asks
+    // (counterChainTop, Defy, Hard Bargain, Flurry of Feathers, Abandon).
     void applyPassiveAura(GameState& state, PlayerId controller) const override {
         forEachEmpoweredSelf(*this, state, controller,
             [&](GameObjectId, GameObject&) {

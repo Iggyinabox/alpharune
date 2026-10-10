@@ -15,9 +15,13 @@ class VanguardHelm : public GearCard {
 public:
     const CardDef& def() const override { return def_; }
     // "When a buffed friendly unit dies, buff another friendly unit."
-    // NOTE: the dying unit's buffed status isn't surfaced at resolution time
-    // (it's already gone), so the "buffed" precondition can't be enforced
-    // here. Core effect (buff another friendly unit) implemented.
+    // ENGINE-GAP: the "buffed" condition is not checked. The dying unit's
+    // last-known buff count exists (GameObject::last_known.buff_count, CR
+    // 383.2.c.3.b), but TriggerManager::onUnitDied fires WhenAFriendlyUnitDies
+    // without a subject, so this card cannot tell WHICH unit died. Needed:
+    // fireTrigger(..., WhenAFriendlyUnitDies, /*subject=*/e.object) so
+    // ChainItem::triggering_subject names it. Until then every friendly death
+    // triggers this.
     TriggerType triggerType() const override { return TriggerType::WhenAFriendlyUnitDies; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         // Prefer to buff a friendly unit ("if it doesn't have a buff, +1").

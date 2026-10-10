@@ -375,7 +375,20 @@ TEST_F(DeceiverTest, DiscardsAndCreatesReflectionToken) {
     Card* card = card_registry.get(kDeceiver);
     CardContext ctx{state, events, exec, P1, src};
 
-    // case 0 — publishes discard choice
+    // "You MAY discard 1 and exhaust me" (CR 383.3.a): the first prompt is the
+    // yes/no; answer yes. (This used to go straight to the discard choice,
+    // making the optional cost mandatory.)
+    card->onTrigger(ctx, {});
+    ASSERT_TRUE(exec.hasPendingChoice());
+    {
+        auto may = exec.consumePendingChoice();
+        Intent yes;
+        for (auto& i : may.legal)
+            if (i.chosen_value.has_value() && *i.chosen_value == 1) yes = i;
+        ASSERT_TRUE(yes.chosen_value.has_value()) << "expected a yes/no prompt first";
+        exec.recordChoice(yes);
+    }
+    // then the discard choice is published
     card->onTrigger(ctx, {});
     ASSERT_TRUE(exec.hasPendingChoice());
     auto pending = exec.consumePendingChoice();

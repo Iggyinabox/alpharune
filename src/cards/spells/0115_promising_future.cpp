@@ -84,13 +84,17 @@ public:
 
         auto play_banished = [&](PlayerId p, GameObjectId banished) {
             if (banished == kInvalidId || !ctx.state.objectExists(banished)) return;
+            // "ignoring Energy costs": Power is still owed, and paying is
+            // optional (CR 445.2) — unpaid, the card stays banished.
+            const EffectExecutor::EffectPlayCost power_only{.ignore_energy = true};
+            if (!ctx.executor.canPlayPayingCost(p, banished, power_only)) return;
             auto& bz = ctx.state.player(p).banishment;
             auto it = std::find(bz.begin(), bz.end(), banished);
             if (it != bz.end()) bz.erase(it);
             // Only units/gear are playable to a board; spells would need chain
             // handling. playIgnoringCost places permanents; for spells it puts
             // them on board zone without resolution (best-effort, free).
-            ctx.executor.playIgnoringCost(p, banished);
+            ctx.executor.playPayingCost(p, banished, std::nullopt, power_only);
         };
 
         // Finish: play both banished cards (next player = opponent first).

@@ -22,6 +22,14 @@ namespace riftbound {
 
 class CardRegistry;
 
+/// Which parts of a card's cost an effect-driven play still charges
+/// (EffectExecutor::playPayingCost).
+struct EffectPlayCost {
+    bool ignore_energy = false;   // "ignoring its Energy cost"
+    bool ignore_power = false;
+    int energy_reduction = 0;     // "reducing its Energy cost by [N]"
+};
+
 // State-only queries shared by the executor, the action generators and
 // Card::enumerateLegalTargets (which has no executor to ask).
 /// [A] an opponent must pay to choose `target` (CR 808 Deflect); 0 if
@@ -225,6 +233,32 @@ public:
     void playIgnoringCost(PlayerId player, GameObjectId card,
                            std::optional<LocationId> location = std::nullopt);
 
+    using EffectPlayCost = ::riftbound::EffectPlayCost;
+    /// Whether `player` could pay for `card` under `cost` right now.
+    bool canPlayPayingCost(PlayerId player, GameObjectId card,
+                           EffectPlayCost cost = {}) const;
+    /// Play `card` by an effect that does NOT ignore all of its costs
+    /// (CR 356.1.b.2): the rest is paid through the normal cost path (cost
+    /// modifiers, floating pool, rune choices). Payment is optional (CR 445.2):
+    /// if it can't or won't be paid the card is not played and this returns
+    /// false — the caller leaves the card where it was. `card` must already be
+    /// out of the zone it is played from (as with playIgnoringCost).
+    bool playPayingCost(PlayerId player, GameObjectId card,
+                        std::optional<LocationId> location = std::nullopt,
+                        EffectPlayCost cost = {});
+    /// The engine's cost path, injected so effect-driven plays pay like any
+    /// other play.
+    using CanAffordFn = std::function<bool(PlayerId, GameObjectId)>;
+    using PayCostFn = std::function<bool(PlayerId, GameObjectId)>;
+    /// Puts a spell played by an effect onto the chain so it resolves like any
+    /// other spell (injected by the engine: the executor has no chain access).
+    using QueueSpellFn = std::function<void(PlayerId, GameObjectId)>;
+    void setQueueSpell(QueueSpellFn fn) { queue_spell_ = std::move(fn); }
+    void setPlayCostFns(CanAffordFn can, PayCostFn pay) {
+        can_afford_ = std::move(can);
+        pay_cost_ = std::move(pay);
+    }
+
     /// Predict N: look at top N cards, agent chooses which to recycle (put back on bottom).
     void predict(PlayerId player, int count);
 
@@ -290,6 +324,9 @@ private:
     EventBus& events_;
     const CardDB& card_db_;
     std::function<void()> aura_recalc_;
+    CanAffordFn can_afford_;
+    QueueSpellFn queue_spell_;
+    PayCostFn pay_cost_;
     const CardRegistry* card_registry_ = nullptr;  // optional; needed for playIgnoringCost onPlay dispatch
     std::mt19937_64* rng_ = nullptr;
     AgentChoiceQuery agent_query_;

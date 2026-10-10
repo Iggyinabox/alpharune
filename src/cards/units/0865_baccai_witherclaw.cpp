@@ -28,14 +28,13 @@ public:
     // "[Empowered][>][>>][Deathknell][>] Channel 2 runes exhausted. (When I die
     // while Empowered, get the effect.)"
     // Empowered is cleared once the unit is off the board, so this reads the
-    // last-known count both kill paths stamp in card_counters["__died_empowered"].
+    // last-known information the kill paths snapshot (CR 383.2.c.3.b).
     TriggerType triggerType() const override { return TriggerType::WhenIDie; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         if (!ctx.state.objectExists(ctx.source)) return;
         const auto& self = ctx.state.getObject(ctx.source);
-        auto it = self.card_counters.find("__died_empowered");
-        const bool died_empowered = self.isEmpowered() ||
-            (it != self.card_counters.end() && it->second > 0);
+        const bool died_empowered = self.last_known.valid ? self.last_known.empowered > 0
+                                                          : self.isEmpowered();
         if (!died_empowered) return;
         ctx.executor.channelRunes(ctx.controller, 2, /*enter_exhausted=*/true);
         ctx.events.logTrace("BACCAI WITHERCLAW: died Empowered -> channel 2 runes exhausted");

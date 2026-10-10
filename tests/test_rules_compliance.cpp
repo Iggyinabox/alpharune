@@ -723,5 +723,83 @@ TEST_F(RulesComplianceTest, PlayTrigger_CounteredSpellNeverTriggers) {
     EXPECT_EQ(n, 0);
 }
 
+// ─── CR 356.1.b.2 / 445.2 — effect-driven plays that still owe a cost ──────
+
+TEST_F(CostPaymentRulesTest, EffectPlay_FullCostIsChargedThroughTheNormalPath) {
+    // "Play a unit ... (You must pay its costs.)": the engine's cost path runs.
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    rune(P1, Domain::Body);
+    rune(P1, Domain::Body);
+    auto spell = cardInHand(P1, kPunchFirst);      // [1] + 2 Body power
+    s().player(P1).hand.clear();
+    auto& exec = engine_->testHook_executor();
+
+    ASSERT_TRUE(exec.canPlayPayingCost(P1, spell));
+    EXPECT_TRUE(exec.playPayingCost(P1, spell));
+    EXPECT_EQ(runesInBase(P1), 0) << "both runes recycled for the Power";
+}
+
+TEST_F(CostPaymentRulesTest, EffectPlay_IgnoringEnergyStillChargesPower) {
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    rune(P1, Domain::Body, /*exhausted=*/true);
+    rune(P1, Domain::Body, /*exhausted=*/true);    // no Energy available at all
+    auto spell = cardInHand(P1, kPunchFirst);
+    s().player(P1).hand.clear();
+    auto& exec = engine_->testHook_executor();
+
+    EXPECT_FALSE(exec.canPlayPayingCost(P1, spell)) << "the [1] can't be paid";
+    const EffectPlayCost power_only{.ignore_energy = true};
+    ASSERT_TRUE(exec.canPlayPayingCost(P1, spell, power_only));
+    EXPECT_TRUE(exec.playPayingCost(P1, spell, std::nullopt, power_only));
+    EXPECT_EQ(runesInBase(P1), 0);
+}
+
+TEST_F(CostPaymentRulesTest, EffectPlay_NotPlayedWhenTheCostCannotBePaid) {
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    auto spell = cardInHand(P1, kPunchFirst);
+    s().player(P1).hand.clear();
+    auto& exec = engine_->testHook_executor();
+
+    EXPECT_FALSE(exec.canPlayPayingCost(P1, spell));
+    EXPECT_FALSE(exec.playPayingCost(P1, spell));
+    EXPECT_TRUE(s().chain.items.empty()) << "nothing was played";
+}
+
+TEST_F(CostPaymentRulesTest, EffectPlay_ASpellGoesOnTheChainToResolve) {
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    auto spell = cardInHand(P1, kPunchFirst);
+    s().player(P1).hand.clear();
+    auto& exec = engine_->testHook_executor();
+
+    exec.playIgnoringCost(P1, spell);
+
+    ASSERT_EQ(s().chain.items.size(), 1u) << "a spell played by an effect is still a spell";
+    EXPECT_TRUE(s().chain.items.back().is_spell);
+    EXPECT_EQ(s().chain.items.back().source, spell);
+}
+
+// ─── "[A] more" costs are any-domain and come on top of the card's own ─────
+
+TEST_F(CostPaymentRulesTest, SpellTax_AnyDomainPowerIsOwedOnTop) {
+    // Helm of Suppression style: this player's spells cost [A] more.
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    rune(P1, Domain::Body);
+    rune(P1, Domain::Body);
+    auto spell = cardInHand(P1, kPunchFirst);      // needs both Body runes
+    s().player(P1).spell_tax_power = 1;
+
+    EXPECT_FALSE(engine_->testHook_canAfford(P1, spell)) << "no rune left for the [A]";
+
+    rune(P1, Domain::Order);                        // any domain will do
+    ASSERT_TRUE(engine_->testHook_canAfford(P1, spell));
+    EXPECT_TRUE(engine_->testHook_payCardCost(P1, spell));
+    EXPECT_EQ(runesInBase(P1), 0) << "the Order rune paid the [A]";
+}
+
 }  // namespace
 }  // namespace riftbound::test

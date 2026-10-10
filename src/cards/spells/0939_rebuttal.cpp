@@ -12,40 +12,6 @@
 namespace riftbound {
 namespace {
 
-// [vendetta-E] local helpers
-// "[A]" = one power of any domain: floating power first, else a rune to recycle.
-bool canPayAnyPower(const GameState& state, PlayerId player) {
-    if (state.player(player).rune_pool.totalPower() > 0) return true;
-    return runesControlled(state, player) > 0;
-}
-bool payAnyPower(CardContext& ctx, PlayerId player) {
-    auto& ps = ctx.state.player(player);
-    auto& pool = ps.rune_pool;
-    if (pool.universal_power > 0) { --pool.universal_power; return true; }
-    for (int d = 0; d < static_cast<int>(Domain::Count); ++d)
-        if (pool.power[d] > 0) { --pool.power[d]; return true; }
-    // Recycle a rune (an exhausted one if possible, keeping ready runes for energy).
-    GameObjectId rune = kInvalidId;
-    for (const auto& [id, obj] : ctx.state.objects) {
-        if (!obj.isRune() || obj.controller != player || !obj.location.has_value()) continue;
-        const bool better = rune == kInvalidId ||
-            (obj.is_exhausted && !ctx.state.getObject(rune).is_exhausted) ||
-            (obj.is_exhausted == ctx.state.getObject(rune).is_exhausted && id < rune);
-        if (better) rune = id;
-    }
-    if (rune == kInvalidId) return false;
-    auto& r = ctx.state.getObject(rune);
-    ctx.events.logTrace("  RECYCLE_RUNE: " + r.name + " for [A] (Rebuttal)");
-    r.location = std::nullopt;
-    r.zone = ZoneType::RuneDeck;
-    r.is_exhausted = false;
-    ps.rune_deck.insert(ps.rune_deck.begin(), rune);
-    ps.power_spent_this_turn++;
-    ctx.events.emit(LeftBoardEvent{rune, player, CardType::Rune, BaseLocation{player},
-                                   ZoneType::RuneDeck, false});
-    return true;
-}
-
 class Rebuttal : public SpellCard {
 public:
     const CardDef& def() const override { return def_; }
@@ -76,11 +42,12 @@ public:
             return;
         }
         const int pay = confirmOptional(ctx, "Rebuttal: pay [A] to gain control of the spell",
-            [&]() { return top_ok() && canPayAnyPower(ctx.state, ctx.controller); });
+            [&]() { return top_ok() && ctx.executor.payableAnyPower(ctx.controller) >= 1; });
         if (pay == -1) return;   // waiting on the agent
         if (!top_ok()) return;
         auto& top = ctx.state.chain.items.back();
-        if (pay == 1 && payAnyPower(ctx, ctx.controller)) {
+        // [A]: floating power, else a recycled rune (CR 164.2.b).
+        if (pay == 1 && ctx.executor.payAnyPower(ctx.controller, 1)) {
             // Gain control: the spell now resolves for Rebuttal's controller.
             top.controller = ctx.controller;
             std::string name = "spell";

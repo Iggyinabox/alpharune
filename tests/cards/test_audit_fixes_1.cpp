@@ -586,7 +586,12 @@ TEST_F(AuditFix1Test, Deceiver_CreatesCopyTokenWithTemporary) {
 
     driveResumableTrigger(kDeceiver, P1, legend,
         /*picker=*/[](const std::vector<Intent>& legal) {
-            return legal.empty() ? Intent{} : legal.front();  // discard first
+            // "You MAY discard 1 and exhaust me" is a choice (CR 383.3.a):
+            // answer yes to it, then take the first option of the others
+            // (card to discard, unit to copy).
+            for (const auto& i : legal)
+                if (i.chosen_value.has_value() && *i.chosen_value == 1) return i;
+            return legal.empty() ? Intent{} : legal.front();
         }, exec, TriggerType::WhenIConquerOrHold);
 
     // Legend exhausted (cost paid).
@@ -666,6 +671,11 @@ TEST_F(AuditFix1Test, Deceiver_NoUnitToCopyStillMakesTemporaryToken) {
 
     driveResumableTrigger(kDeceiver, P1, legend,
         /*picker=*/[](const std::vector<Intent>& legal) {
+            // "You MAY discard 1 and exhaust me" is a choice (CR 383.3.a):
+            // answer yes to it, then take the first option of the others
+            // (card to discard, unit to copy).
+            for (const auto& i : legal)
+                if (i.chosen_value.has_value() && *i.chosen_value == 1) return i;
             return legal.empty() ? Intent{} : legal.front();
         }, exec, TriggerType::WhenIConquerOrHold);
 

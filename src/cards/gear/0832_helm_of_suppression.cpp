@@ -21,11 +21,9 @@ public:
     // "Opponents' spells cost [1] more. If this is [Empowered], they cost
     //  [1][A] more instead." The tax is recorded on the TAXED player.
     // The Energy half is applied by the play-cost path (GameEngine canAfford /
-    // payCardCost read PlayerState::spell_tax_energy).
-    // ENGINE-GAP: the [A] half of the Empowered tax is not applied.
-    // PlayerState::spell_tax_power is reset every aura pass but nothing reads
-    // it: the same spell cost path must add spell_tax_power any-domain Power
-    // to the spell's power cost.
+    // payCardCost read PlayerState::spell_tax_energy); the [A] half of the
+    // Empowered tax is PlayerState::spell_tax_power, added to a spell's Power
+    // cost by the same path.
     void applyPassiveAura(GameState& state, PlayerId controller) const override {
         forEachSelfOnce(*this, state, controller, [&](GameObjectId, GameObject& self) {
             auto& opp = state.player(opponent(controller));

@@ -38,8 +38,68 @@ public:
         if (picked == kInvalidId || !ctx.state.objectExists(picked)) return;
         ctx.executor.takeControl(picked, ctx.controller, /*until_end_of_turn=*/true);
         ctx.executor.readyObject(picked);
-        ctx.events.logTrace("HOSTILE TAKEOVER: seized enemy unit until end of turn "
-                            "(combat-start/conquer rider not modeled)");
+        // "(Start a combat if other enemies are there. Otherwise, conquer.)" is
+        // reminder text for what the control change does at the battlefield:
+        // the next cleanup applies Contested for a unit that changed controller
+        // there and stages the combat or the conquer (CR 190.3.a, 323.10.a).
+        //
+        // "Lose control of that unit and recall it at end of turn": a delayed
+        // ability that returns control and recalls the unit. The engine's
+        // end-of-turn control reversion (takeControl's until_end_of_turn) stays
+        // armed as the fallback for the "lose control" half.
+        // ENGINE-GAP: TriggerManager only checks AtEndOfTurn delayed abilities
+        // of the TURN player, so when this is played on an opponent's turn (it
+        // has [Hidden]) the delayed ability never fires: control still reverts
+        // at expiration, but the unit is not recalled. Needed: end-of-turn
+        // delayed abilities fired for both players (CR 359.3.e.16).
+        if (ctx.state.objectExists(ctx.source)) {
+            ctx.state.getObject(ctx.source).card_counters[kSeizedKey] =
+                static_cast<int>(picked) + 1;
+            DelayedAbility da;
+            da.source = ctx.source;
+            da.card_def_id = cardDefId();
+            da.controller = ctx.controller;
+            da.trigger = TriggerType::AtEndOfTurn;
+            da.expires_on_turn = ctx.state.turn.turn_number;
+            ctx.state.delayed_abilities.push_back(da);
+        }
+        ctx.events.logTrace("HOSTILE TAKEOVER: seized enemy unit until end of turn");
+    }
+
+    // The delayed "lose control of that unit and recall it at end of turn".
+    static constexpr const char* kSeizedKey = "__takeover_unit";
+    void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
+        if (!ctx.state.objectExists(ctx.source)) return;
+        auto& me = ctx.state.getObject(ctx.source);
+        auto it = me.card_counters.find(kSeizedKey);
+        if (it == me.card_counters.end() || it->second <= 0) return;
+        const auto seized = static_cast<GameObjectId>(it->second - 1);
+        me.card_counters.erase(it);
+        if (!ctx.state.objectExists(seized)) return;
+        auto& unit = ctx.state.getObject(seized);
+        if (!unit.location.has_value()) return;              // it left the board
+        // Only while it is still held by this spell's control change.
+        if (!unit.control_reverts_eot || unit.controller != ctx.controller) return;
+        const PlayerId back = unit.original_controller_eot;
+        if (back == PlayerId::None) return;
+        unit.controller = back;
+        unit.control_reverts_eot = false;
+        unit.original_controller_eot = PlayerId::None;
+        ctx.events.emit(ObjectStateChangedEvent{seized, "controller_reverted"});
+        // Recall (CR 457-458): relocated to its controller's base; not a Move,
+        // so no UnitMovedEvent. Attached gear goes with it (CR 448.1). Damage
+        // and statuses are unaffected (CR 460.1).
+        unit.location = BaseLocation{back};
+        unit.zone = ZoneType::Base;
+        for (auto gid : unit.attachments) {
+            if (!ctx.state.objectExists(gid)) continue;
+            auto& g = ctx.state.getObject(gid);
+            g.location = unit.location;
+            g.zone = ZoneType::Base;
+        }
+        unit.recomputeMight();
+        ctx.events.logTrace("HOSTILE TAKEOVER: end of turn -> " + unit.name +
+                            " returns to its controller and is recalled");
     }
 private:
     const CardDef def_ = [] {

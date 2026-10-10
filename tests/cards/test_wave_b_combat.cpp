@@ -40,8 +40,25 @@ TEST_F(CombatTest, ReckonersArena_ReactivatesConquerEffectsHere) {
     ctx.firing_trigger = TriggerType::WhenYouHoldHere;
     ctx.registry = &card_registry;
     card_registry.get(kReckonerArena)->onTrigger(ctx, {});
+    // CR 383.4.g.1: an "activated" conquer effect "is placed on the chain as if
+    // it had just triggered" — it is the unit's own chain item, not something
+    // run inside the Arena's ability (this used to expect the XP at once).
+    EXPECT_EQ(state.player(P1).xp, before) << "nothing has resolved yet";
+    ASSERT_EQ(state.chain.items.size(), 1u);
+    const ChainItem queued = state.chain.items.back();
+    EXPECT_TRUE(queued.is_ability);
+    EXPECT_FALSE(queued.is_activated_ability);
+    EXPECT_EQ(queued.card_def_id, kArachnoidHorror);
+    // Resolve it the way the chain would.
+    state.chain.items.pop_back();
+    state.chain.resuming = queued;
+    CardContext unit_ctx{state, events, exec, queued.controller, queued.source};
+    unit_ctx.firing_trigger = queued.fired_trigger;
+    unit_ctx.registry = &card_registry;
+    card_registry.get(queued.card_def_id)->onTrigger(unit_ctx, {});
+    state.chain.resuming.reset();
     EXPECT_EQ(state.player(P1).xp, before + 2)
-        << "Reckoner's Arena re-fires the unit's conquer effect (+2 XP)";
+        << "Reckoner's Arena activates the unit's conquer effect (+2 XP)";
 }
 
 }  // namespace

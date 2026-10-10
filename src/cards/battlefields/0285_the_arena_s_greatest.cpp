@@ -23,8 +23,8 @@ public:
                           std::to_string(playerIndex(ctx.controller));
         if (self.card_counters[key] != 0) return;  // already fired for this player
         self.card_counters[key] = 1;
-        auto& ps = ctx.state.player(ctx.controller);
-        ps.score++;
+        ctx.executor.scorePoints(ctx.controller, 1);   // CR 194.1.c
+        const auto& ps = ctx.state.player(ctx.controller);
         ctx.events.logTrace("THE ARENA'S GREATEST: first Beginning Phase -> +1 point ("
                             + std::to_string(ps.score) + ")");
     }

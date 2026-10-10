@@ -18,13 +18,10 @@ public:
     // "Ignore [Deflect] while paying this spell's cost.
     //  Give an enemy Body ([O]) unit -5 [M] this turn."
     //
-    // ENGINE-GAP: the engine never charges [Deflect] (CR 809: a mandatory
-    // additional cost on spells/abilities that choose the unit) — deflect_value
-    // is tracked on GameObject but no cost path reads it — so there is nothing
-    // for this clause to switch off yet. When Deflect is charged in
-    // canAfford / payCardCost (and at resolve-time pickTarget), that path must
-    // skip it for cards answering a `virtual bool Card::ignoresDeflect() const`
-    // hook, which this card would override to true.
+    // CR 809: [Deflect] is a mandatory additional cost on spells and abilities
+    // that choose the unit. Card::pickTarget (and the default target
+    // enumeration) skip that cost for a card answering ignoresDeflect().
+    bool ignoresDeflect() const override { return true; }
     static bool hasDomain(const GameObject& obj, Domain d) {
         return std::find(obj.domains.begin(), obj.domains.end(), d) != obj.domains.end();
     }

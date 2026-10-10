@@ -26,26 +26,37 @@ public:
         c.power_domain = Domain::Order;
         return c;
     }
-    // "Use only if you've chosen an enemy unit this turn"
-    // ENGINE-GAP: PlayerState::chose_enemy_unit_this_turn is set only by
-    // Card::pickTarget (resolve-time single choices). Choices locked in on the
-    // Intent at play / activation time (ChainItem::targets of cards that don't
-    // use needsPlayTimeTarget) and Card::pickTargetPair picks do not set it;
-    // those paths must set the flag too when a chosen object is an enemy unit.
+    // "Use only if you've chosen an enemy unit this turn".
+    // PlayerState::chose_enemy_unit_this_turn is set by every choice path:
+    // play / activation-time targets (ChainManager::addSpell / addAbility) and
+    // resolve-time picks (Card::pickTarget / pickTargetPair).
     bool canActivateAbility(const GameState& state, PlayerId controller) const override {
         return state.player(controller).chose_enemy_unit_this_turn;
     }
     // "...and only once each turn" (per Hungry Wolf). The stamp holds
     // turn_number + 1 so the default 0 never matches turn 0.
-    // ENGINE-GAP: the stamp is written when the ability RESOLVES (there is no
-    // card hook at cost-payment time), so a second activation made while the
-    // first is still on the chain is not blocked. Needed: a per-source
-    // "activated this turn" stamp set by GameEngine when the activation cost
-    // is paid.
+    // The stamp is written when the ability resolves; an activation of mine
+    // that is still on the chain (or resolving) counts as this turn's use too,
+    // so a second one can't be stacked on top of it.
+    // ENGINE-GAP: an activation that is COUNTERED never resolves and so never
+    // stamps — the ability could then be used again that turn. Needed: a
+    // per-source "activated this turn" stamp written by GameEngine when the
+    // activation cost is paid (PlayerState::abilities_activated_this_turn is
+    // per player, not per source).
+    static bool isMyPendingActivation(const ChainItem& item, GameObjectId source, int index) {
+        return item.is_ability && item.is_activated_ability && item.source == source &&
+               item.granted_ability_def == 0 && item.ability_index == index;
+    }
     bool canActivateAbilityAt(const GameState& state, PlayerId controller,
                               GameObjectId source, int ability_index) const override {
         if (!Card::canActivateAbilityAt(state, controller, source, ability_index)) return false;
         if (!state.objectExists(source)) return false;
+        if (ability_index == 0) {
+            for (const auto& item : state.chain.items)
+                if (isMyPendingActivation(item, source, 0)) return false;
+            if (state.chain.resuming.has_value() &&
+                isMyPendingActivation(*state.chain.resuming, source, 0)) return false;
+        }
         const auto& self = state.getObject(source);
         auto it = self.card_counters.find(kUsedKey);
         return it == self.card_counters.end() || it->second != state.turn.turn_number + 1;

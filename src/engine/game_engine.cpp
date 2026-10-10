@@ -59,6 +59,13 @@ void GameEngine::initSubsystems() {
             return queryAgentForChain(p, actions);
         });
     effect_executor_->setAuraRecalc([this]() { recalculateAuras(); });
+    effect_executor_->setQueueSpell([this](PlayerId p, GameObjectId spell) {
+        state_.getObject(spell).zone = ZoneType::Chain;
+        chain_manager_->addSpell(spell, p, {});
+    });
+    effect_executor_->setPlayCostFns(
+        [this](PlayerId p, GameObjectId card) { return canAfford(p, card); },
+        [this](PlayerId p, GameObjectId card) { return payCardCost(p, card); });
     chain_manager_->setEffectExecutor(effect_executor_.get());
     chain_manager_->setActivateAbility(
         [this](const Intent& i) { return payAndQueueAbility(i); });
@@ -1153,6 +1160,19 @@ void GameEngine::doExpirationBody() {
 // Action execution
 // ═══════════════════════════════════════════════════════════════════════════════
 
+// Energy reduction for activating ability `index` of `source`: the card's own
+// (and aura-computed) reduction, plus Piltovan Forge's "the first friendly gear
+// activated ability played each turn costs [1] less".
+int GameEngine::activationEnergyReduction(const Card& card, PlayerId player,
+                                          GameObjectId source, int index) const {
+    int r = card.activationCostReductionFor(state_, player, source, index);
+    const auto& ps = state_.player(player);
+    if (ps.first_gear_ability_discount > 0 && ps.gear_abilities_activated_this_turn == 0 &&
+        state_.objectExists(source) && state_.getObject(source).isGear())
+        r += ps.first_gear_ability_discount;
+    return r;
+}
+
 // Pay an activated ability's costs and put it on the chain. Returns true if a
 // chain item was added (the caller then runs or resumes the chain); false if
 // the activation completed without one (Equip) or was not possible.
@@ -1205,8 +1225,7 @@ bool GameEngine::payAndQueueAbility(const Intent& intent) {
         if (idx < 0 || idx >= static_cast<int>(abilities.size())) idx = 0;
         if (!abilities.empty()) act_cost = abilities[idx].cost;
         // State-aware energy reduction (Bashful Bloom, Risen Altar), clamped ≥ 0.
-        int red = cost_card->activationCostReductionFor(
-            state_, intent.player, intent.ability_source, idx);
+        int red = activationEnergyReduction(*cost_card, intent.player, intent.ability_source, idx);
         if (red > 0) act_cost.energy = std::max(0, act_cost.energy - red);
     }
     if (act_cost.exhaust) {
@@ -1510,9 +1529,24 @@ void GameEngine::executePlaySpell(const Intent& intent) {
             if (state_.objectExists(t))
                 tgt_disc = std::max(tgt_disc,
                     state_.getObject(t).spells_targeting_me_cost_reduction);
+        // Sandswept Tomb: "Each spell that chooses one or more units here that
+        // are friendly to it costs [A] less." Same APPROX as above: only
+        // targets chosen as the spell is played are known here.
+        int tgt_power_disc = 0;
+        for (auto t : intent.targets) {
+            if (!state_.objectExists(t)) continue;
+            const auto& tobj = state_.getObject(t);
+            if (!tobj.isUnit() || tobj.controller != intent.player) continue;
+            if (auto tbf = tobj.battlefieldId())
+                for (const auto& b : state_.battlefields)
+                    if (b.id == *tbf)
+                        tgt_power_disc = std::max(tgt_power_disc, b.friendly_spell_discount_power);
+        }
         ps.transient_play_discount = tgt_disc;
+        ps.transient_power_discount = tgt_power_disc;
         payCardCost(intent.player, intent.card);
         ps.transient_play_discount = 0;
+        ps.transient_power_discount = 0;
         ps.current_play_source = Intent::PlaySource::Hand;
 
         // "You may pay X as an additional cost to play me" (spell variant).
@@ -1688,9 +1722,24 @@ void GameEngine::resolveSpell(const ChainItem& item) {
     Card* card = card_registry_.get(item.card_def_id);
     std::vector<GameObjectId> effective_targets = item.targets;
     if (card && !item.targets.empty()) {
+        // An activated ability is re-validated against ITS OWN requirements
+        // and legal set (multi-ability cards differ per ability).
         auto reqs = card->getTargetRequirements();
+        auto legal = card->enumerateLegalTargets(state_, item.controller);
+        if (item.is_ability && item.is_activated_ability) {
+            const Card* acard = (item.granted_ability_def != 0)
+                ? card_registry_.get(item.granted_ability_def) : card;
+            if (acard) {
+                auto abs = acard->activatedAbilities();
+                if (item.ability_index >= 0 &&
+                    item.ability_index < static_cast<int>(abs.size())) {
+                    reqs = abs[item.ability_index].targets;
+                    legal = acard->enumerateLegalTargets(state_, item.controller,
+                                                         item.ability_index);
+                }
+            }
+        }
         if (reqs.count > 0) {
-            auto legal = card->enumerateLegalTargets(state_, item.controller);
             std::vector<GameObjectId> filtered;
             filtered.reserve(item.targets.size());
             int dropped = 0;
@@ -1788,16 +1837,18 @@ void GameEngine::resolvePermanent(const ChainItem& item) {
         // decision to the agent. (Previously auto-applied whenever
         // affordable, which silently spent the player's energy + rune
         // every time the Accelerate cost happened to be payable.)
-        if (card.keywords.has(Keyword::Accelerate)) {
-            bool single_domain = (card.domains.size() == 1);
+        const bool granted_accelerate = card.card_counters.count("__rek_sai_accel") &&
+                                        card.card_counters["__rek_sai_accel"] != 0;
+        if (granted_accelerate) card.card_counters["__rek_sai_accel"] = 0;
+        if (card.keywords.has(Keyword::Accelerate) || granted_accelerate) {
+            // CR 805.1.b.1: the Power must match one of the unit's own domains;
+            // 805.1.b.2: a unit with no domain pays it with [A].
             std::optional<Domain> domain_to_pay;
-            if (single_domain) {
-                if (canPayAdditionalCost(item.controller, 1, 1, card.domains[0])) {
-                    domain_to_pay = card.domains[0];
-                }
+            if (card.domains.empty()) {
+                if (canPayAdditionalCost(item.controller, 1, 1, Domain::Count))
+                    domain_to_pay = Domain::Count;
             } else {
-                for (int di = 0; di < static_cast<int>(Domain::Count); ++di) {
-                    Domain d = static_cast<Domain>(di);
+                for (Domain d : card.domains) {
                     if (canPayAdditionalCost(item.controller, 1, 1, d)) {
                         domain_to_pay = d;
                         break;
@@ -1818,7 +1869,8 @@ void GameEngine::resolvePermanent(const ChainItem& item) {
                 state_.decision_index++;
                 events_.logTrace("DECISION #" + std::to_string(state_.decision_index) +
                                  " (" + toString(item.controller) + "): "
-                                 "pay [1][" + toString(*domain_to_pay) +
+                                 "pay [1][" + (*domain_to_pay == Domain::Count ? "A"
+                                     : toString(*domain_to_pay)) +
                                  "] for Accelerate on " + card.name +
                                  "? [decline|pay] [2 options]");
 
@@ -1828,8 +1880,7 @@ void GameEngine::resolvePermanent(const ChainItem& item) {
 
                 bool wants_pay = chosen.chosen_value.value_or(0) == 1;
                 if (wants_pay) {
-                    events_.logTrace("ACCELERATE: " + card.name + " pays [1][" +
-                                     toString(*domain_to_pay) + "] to enter ready");
+                    events_.logTrace("ACCELERATE: " + card.name + " pays [1] + power to enter ready");
                     payAdditionalCost(item.controller, 1, 1, *domain_to_pay);
                     enters_ready = true;
                 } else {
@@ -2853,7 +2904,7 @@ std::vector<Intent> GameEngine::generateClosedStateActions(
                 if (!card_obj->canActivateAbilityAt(state_, player, id, (int)ai)) continue;
                 if (ab.cost.exhaust && obj.is_exhausted) continue;
                 int net_energy = std::max(0, ab.cost.energy -
-                    card_obj->activationCostReductionFor(state_, player, id, (int)ai));
+                    activationEnergyReduction(*card_obj, player, id, (int)ai));
                 if (net_energy > 0 && availableEnergy(player) < net_energy) continue;
                 if (ab.cost.power > 0 &&
                     !canPayActivationResources(player, net_energy, ab.cost)) continue;
@@ -3176,7 +3227,7 @@ void GameEngine::generateActivateAbilityActions(PlayerId player,
             // Check activation cost: must be ready if exhaust required
             if (act_cost.exhaust && obj.is_exhausted) continue;
             int net_energy = std::max(0, act_cost.energy -
-                card->activationCostReductionFor(state_, player, id, (int)ai));
+                activationEnergyReduction(*card, player, id, (int)ai));
             if (net_energy > 0 && availableEnergy(player) < net_energy) continue;
             if (act_cost.power > 0 &&
                 !canPayActivationResources(player, net_energy, act_cost)) continue;
@@ -3258,6 +3309,7 @@ void GameEngine::generateActivateAbilityActions(PlayerId player,
             const auto& gcost = gabs[ref.ability_index].cost;
             if (gcost.exhaust && obj.is_exhausted) continue;           // bearer must be ready
             if (gcost.energy > 0 && availableEnergy(player) < gcost.energy) continue;
+            if (gcost.power > 0 && !canPayActivationResources(player, gcost.energy, gcost)) continue;
             if (gcost.xp_cost > 0 && state_.player(player).xp < gcost.xp_cost) continue;
             Intent activate;
             activate.type = IntentType::ActivateAbility;
@@ -4085,6 +4137,7 @@ void GameEngine::recalculateAuras() {
         ps.spells_cant_be_countered = false;     // Mel, Newly Awakened
         ps.extra_minus_might = 0;
         ps.locked_spell_names.clear();           // Fallen Feline
+        ps.first_gear_ability_discount = 0;      // Piltovan Forge
     }
     // Per-BF aura-derived flags (Mageseeker Investigator / Noxus Saboteur /
     // Altar of Blood). Reset here; re-asserted by unit/BF applyPassiveAura.
@@ -5240,11 +5293,32 @@ void GameEngine::maybePayOptionalAdditionalCost(PlayerId player, GameObjectId ca
 // (Helm of Suppression's "[A] more", Applied Researchers' "[A] less", Astral
 // Heron's "[A][A] less"). Shared by canAfford and beginCostPayment so the two
 // always agree.
+// Extra POWER OF ANY DOMAIN ([A]) owed on top of a card's own cost: "cost [A]
+// more" effects, which are not tied to the card's domains (Helm of
+// Suppression taxes the opponent's spells; Mystic Vortex taxes [Reaction]
+// cards during a showdown at its battlefield). Paid after the base cost.
+static int extraAnyPowerCost(const GameState& state, PlayerId player, const GameObject& card) {
+    int extra = 0;
+    if (card.isSpell()) extra += state.player(player).spell_tax_power;
+    // "(Hidden cards have [Reaction].)" — and [Ambush] is Reaction while played.
+    const bool has_reaction = card.keywords.has(Keyword::Reaction) || card.is_hidden ||
+                              card.keywords.has(Keyword::Ambush);
+    if (has_reaction) {
+        int tax = 0;
+        for (const auto& bf : state.battlefields)
+            if ((bf.showdown_in_progress || bf.combat_in_progress) && bf.reaction_tax_power > tax)
+                tax = bf.reaction_tax_power;
+        extra += tax;
+    }
+    return std::max(0, extra);
+}
+
 static int powerCostDelta(const GameState& state, PlayerId player, const GameObject& card,
                           const Card* card_class) {
     const auto& ps = state.player(player);
     int delta = 0;
-    if (card.isSpell()) delta += ps.spell_tax_power - ps.spell_discount_power;
+    if (card.isSpell()) delta -= ps.spell_discount_power;
+    delta -= ps.transient_power_discount;
     for (const auto& mod : ps.cost_modifiers) {
         if (mod.power_reduction == 0 || mod.affects_enemy_only) continue;
         if (mod.next_spell_only && !card.isSpell()) continue;
@@ -5336,7 +5410,10 @@ bool GameEngine::canAfford(PlayerId player, GameObjectId card_obj) const {
     energy_needed -= ps_const.transient_play_discount;
     energy_needed = std::max(min_cost, energy_needed);
     energy_needed = std::max(0, energy_needed);
+    // Effect-driven play that ignores part of the cost (EffectExecutor::playPayingCost).
+    if (ps_const.transient_ignore_energy) energy_needed = 0;
     power_needed = std::max(0, power_needed + powerCostDelta(state_, player, card, card_registry_.get(card.card_def_id)));
+    if (state_.player(player).transient_ignore_power) power_needed = 0;
 
     // Count available runes in base, partitioned by ready/exhausted
     // and matching/non-matching-domain. The CR cost-payment ordering
@@ -5394,7 +5471,15 @@ bool GameEngine::canAfford(PlayerId player, GameObjectId card_obj) const {
     // CR 164.2.b: a rune is recycled for Power whether it is ready or
     // exhausted, and a ready one can be exhausted for Energy first — so every
     // matching rune in base can pay Power, independently of the Energy check.
-    return matching_ready + matching_exhausted >= power_remaining;
+    if (matching_ready + matching_exhausted < power_remaining) return false;
+    // "[A] more" extras: any rune in base can be recycled for them, on top of
+    // the ones recycled for this card's own Power.
+    const int extra_any = extraAnyPowerCost(state_, player, card);
+    if (extra_any > 0) {
+        const int any_available = payableAnyPower(state_, player) - power_needed;
+        if (any_available < extra_any) return false;
+    }
+    return true;
 }
 
 // C-1 commit 8 — payCardCost split into a cursor-based state machine.
@@ -5499,10 +5584,10 @@ GameEngine::CostPaymentAdvance GameEngine::beginCostPayment(
             if (obj.controller != player) continue;
             if (obj.card_def_id != 352) continue;  // Rek'Sai, Breacher
             if (!obj.location.has_value()) continue;
-            // Auto-Accelerate: pay 1 extra energy at play, enter ready.
-            // We mark via card_counters so resolvePermanent reads it.
+            // The unit HAS [Accelerate] for this play: mark it so
+            // resolvePermanent offers the usual optional [1][C] (CR 805.1.b —
+            // Accelerate is a "may pay", never a mandatory surcharge).
             card.card_counters["__rek_sai_accel"] = 1;
-            energy_needed += 1;  // Accelerate's mandatory +[1]
             break;
         }
     }
@@ -5518,7 +5603,9 @@ GameEngine::CostPaymentAdvance GameEngine::beginCostPayment(
     energy_needed -= ps.transient_play_discount;
     energy_needed = std::max(min_cost, energy_needed);
     energy_needed = std::max(0, energy_needed);
+    if (ps.transient_ignore_energy) energy_needed = 0;
     power_needed = std::max(0, power_needed + powerCostDelta(state_, player, card, card_registry_.get(card.card_def_id)));
+    if (state_.player(player).transient_ignore_power) power_needed = 0;
 
     // Consume one-shot modifiers that applied
     ps.cost_modifiers.erase(
@@ -5846,6 +5933,8 @@ bool GameEngine::payCardCost(PlayerId player, GameObjectId card_obj) {
     // a loop. Same shape as the other commit-7 bridges
     // (runShowdownLoop, combatDamageStep). Step-machine dispatch
     // (commit 9) will use begin/advance/resolve directly.
+    const int extra_any = state_.objectExists(card_obj)
+        ? extraAnyPowerCost(state_, player, state_.getObject(card_obj)) : 0;
     auto adv = beginCostPayment(player, card_obj);
     while (adv.kind == CostPaymentAdvance::Kind::NeedDecision) {
         // Always emit the decision snapshot (forced-choice visibility
@@ -5874,6 +5963,7 @@ bool GameEngine::payCardCost(PlayerId player, GameObjectId card_obj) {
         if (on_decision) on_decision(state_, adv.legal, chosen);
         adv = resolveCostPaymentDecision(chosen);
     }
+    if (extra_any > 0) effect_executor_->payAnyPower(player, extra_any);
     return true;
 }
 

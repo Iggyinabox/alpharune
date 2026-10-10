@@ -17,11 +17,10 @@ public:
     const CardDef& def() const override { return def_; }
     // "Each spell that chooses one or more units here that are friendly to it
     // costs [A] less."
-    // ENGINE-GAP: the discount is published on the battlefield, but the spell
-    // cost path does not read BattlefieldState::friendly_spell_discount_power.
-    // Needs: when a spell's chosen targets include a unit here controlled by
-    // the spell's controller, reduce its power cost by this amount (same
-    // staging point as Irelia's transient_play_discount in executePlaySpell).
+    // The engine applies the published discount when the spell is played
+    // with a friendly unit here among its targets.
+    // ENGINE-GAP: spells that choose their targets as they resolve are not
+    // known at payment time, so they do not get the discount.
     void applyPassiveAura(GameState& state, PlayerId /*controller*/) const override {
         for (auto& bf : state.battlefields) {
             if (!state.objectExists(bf.card_object_id)) continue;

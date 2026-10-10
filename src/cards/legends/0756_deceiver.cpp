@@ -1,4 +1,5 @@
 #include "cards/card.h"
+#include "cards/card_helpers.h"
 #include "cards/card_registry.h"
 #include "core/game_state.h"
 #include "core/events.h"
@@ -16,17 +17,18 @@ public:
     const CardDef& def() const override { return def_; }
     TriggerType triggerType() const override { return TriggerType::WhenIConquerOrHold; }
 
-    // Find a battlefield the controller is "at" / controls — best guess for
-    // "there". Prefer one the controller controls; fall back to any BF with
-    // friendly units.
+    // ENGINE-GAP: "there" is the battlefield that was conquered or held, but a
+    // legend's WhenIConquerOrHold trigger is fired without it
+    // (TriggerManager::fireLegendTrigger passes no subject / battlefield). This
+    // takes the first battlefield the controller controls, else the first with
+    // a friendly unit. Needed: the scored BattlefieldId on the chain item
+    // (e.g. ChainItem::triggering_battlefield set from ScoreEvent).
     static std::optional<BattlefieldId> scoredBattlefield(GameState& state,
                                                            PlayerId controller) {
-        // Controlled battlefield first.
         for (auto& bf : state.battlefields) {
             if (bf.controller.has_value() && *bf.controller == controller)
                 return bf.id;
         }
-        // Otherwise any BF with a friendly unit.
         for (auto& bf : state.battlefields) {
             for (auto& [id, obj] : state.objects) {
                 if (!obj.isUnit() || obj.controller != controller) continue;
@@ -36,18 +38,31 @@ public:
         return std::nullopt;
     }
 
+    // Resume points: 0-2 confirmOptional ("you may"), kAwaitDiscard the card
+    // to discard, kCopy.. the token exists and pickTarget (6-8) chooses what
+    // it copies. resume_data[3] = the token, [4] = its battlefield + 1 (0 =
+    // none); [2] belongs to pickTarget.
+    static constexpr int kAwaitDiscard = 3;
+    static constexpr int kCopy = 5;
+    static constexpr int kFinished = 30;
+
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>&) override {
-        auto& ri = ctx.state.chain.resuming.value();
-        switch (ri.resume_point) {
-        case 0: {
-            if (!ctx.state.objectExists(ctx.source)) return;
-            auto& legend = ctx.state.getObject(ctx.source);
-            if (legend.is_exhausted) return;          // can't pay the exhaust cost
-            auto& ps = ctx.state.player(ctx.controller);
-            if (ps.hand.empty()) return;              // can't pay the discard cost
-            // Cost paid: exhaust the legend.
-            legend.is_exhausted = true;
-            // Publish the discard choice (which card of hand to discard).
+        if (!ctx.state.chain.resuming.has_value()) return;
+        auto& ri = *ctx.state.chain.resuming;
+        if (ri.resume_point == kFinished) return;
+        if (!ctx.state.objectExists(ctx.source)) return;
+        auto& ps = ctx.state.player(ctx.controller);
+        // Both halves of the cost must be payable: discard 1 and exhaust me.
+        auto can_pay = [&]() {
+            return ctx.state.objectExists(ctx.source) &&
+                   !ctx.state.getObject(ctx.source).is_exhausted && !ps.hand.empty();
+        };
+
+        if (ri.resume_point <= 2) {
+            // "you may discard 1 and exhaust me": optional (CR 383.3.a).
+            const int go = confirmOptional(
+                ctx, "Deceiver: discard 1 and exhaust me to play a Reflection", can_pay);
+            if (go != 1) return;            // waiting, declined, or can't pay
             std::vector<Intent> choices;
             for (auto card_id : ps.hand) {
                 Intent c;
@@ -58,56 +73,74 @@ public:
             }
             ctx.executor.requestChoice(ctx.controller, std::move(choices),
                                        "discard 1 (Deceiver)");
-            ri.resume_point = 1;
+            ri.resume_point = kAwaitDiscard;
             return;
         }
-        case 1: {
-            auto choice = ctx.executor.takeChoice();
-            if (choice && !choice->chosen_objects.empty()) {
-                ctx.executor.applyDiscard(ctx.controller, choice->chosen_objects[0]);
-            }
 
-            // Determine "there" — the scored battlefield.
+        if (ri.resume_point == kAwaitDiscard) {
+            auto choice = ctx.executor.takeChoice();
+            if (!can_pay()) { ri.resume_point = kFinished; return; }
+            GameObjectId discard = ps.hand.front();
+            if (choice && !choice->chosen_objects.empty() &&
+                std::find(ps.hand.begin(), ps.hand.end(), choice->chosen_objects[0]) !=
+                    ps.hand.end())
+                discard = choice->chosen_objects[0];
+            // Pay the cost: exhaust me, discard the chosen card.
+            ctx.executor.exhaustObject(ctx.source);
+            ctx.executor.applyDiscard(ctx.controller, discard);
+
             auto bf = scoredBattlefield(ctx.state, ctx.controller);
             LocationId loc = bf.has_value()
                 ? LocationId{BattlefieldLocation{*bf}}
                 : LocationId{BaseLocation{ctx.controller}};
-
-            // Create a ready Reflection unit token there. [Temporary] up front.
+            // CR 187.6: a 0 [M] Reflection token; played ready, "there".
             KeywordSet kw;
             kw.set(Keyword::Temporary);
             GameObjectId token = ctx.executor.createToken(
                 ctx.controller, CardType::Unit, "Reflection", 0, {}, kw, loc,
                 /*enter_ready=*/true);
             ctx.events.logTrace("DECEIVER: created ready Reflection token there");
+            while (ri.resume_data.size() < 5) ri.resume_data.push_back(0);
+            ri.resume_data[3] = static_cast<int32_t>(token);
+            ri.resume_data[4] = bf.has_value() ? static_cast<int32_t>(*bf) + 1 : 0;
+            ri.resume_point = kCopy;
+        }
 
-            // "It becomes a copy of another unit there." Pick the highest-
-            // might OTHER unit at the same location (any controller).
-            if (bf.has_value()) {
-                GameObjectId best = kInvalidId;
-                int best_might = -1;
-                for (auto& [id, obj] : ctx.state.objects) {
-                    if (id == token) continue;
-                    if (!obj.isUnit()) continue;
-                    if (obj.battlefieldId() != *bf) continue;
-                    if (obj.current_might > best_might) {
-                        best_might = obj.current_might;
-                        best = id;
-                    }
-                }
-                if (best != kInvalidId) {
-                    ctx.executor.copyUnit(token, best);
-                    // copyUnit overwrites keywords from the copied def, so
-                    // re-grant [Temporary] afterwards (CR: the token keeps it).
-                    if (ctx.state.objectExists(token)) {
-                        ctx.state.getObject(token).keywords.set(Keyword::Temporary);
-                    }
-                    ctx.events.logTrace("DECEIVER: token copied a unit there, kept [Temporary]");
-                }
-            }
+        // "Then do this: It becomes a copy of another unit there." Which unit
+        // is the controller's choice (any controller's unit; units that can't
+        // be chosen by enemy spells and abilities are not offered).
+        if (ri.resume_data.size() < 5 || ri.resume_data[4] == 0) {
+            ri.resume_point = kFinished;
             return;
         }
+        const auto token = static_cast<GameObjectId>(ri.resume_data[3]);
+        const auto bf = static_cast<BattlefieldId>(ri.resume_data[4] - 1);
+        if (!ctx.state.objectExists(token) ||
+            !ctx.state.getObject(token).location.has_value()) {
+            ri.resume_point = kFinished;
+            return;
         }
+        auto models = chooseableUnits(ctx.state, ctx.controller, [&](const GameObject& o) {
+            return o.id != token && o.battlefieldId() == bf;
+        });
+        std::sort(models.begin(), models.end());
+        const bool first_ask = ri.resume_point < 6;
+        GameObjectId model = pickTarget(ctx, "Deceiver: copy which unit there?", models);
+        if (model == kInvalidId) {
+            // Either suspended for the agent (resume_point 7) or, when asked
+            // for the first time, there was nobody to copy.
+            if (first_ask && ri.resume_point != 7) ri.resume_point = kFinished;
+            return;
+        }
+        if (ctx.state.objectExists(model)) {
+            ctx.executor.copyUnit(token, model);
+            // "Give it [Temporary]." copyUnit overwrites keywords with the
+            // copied ones, so it is (re)granted afterwards.
+            if (ctx.state.objectExists(token))
+                ctx.state.getObject(token).keywords.set(Keyword::Temporary);
+            ctx.events.logTrace("DECEIVER: token copied a unit there, kept [Temporary]");
+        }
+        ri.resume_point = kFinished;
     }
 private:
     const CardDef def_ = [] {

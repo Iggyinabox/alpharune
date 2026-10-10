@@ -18,11 +18,14 @@ public:
     // "Choose a friendly unit that's in combat with an enemy Fury ([R]) unit or
     //  that's being chosen by an enemy Fury spell. Give it +4 [M] this turn."
     //
-    // ENGINE-GAP: "being chosen by an enemy Fury spell" reads ChainItem::targets.
-    // Spells that defer their choice to resolution (needsPlayTimeTarget /
-    // needsPlayTimeTargetPair + pickTarget) sit on the chain with EMPTY targets,
-    // so they are not seen here. The chain item needs to carry its declared
-    // targets (chosen at play time, CR 355) for this half to be complete.
+    // "Being chosen by an enemy Fury spell" reads ChainItem::chosen_objects —
+    // everything the item chose, at play time or (for spells that pick at
+    // resolution) so far while resolving — plus the spell currently resolving
+    // (ChainState::resuming), which has left chain.items.
+    // ENGINE-GAP: a spell that picks at resolution (needsPlayTimeTarget +
+    // pickTarget) has chosen nothing while it waits on the chain, so this
+    // [Reaction] cannot answer it in the window CR 355 gives (choices are made
+    // as the spell is played). Needed: those spells' choices made at play time.
     static bool hasDomain(const GameObject& obj, Domain d) {
         return std::find(obj.domains.begin(), obj.domains.end(), d) != obj.domains.end();
     }
@@ -35,14 +38,18 @@ public:
                 if (hasDomain(e, Domain::Fury)) return true;
             }
         }
-        for (const auto& item : state.chain.items) {
-            if (!item.is_spell || item.controller == controller) continue;
-            if (!state.objectExists(item.source)) continue;
-            if (!hasDomain(state.getObject(item.source), Domain::Fury)) continue;
-            if (std::find(item.targets.begin(), item.targets.end(), unit.id) != item.targets.end())
-                return true;
-        }
-        return false;
+        auto chooses = [&](const ChainItem& item) {
+            if (!item.is_spell || item.controller == controller) return false;
+            if (!state.objectExists(item.source)) return false;
+            if (!hasDomain(state.getObject(item.source), Domain::Fury)) return false;
+            return std::find(item.chosen_objects.begin(), item.chosen_objects.end(), unit.id)
+                       != item.chosen_objects.end() ||
+                   std::find(item.targets.begin(), item.targets.end(), unit.id)
+                       != item.targets.end();
+        };
+        for (const auto& item : state.chain.items)
+            if (chooses(item)) return true;
+        return state.chain.resuming.has_value() && chooses(*state.chain.resuming);
     }
     TargetRequirements getTargetRequirements() const override {
         return TargetRequirements{.count = 1, .must_be_unit = true, .must_be_friendly = true};

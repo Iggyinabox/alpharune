@@ -17,11 +17,8 @@ public:
     const CardDef& def() const override { return def_; }
     // ── behaviour (Vendetta batch C) ──
     // "I cost [2][Y] less if you control a battlefield with exactly two units
-    //  there." The [2] Energy part is applied here.
-    // ENGINE-GAP: the [Y] (Power) part is not applied — Card::selfCostReduction
-    // only reduces Energy. Needed: a Card::selfPowerCostReduction(state,
-    // player) hook consulted by GameEngine::canAfford / payCardCost next to
-    // selfCostReduction, subtracting from power_needed.
+    //  there." [2] off the Energy cost (selfCostReduction) and [Y] off the
+    //  Power cost (selfPowerCostReduction); the engine clamps both at 0.
     static bool conditionMet(const GameState& state, PlayerId player) {
         for (const auto& bf : state.battlefields) {
             if (!bf.controller.has_value() || *bf.controller != player) continue;
@@ -37,6 +34,9 @@ public:
     }
     int selfCostReduction(const GameState& state, PlayerId player) const override {
         return conditionMet(state, player) ? 2 : 0;
+    }
+    int selfPowerCostReduction(const GameState& state, PlayerId player) const override {
+        return conditionMet(state, player) ? 1 : 0;
     }
 private:
     const CardDef def_ = [] {

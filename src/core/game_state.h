@@ -120,6 +120,12 @@ struct PlayerState {
     int next_spell_bonus_damage = 0;           // Ravenborn Tome: "the next spell you play this turn deals N Bonus Damage" (consumed when that spell deals damage)
     bool grant_repeat_base_to_next_spell = false; // The Academy (772): next spell gets [Repeat] at tranche cost = its base energy
     int zilean_double_token_turn = -1;         // Zilean, Time Mage (648): turn on which the once/turn token-doubling was used
+    // Staged around an effect-driven play that ignores part of a card's cost
+    // ("ignoring its Energy cost" — you still pay its Power). Read by
+    // canAfford / beginCostPayment; always cleared by the caller.
+    int transient_power_discount = 0;   // staged power discount for the card being played (Sandswept Tomb)
+    bool transient_ignore_energy = false;
+    bool transient_ignore_power = false;
     int transient_play_discount = 0;           // Irelia, Graceful (462): energy discount staged just before paying a specific spell (set+consumed in executePlaySpell)
     // Phase 6q+ engine-audit follow-on: reset last_spell_energy_spent
     // at turn start. Pre-fix, a Virtuoso/Forgotten Library trigger that
@@ -236,6 +242,7 @@ struct PlayerState {
     bool spells_cant_be_countered = false;  // Mel, Newly Awakened
     int extra_minus_might = 0;            // Mel, Newly Awakened: your -[M] effects give extra
     std::vector<std::string> locked_spell_names;  // Fallen Feline: this player can't play these
+    int first_gear_ability_discount = 0;  // Piltovan Forge: first friendly gear ability each turn costs [N] less
 
     void resetTurnTracking() {
         cards_burned_this_turn = 0;

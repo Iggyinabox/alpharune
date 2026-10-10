@@ -15,12 +15,67 @@ class ReckonerSArena : public BattlefieldCard {
 public:
     const CardDef& def() const override { return def_; }
     // "When you hold here, activate the conquer effects of units here."
-    // Wired via CardContext::registry (set by the resolution path): on hold, find
-    // this BF, then re-dispatch each holder-controlled unit's WhenIConquer
-    // onTrigger here. NOTE: this is a direct single-pass dispatch (not a chained
-    // re-fire), so resumable conquer effects (confirmOptional/pickTarget) are
-    // approximated; simple conquer effects re-run faithfully.
+    //
+    // CR 383.4.g: to "activate" a named triggered ability the player checks its
+    // condition as if the named part had been fulfilled, and if it holds the
+    // ability "is placed on the chain as if it had just triggered"
+    // (383.4.g.1); no conquer actually occurs (383.4.g.2), so nothing that
+    // watches for a real conquer fires (Red Brambleback's "trigger an
+    // additional time", ScoreEvent listeners).
+    //
+    // So each unit's conquer ability becomes its OWN chain item — with its own
+    // resume slots for "you may" / target choices, open to responses — exactly
+    // the item TriggerManager::fireTrigger would add for a real conquer
+    // (ChainManager::addAbility + fired_trigger). The non-conquer parts of each
+    // condition ("[Empowered][>]", "if you've played ...") are checked by the
+    // unit's own onTrigger when its item resolves, as they are for a real one.
+    //
+    // ENGINE-GAP: a card has no API to put a triggered ability on the chain
+    // (EffectExecutor has no chain access), so this writes the ChainItem
+    // itself, mirroring ChainManager::addAbility. Needed: e.g.
+    // `EffectExecutor::queueTriggeredAbility(source, controller, TriggerType)`
+    // forwarding to TriggerManager::fireTrigger; this body then becomes one
+    // call per unit.
+    // Conquer effects an Equipment gives its unit ("When I conquer, ..." in the
+    // gear's effect text) are run inline through Card::onEquippedTrigger, which
+    // is how TriggerManager::fireEquippedTriggers runs them for a real conquer.
     TriggerType triggerType() const override { return TriggerType::WhenYouHoldHere; }
+
+    static bool isConquerTrigger(TriggerType t) {
+        return t == TriggerType::WhenIConquer || t == TriggerType::WhenIConquerOrHold;
+    }
+    // LeBlanc, Everywhere at Once: "your [Temporary] effects at my battlefield
+    // don't trigger" — the same gate TriggerManager::fireTrigger applies.
+    static bool suppressed(CardContext& ctx, GameObjectId uid, BattlefieldId bf) {
+        const auto& unit = ctx.state.getObject(uid);
+        if (!unit.hasKeyword(Keyword::Temporary)) return false;
+        for (const auto& [oid, other] : ctx.state.objects) {
+            if (oid == uid || other.controller != unit.controller) continue;
+            auto obf = other.battlefieldId();
+            if (!obf || *obf != bf) continue;
+            const Card* oc = ctx.registry->get(other.card_def_id);
+            if (oc && oc->suppressesTemporaryTriggersHere()) return true;
+        }
+        return false;
+    }
+    static void queueConquerAbility(CardContext& ctx, GameObjectId uid, TriggerType fired) {
+        auto& chain = ctx.state.chain;
+        const bool was_empty = !chain.exists();
+        const auto& unit = ctx.state.getObject(uid);
+        ChainItem item;
+        item.id = chain.allocateId();
+        item.status = ChainItemStatus::Pending;
+        item.source = uid;
+        item.card_def_id = unit.card_def_id;
+        item.controller = unit.controller;
+        item.is_ability = true;
+        item.is_activated_ability = false;
+        item.fired_trigger = fired;
+        chain.items.push_back(item);
+        ctx.state.turn.oc_state = OpenClosedState::Closed;   // as addAbility does
+        if (was_empty) ctx.events.emit(ChainCreatedEvent{item.id, unit.controller});
+    }
+
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>&) override {
         if (!ctx.registry) return;
         // Which battlefield does this BF-card object represent?
@@ -28,31 +83,50 @@ public:
         for (const auto& b : ctx.state.battlefields)
             if (b.card_object_id == ctx.source) { my_bf = b.id; break; }
         if (!my_bf) return;
-        // Snapshot holder-controlled units here that have a conquer effect.
+        // Snapshot the holder's units here first: queuing and gear effects can
+        // touch the object map.
         std::vector<GameObjectId> units;
         for (auto& [id, obj] : ctx.state.objects) {
             if (!obj.isUnit() || obj.controller != ctx.controller) continue;
             auto ubf = obj.battlefieldId();
-            if (!ubf || *ubf != *my_bf) continue;
-            Card* uc = ctx.registry->get(obj.card_def_id);
-            if (uc && (uc->firesOn(TriggerType::WhenIConquer) ||
-                       uc->firesOn(TriggerType::WhenIConquerOrHold)))
-                units.push_back(id);
+            if (ubf && *ubf == *my_bf) units.push_back(id);
         }
+        std::sort(units.begin(), units.end());
+        int activated = 0;
         for (auto uid : units) {
             if (!ctx.state.objectExists(uid)) continue;
-            Card* uc = ctx.registry->get(ctx.state.getObject(uid).card_def_id);
-            if (!uc) continue;
-            // Dispatch with whichever conquer trigger the unit actually declares.
-            TriggerType ft = uc->firesOn(TriggerType::WhenIConquer)
-                ? TriggerType::WhenIConquer : TriggerType::WhenIConquerOrHold;
-            CardContext sub{ctx.state, ctx.events, ctx.executor,
-                            ctx.state.getObject(uid).controller, uid};
-            sub.firing_trigger = ft;
-            sub.registry = ctx.registry;
-            uc->onTrigger(sub, {});
+            {
+                const auto& unit = ctx.state.getObject(uid);
+                if (!unit.battlefieldId() || *unit.battlefieldId() != *my_bf) continue;
+            }
+            // The unit's own conquer abilities, one chain item each.
+            const CardDefId def_id = ctx.state.getObject(uid).card_def_id;
+            if (Card* uc = (def_id != kInvalidId ? ctx.registry->get(def_id) : nullptr)) {
+                if (!suppressed(ctx, uid, *my_bf)) {
+                    for (auto t : uc->triggerTypes()) {
+                        if (!isConquerTrigger(t)) continue;
+                        queueConquerAbility(ctx, uid, t);
+                        ++activated;
+                    }
+                }
+            }
+            // Conquer effects granted by attached Equipment.
+            const auto attached = ctx.state.getObject(uid).attachments;   // copy
+            for (auto gid : attached) {
+                if (!ctx.state.objectExists(gid) || !ctx.state.objectExists(uid)) continue;
+                const auto& gear = ctx.state.getObject(gid);
+                if (gear.card_def_id == kInvalidId) continue;
+                Card* gc = ctx.registry->get(gear.card_def_id);
+                if (!gc || !isConquerTrigger(gc->equippedTriggerType())) continue;
+                CardContext sub{ctx.state, ctx.events, ctx.executor, ctx.controller, gid};
+                sub.firing_trigger = gc->equippedTriggerType();
+                sub.registry = ctx.registry;
+                gc->onEquippedTrigger(sub, uid, {});
+                ++activated;
+            }
         }
-        ctx.events.logTrace("RECKONER'S ARENA: re-activated conquer effects of units here");
+        ctx.events.logTrace("RECKONER'S ARENA: activated " + std::to_string(activated) +
+                            " conquer effect(s) of units here");
     }
 private:
     const CardDef def_ = [] {
