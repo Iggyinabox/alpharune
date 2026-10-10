@@ -159,7 +159,9 @@ enum : int {
     UntargetableByOpp, ImmuneToDamage,
     MovesThisTurn,
     // Knowledge tags (KnowledgeView). Zero for cards in public zones.
-    KnownInHand, KnownInDeck, KnownDeckTop, KnownDeckBottom, DeckRank,
+    KnownInHand, KnownInDeck, KnownDeckTop, KnownDeckBottom,
+    DeckRank,                             // nearest slot it can be in
+    DeckRankSpan,                         // slots it may occupy; 1 = exact place
     ZoneUnconfirmed,
     // OwnDeck tokens only: copies of this card at an unknown place in the deck.
     Copies,

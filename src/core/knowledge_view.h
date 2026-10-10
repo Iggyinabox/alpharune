@@ -6,7 +6,9 @@
 /// nothing else. Its own hand, the composition of its own deck (never the
 /// order), every public zone, and any card it was shown by an effect. A card
 /// it has seen is remembered as it moves: "somewhere in the deck" after a
-/// shuffle, "at the bottom, in order" after a recycle.
+/// shuffle, "at the bottom" after a recycle. One card recycled alone has an
+/// exact place; cards recycled together land in a random order (CR 417.5),
+/// so each is known only to be among the slots the group occupies.
 ///
 /// This header is types only. The tracker that implements it lives behind
 /// `GameState` (engine/knowledge_tracker.*); the observation extractor and
@@ -23,8 +25,8 @@ namespace riftbound {
 /// Where in a deck the observer knows a card to be.
 enum class DeckPosition : uint8_t {
     Unknown,   // somewhere in the deck
-    Top,       // `rank` cards from the top (0 = the next card drawn)
-    Bottom,    // `rank` cards from the bottom (0 = the last card)
+    Top,       // counted from the top (rank 0 = the next card drawn)
+    Bottom,    // counted from the bottom (rank 0 = the last card)
 };
 
 /// Everything one observer knows about one game object.
@@ -53,7 +55,13 @@ struct CardKnowledge {
     /// Meaningful only when `last_known_zone` is a deck. Any shuffle of that
     /// deck resets it to Unknown.
     DeckPosition deck_position = DeckPosition::Unknown;
+    /// The card is in one of the `deck_rank_span` consecutive slots starting
+    /// `deck_rank` from that end. A span of 1 is an exact place; a larger span
+    /// is a group whose internal order the observer does not know (cards
+    /// recycled together, the cards set aside in a mulligan). Later cards put
+    /// on the same end push `deck_rank` up.
     int deck_rank = 0;
+    int deck_rank_span = 1;
 };
 
 /// Read-only view of one player's knowledge. All answers are from the point
@@ -85,7 +93,9 @@ public:
     virtual std::vector<std::pair<CardDefId, int>> ownDeckComposition() const = 0;
 
     /// Cards the observer knows to be at the top / bottom of `owner`'s Main
-    /// Deck, nearest the end first, stopping at the first unknown card.
+    /// Deck, nearest the end first, stopping at the first slot that could
+    /// hold an unknown card. Members of one unordered group are adjacent and
+    /// sorted by card id, never in their true order.
     virtual std::vector<CardKnowledge> knownDeckTop(PlayerId owner) const = 0;
     virtual std::vector<CardKnowledge> knownDeckBottom(PlayerId owner) const = 0;
 };
