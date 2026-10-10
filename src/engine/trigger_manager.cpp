@@ -1137,6 +1137,25 @@ void TriggerManager::onObjectStateChanged(const ObjectStateChangedEvent& e) {
         if (dobj.card_def_id != kInvalidId &&
             cardFiresOn(card_registry_, dobj.card_def_id, TriggerType::WhenIAmDiscarded))
             fireTrigger(e.object, dobj.owner, 0, TriggerType::WhenIAmDiscarded);
+
+        // "When you discard one or more cards," (Jinx, Rebel) on the discarding
+        // player's cards. One discard of several cards announces each card, so
+        // a source whose ability from this discard is still waiting to be
+        // finalized does not trigger again.
+        const PlayerId discarder = dobj.owner;
+        std::vector<GameObjectId> watchers;
+        for (auto& [id, obj] : state_.objects) {
+            if (obj.controller != discarder || obj.card_def_id == kInvalidId) continue;
+            if (!obj.location.has_value() && obj.zone != ZoneType::LegendZone) continue;
+            if (!cardFiresOn(card_registry_, obj.card_def_id, TriggerType::WhenYouDiscard)) continue;
+            bool pending = false;
+            for (const auto& ci : state_.chain.items)
+                if (ci.source == id && ci.status == ChainItemStatus::Pending &&
+                    ci.fired_trigger == TriggerType::WhenYouDiscard) pending = true;
+            if (!pending) watchers.push_back(id);
+        }
+        for (auto wid : watchers)
+            fireTrigger(wid, discarder, 0, TriggerType::WhenYouDiscard, /*subject=*/e.object);
         return;
     }
 

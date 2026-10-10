@@ -1426,5 +1426,48 @@ TEST_F(GearOnDeathTest, EquipmentGrantedDeathknellFiresOnACombatDeath) {
     EXPECT_FALSE(s().getObject(shears).attached_to.has_value());
 }
 
+// ─── Discard triggers ───────────────────────────────────────────────────────
+TEST_F(RulesComplianceTest, DiscardingTriggersWhenYouDiscardOncePerDiscard) {
+    constexpr CardDefId kJinxRebel = 202;   // "When you discard one or more cards, ready me ..."
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    auto jinx = engineUnit(P1, 3, -1, kJinxRebel);
+    engineUnit(P2, 3, -1, kJinxRebel);          // the opponent's doesn't see it
+    std::vector<GameObjectId> cards;
+    for (int i = 0; i < 2; ++i) {
+        auto c = s().createObject();
+        auto& o = s().getObject(c);
+        o.owner = o.controller = P1;
+        o.card_type = CardType::Spell;
+        o.zone = ZoneType::Hand;
+        s().player(P1).hand.push_back(c);
+        cards.push_back(c);
+    }
+    engine_->testHook_executor().applyDiscard(P1, cards[0]);
+    engine_->testHook_executor().applyDiscard(P1, cards[1]);
+    ASSERT_EQ(s().chain.items.size(), 1u) << "one or more cards: one ability";
+    EXPECT_EQ(s().chain.items.back().source, jinx);
+}
+
+TEST_F(RulesComplianceTest, FlameChompersTriggersWhenItIsDiscarded) {
+    constexpr CardDefId kFlameChompers = 6;   // "When you discard me, you may pay [R] to play me."
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    auto c = s().createObject();
+    {
+        auto& o = s().getObject(c);
+        o.owner = o.controller = P1;
+        o.card_type = CardType::Unit;
+        o.card_def_id = kFlameChompers;
+        o.name = "Flame Chompers";
+        o.zone = ZoneType::Hand;
+        s().player(P1).hand.push_back(c);
+    }
+    engine_->testHook_executor().applyDiscard(P1, c);
+    ASSERT_EQ(s().chain.items.size(), 1u);
+    EXPECT_EQ(s().chain.items.back().source, c);
+    EXPECT_EQ(s().chain.items.back().fired_trigger, TriggerType::WhenIAmDiscarded);
+}
+
 }  // namespace
 }  // namespace riftbound::test

@@ -19,7 +19,7 @@ CH `src/cards/card_helpers.h`.
 ## Status after the fix batches (2026-10-10, branch `vendetta-rules-update`)
 
 The table further down is the ORIGINAL audit. This is where each item stands
-now. "Fixed" means implemented with tests that run in the suite (1487 passing)
+now. "Fixed" means implemented with tests that run in the suite (1489 passing)
 and exercised by random-game smoke runs.
 
 | # | Item | Now |
@@ -82,6 +82,11 @@ through the detach hook on both kill paths (effect kills skipped the hook);
 Equipment-granted Deathknell (Sacred Shears) is dispatched from the gear the
 unit had as it died — it never fired before; an effect kill counts as "a unit
 died this turn".
+
+Batch 13: discard triggers. "When you discard one or more cards" (Jinx,
+Rebel) had no dispatcher, and Flame Chompers listened for the wrong event;
+neither card ever triggered. A static check now passes: every trigger type a
+card declares is referenced by the dispatcher.
 
 Still open at card level (`grep -rn ENGINE-GAP src/cards`): an alternative
 Empower cost (Legion Marauder), free-form "name a card" (Fallen Feline), a
