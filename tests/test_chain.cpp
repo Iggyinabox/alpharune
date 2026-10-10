@@ -1113,3 +1113,48 @@ TEST_F(ChainTestFixture, AmbushUnitPlayedAsReactionIsAPermanent) {
     ASSERT_TRUE(obj.location.has_value());
     EXPECT_EQ(*obj.location, LocationId{BattlefieldLocation{0}});
 }
+
+// ── [Reaction] abilities can be used while the chain is open ─────────────────
+// (CR 164.2 rune abilities, Gold, legend reactions). The priority loop must
+// hand the activation to the engine rather than silently dropping it.
+TEST_F(ChainTestFixture, ReactionAbilityActivatedInResponseIsQueued) {
+    auto state = makeMinimalState();
+    state.turn.turn_player = PlayerId::Player1;
+    ChainManager cm(state, events, card_db);
+
+    auto target = addUnit(state, PlayerId::Player2, 5, 0);
+    auto spell1 = addSpellToHand(state, PlayerId::Player1, kHextechRayId);
+    state.player(PlayerId::Player1).hand.clear();
+    cm.addSpell(spell1, PlayerId::Player1, {target});
+
+    auto source = addUnit(state, PlayerId::Player2, 1);     // some ability source
+    int activations = 0;
+    cm.setActivateAbility([&](const Intent& i) {
+        ++activations;
+        cm.addAbility(i.ability_source, i.player, kInvalidId, {}, /*is_activated=*/true, 0);
+        return true;
+    });
+
+    bool used = false;
+    std::vector<GameObjectId> resolve_order;
+    cm.processFEPR(
+        [&](PlayerId player, const std::vector<Intent>&) -> Intent {
+            if (player == PlayerId::Player2 && !used) {
+                used = true;
+                Intent a;
+                a.type = IntentType::ActivateReactionAbility;
+                a.player = player;
+                a.ability_source = source;
+                return a;
+            }
+            return Intent::passPriority(player);
+        },
+        [](const ChainItem&) {},
+        [&](const ChainItem& item) { resolve_order.push_back(item.source); }
+    );
+
+    EXPECT_EQ(activations, 1) << "the activation must reach the engine";
+    ASSERT_EQ(resolve_order.size(), 2u);
+    EXPECT_EQ(resolve_order[0], source) << "the ability resolves first (LIFO)";
+    EXPECT_EQ(resolve_order[1], spell1);
+}

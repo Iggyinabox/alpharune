@@ -48,6 +48,8 @@ void GameEngine::initSubsystems() {
             return queryAgentForChain(p, actions);
         });
     chain_manager_->setEffectExecutor(effect_executor_.get());
+    chain_manager_->setActivateAbility(
+        [this](const Intent& i) { return payAndQueueAbility(i); });
     trigger_manager_ = std::make_unique<TriggerManager>(
         state_, events_, card_db_, *chain_manager_, card_registry_);
     trigger_manager_->setEffectExecutor(effect_executor_.get());
@@ -1139,6 +1141,136 @@ void GameEngine::doExpirationBody() {
 // Action execution
 // ═══════════════════════════════════════════════════════════════════════════════
 
+// Pay an activated ability's costs and put it on the chain. Returns true if a
+// chain item was added (the caller then runs or resumes the chain); false if
+// the activation completed without one (Equip) or was not possible.
+bool GameEngine::payAndQueueAbility(const Intent& intent) {
+    auto& source = state_.getObject(intent.ability_source);
+    // Skip card-def lookup for tokens (no CardDef). The rest of this
+    // handler reads from `source` directly; the previous `def` binding
+    // was dead and threw std::out_of_range when source was a token.
+    if (source.card_def_id == kInvalidId) return false;
+
+    // Equip: card handles its own cost payment and attachment.
+    // Phase 6r — gears with needsEquipTimeTarget=true get an
+    // empty-targets intent here; onEquip uses pickTarget to
+    // resolve. We pass kInvalidId as the unit id; the gear's
+    // onEquip override is responsible for the pick.
+    if (source.isGear() && !source.attached_to.has_value()) {
+        Card* gear_card = card_registry_.get(source.card_def_id);
+        if (gear_card && gear_card->hasEquipAbility()) {
+            bool has_target = !intent.targets.empty();
+            if (has_target || gear_card->needsEquipTimeTarget()) {
+                CardContext equip_ctx{state_, events_, *effect_executor_,
+                                     intent.player, intent.ability_source};
+                GameObjectId target = has_target ? intent.targets[0]
+                                                  : kInvalidId;
+                if (gear_card->onEquip(equip_ctx, target)) {
+                    cleanup();
+                }
+                return false;
+            }
+        }
+    }
+
+    // Activated ability: exhaust source, pay cost, add to chain
+
+    // Pay activation cost via Card object. Phase 6r — read the
+    // per-ability cost from activatedAbilities()[intent.ability_index]
+    // so multi-ability cards pay the right cost for the right
+    // ability variant. Single-ability cards have ability_index=0
+    // (default) and the wrapping default impl returns their legacy
+    // getActivationCost() as the only element.
+    Card* ability_card = card_registry_.get(source.card_def_id);
+    // Aura-granted ability: the COST descriptor comes from the granting
+    // card, but the cost is paid by the BEARER (source) below.
+    Card* cost_card = (intent.granted_ability_def != 0)
+        ? card_registry_.get(intent.granted_ability_def) : ability_card;
+    ActivationCost act_cost;
+    if (cost_card) {
+        auto abilities = cost_card->activatedAbilities();
+        int idx = intent.ability_index;
+        if (idx < 0 || idx >= static_cast<int>(abilities.size())) idx = 0;
+        if (!abilities.empty()) act_cost = abilities[idx].cost;
+        // State-aware energy reduction (Bashful Bloom, Risen Altar), clamped ≥ 0.
+        int red = cost_card->activationCostReductionFor(
+            state_, intent.player, intent.ability_source, idx);
+        if (red > 0) act_cost.energy = std::max(0, act_cost.energy - red);
+    }
+    if (act_cost.exhaust) {
+        source.is_exhausted = true;
+        events_.emit(ObjectStateChangedEvent{intent.ability_source, "exhausted"});
+    }
+    // "Disempower this," as a cost (Questionable Tome, Hextech Disc, ...).
+    if (act_cost.disempower_self)
+        effect_executor_->disempower(intent.ability_source);
+    // "Kill a friendly unit" as a cost: the chosen unit rides in targets.
+    if (act_cost.kill_friendly_unit && !intent.targets.empty() &&
+        state_.objectExists(intent.targets[0]))
+        killUnit(intent.targets[0]);
+    // Pay energy (+ power) cost. Abilities with a power component pay
+    // both through the shared resource path (floating pool, then runes).
+    if (act_cost.power > 0) {
+        payActivationResources(intent.player, act_cost.energy, act_cost);
+    } else if (act_cost.energy > 0) {
+        int needed = act_cost.energy;
+        auto base_loc = BaseLocation{intent.player};
+        for (auto& [id, obj] : state_.objects) {
+            if (needed <= 0) break;
+            if (!obj.isRune() || obj.controller != intent.player || obj.is_exhausted) continue;
+            if (!obj.location.has_value() || *obj.location != LocationId{base_loc}) continue;
+            obj.is_exhausted = true;
+            needed--;
+            events_.emit(ObjectStateChangedEvent{id, "exhausted"});
+        }
+    }
+    // Pay recycle-self cost [C]
+    if (act_cost.recycle_self) {
+        events_.logTrace("ACTIVATE_COST: recycle self " + source.name);
+        source.zone = ZoneType::MainDeck;
+        source.location = std::nullopt;
+        state_.player(intent.player).main_deck.insert(
+            state_.player(intent.player).main_deck.begin(), intent.ability_source);
+    }
+    // Pay discard cost
+    if (act_cost.discard && act_cost.discard_count > 0) {
+        events_.logTrace("ACTIVATE_COST: discard " + std::to_string(act_cost.discard_count));
+        if (act_cost.discard_type_filter == 0) {
+            effect_executor_->discardCards(intent.player, act_cost.discard_count);
+        } else {
+            // Typed discard ("Discard a spell" / "Discard a gear"): the
+            // first matching cards in hand.
+            std::vector<GameObjectId> picks;
+            for (auto hid : state_.player(intent.player).hand) {
+                if (static_cast<int>(picks.size()) >= act_cost.discard_count) break;
+                if (static_cast<int>(state_.getObject(hid).card_type) + 1 ==
+                        act_cost.discard_type_filter) picks.push_back(hid);
+            }
+            for (auto hid : picks) effect_executor_->applyDiscard(intent.player, hid);
+        }
+    }
+    // Pay XP cost
+    if (act_cost.xp_cost > 0) {
+        state_.player(intent.player).xp -= act_cost.xp_cost;
+        events_.logTrace("ACTIVATE_COST: spend " +
+                          std::to_string(act_cost.xp_cost) + " XP");
+    }
+
+    // Add ability to chain and resolve. is_activated=true so
+    // stepResolve dispatches through Card::onActivate (not
+    // onTrigger). Triggered abilities flow through TriggerManager
+    // which calls addAbility with the default is_activated=false.
+    chain_manager_->addAbility(intent.ability_source, intent.player,
+                                source.card_def_id, intent.targets,
+                                /*is_activated=*/true,
+                                intent.ability_index);
+    // Carry the granted-ability source onto the chain item so resolution
+    // dispatches to the granting card's onActivate (Forge/Gardens/Heimer).
+    if (intent.granted_ability_def != 0 && !state_.chain.items.empty())
+        state_.chain.items.back().granted_ability_def = intent.granted_ability_def;
+    return true;
+}
+
 void GameEngine::executeIntent(const Intent& intent) {
     events_.logTrace(std::string("INTENT: ") + toString(intent.type) + " by " + toString(intent.player));
 
@@ -1155,130 +1287,7 @@ void GameEngine::executeIntent(const Intent& intent) {
         }
         case IntentType::ActivateAbility:
         case IntentType::ActivateActionAbility: {
-            auto& source = state_.getObject(intent.ability_source);
-            // Skip card-def lookup for tokens (no CardDef). The rest of this
-            // handler reads from `source` directly; the previous `def` binding
-            // was dead and threw std::out_of_range when source was a token.
-            if (source.card_def_id == kInvalidId) break;
-
-            // Equip: card handles its own cost payment and attachment.
-            // Phase 6r — gears with needsEquipTimeTarget=true get an
-            // empty-targets intent here; onEquip uses pickTarget to
-            // resolve. We pass kInvalidId as the unit id; the gear's
-            // onEquip override is responsible for the pick.
-            if (source.isGear() && !source.attached_to.has_value()) {
-                Card* gear_card = card_registry_.get(source.card_def_id);
-                if (gear_card && gear_card->hasEquipAbility()) {
-                    bool has_target = !intent.targets.empty();
-                    if (has_target || gear_card->needsEquipTimeTarget()) {
-                        CardContext equip_ctx{state_, events_, *effect_executor_,
-                                             intent.player, intent.ability_source};
-                        GameObjectId target = has_target ? intent.targets[0]
-                                                          : kInvalidId;
-                        if (gear_card->onEquip(equip_ctx, target)) {
-                            cleanup();
-                        }
-                        break;
-                    }
-                }
-            }
-
-            // Activated ability: exhaust source, pay cost, add to chain
-
-            // Pay activation cost via Card object. Phase 6r — read the
-            // per-ability cost from activatedAbilities()[intent.ability_index]
-            // so multi-ability cards pay the right cost for the right
-            // ability variant. Single-ability cards have ability_index=0
-            // (default) and the wrapping default impl returns their legacy
-            // getActivationCost() as the only element.
-            Card* ability_card = card_registry_.get(source.card_def_id);
-            // Aura-granted ability: the COST descriptor comes from the granting
-            // card, but the cost is paid by the BEARER (source) below.
-            Card* cost_card = (intent.granted_ability_def != 0)
-                ? card_registry_.get(intent.granted_ability_def) : ability_card;
-            ActivationCost act_cost;
-            if (cost_card) {
-                auto abilities = cost_card->activatedAbilities();
-                int idx = intent.ability_index;
-                if (idx < 0 || idx >= static_cast<int>(abilities.size())) idx = 0;
-                if (!abilities.empty()) act_cost = abilities[idx].cost;
-                // State-aware energy reduction (Bashful Bloom, Risen Altar), clamped ≥ 0.
-                int red = cost_card->activationCostReductionFor(
-                    state_, intent.player, intent.ability_source, idx);
-                if (red > 0) act_cost.energy = std::max(0, act_cost.energy - red);
-            }
-            if (act_cost.exhaust) {
-                source.is_exhausted = true;
-                events_.emit(ObjectStateChangedEvent{intent.ability_source, "exhausted"});
-            }
-            // "Disempower this," as a cost (Questionable Tome, Hextech Disc, ...).
-            if (act_cost.disempower_self)
-                effect_executor_->disempower(intent.ability_source);
-            // "Kill a friendly unit" as a cost: the chosen unit rides in targets.
-            if (act_cost.kill_friendly_unit && !intent.targets.empty() &&
-                state_.objectExists(intent.targets[0]))
-                killUnit(intent.targets[0]);
-            // Pay energy (+ power) cost. Abilities with a power component pay
-            // both through the shared resource path (floating pool, then runes).
-            if (act_cost.power > 0) {
-                payActivationResources(intent.player, act_cost.energy, act_cost);
-            } else if (act_cost.energy > 0) {
-                int needed = act_cost.energy;
-                auto base_loc = BaseLocation{intent.player};
-                for (auto& [id, obj] : state_.objects) {
-                    if (needed <= 0) break;
-                    if (!obj.isRune() || obj.controller != intent.player || obj.is_exhausted) continue;
-                    if (!obj.location.has_value() || *obj.location != LocationId{base_loc}) continue;
-                    obj.is_exhausted = true;
-                    needed--;
-                    events_.emit(ObjectStateChangedEvent{id, "exhausted"});
-                }
-            }
-            // Pay recycle-self cost [C]
-            if (act_cost.recycle_self) {
-                events_.logTrace("ACTIVATE_COST: recycle self " + source.name);
-                source.zone = ZoneType::MainDeck;
-                source.location = std::nullopt;
-                state_.player(intent.player).main_deck.insert(
-                    state_.player(intent.player).main_deck.begin(), intent.ability_source);
-            }
-            // Pay discard cost
-            if (act_cost.discard && act_cost.discard_count > 0) {
-                events_.logTrace("ACTIVATE_COST: discard " + std::to_string(act_cost.discard_count));
-                if (act_cost.discard_type_filter == 0) {
-                    effect_executor_->discardCards(intent.player, act_cost.discard_count);
-                } else {
-                    // Typed discard ("Discard a spell" / "Discard a gear"): the
-                    // first matching cards in hand.
-                    std::vector<GameObjectId> picks;
-                    for (auto hid : state_.player(intent.player).hand) {
-                        if (static_cast<int>(picks.size()) >= act_cost.discard_count) break;
-                        if (static_cast<int>(state_.getObject(hid).card_type) + 1 ==
-                                act_cost.discard_type_filter) picks.push_back(hid);
-                    }
-                    for (auto hid : picks) effect_executor_->applyDiscard(intent.player, hid);
-                }
-            }
-            // Pay XP cost
-            if (act_cost.xp_cost > 0) {
-                state_.player(intent.player).xp -= act_cost.xp_cost;
-                events_.logTrace("ACTIVATE_COST: spend " +
-                                  std::to_string(act_cost.xp_cost) + " XP");
-            }
-
-            // Add ability to chain and resolve. is_activated=true so
-            // stepResolve dispatches through Card::onActivate (not
-            // onTrigger). Triggered abilities flow through TriggerManager
-            // which calls addAbility with the default is_activated=false.
-            chain_manager_->addAbility(intent.ability_source, intent.player,
-                                        source.card_def_id, intent.targets,
-                                        /*is_activated=*/true,
-                                        intent.ability_index);
-            // Carry the granted-ability source onto the chain item so resolution
-            // dispatches to the granting card's onActivate (Forge/Gardens/Heimer).
-            if (intent.granted_ability_def != 0 && !state_.chain.items.empty())
-                state_.chain.items.back().granted_ability_def = intent.granted_ability_def;
-            runChain();
+            if (payAndQueueAbility(intent)) runChain();
             break;
         }
         case IntentType::StandardMove:
@@ -2816,14 +2825,19 @@ std::vector<Intent> GameEngine::generateClosedStateActions(
             if (obj.card_def_id == kInvalidId) continue;
             Card* card_obj = card_registry_.get(obj.card_def_id);
             if (!card_obj) continue;
+            // Same gates as the main-phase generator (generateActivateAbilityActions).
+            if (!card_obj->canActivateAbility(state_, player)) continue;
             auto abilities = card_obj->activatedAbilities();
             for (size_t ai = 0; ai < abilities.size(); ++ai) {
                 const auto& ab = abilities[ai];
                 if (!ab.is_reaction) continue;
+                if (!card_obj->canActivateAbilityAt(state_, player, id, (int)ai)) continue;
                 if (ab.cost.exhaust && obj.is_exhausted) continue;
                 int net_energy = std::max(0, ab.cost.energy -
-                    card_obj->activationCostReduction(state_, player, (int)ai));
+                    card_obj->activationCostReductionFor(state_, player, id, (int)ai));
                 if (net_energy > 0 && availableEnergy(player) < net_energy) continue;
+                if (ab.cost.power > 0 &&
+                    !canPayActivationResources(player, net_energy, ab.cost)) continue;
                 if (ab.cost.discard && ab.cost.discard_count > 0 &&
                     static_cast<int>(state_.player(player).hand.size()) <
                         ab.cost.discard_count) continue;

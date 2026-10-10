@@ -280,7 +280,17 @@ bool ChainManager::stepExecuteAndPass(AgentQuery query_agent,
 
             return true; // Item added → restart FEPR from Finalize
         }
-        // Other intent types (ActivateReactionAbility etc.) are Phase 3+
+        else if (chosen.type == IntentType::ActivateReactionAbility ||
+                 chosen.type == IntentType::ActivateAbility ||
+                 chosen.type == IntentType::ActivateActionAbility) {
+            // A [Reaction] ability used in response (CR 164.2 runes, Gold,
+            // legends, ...). The engine pays its cost and queues it.
+            if (activate_ability_ && activate_ability_(chosen)) {
+                return true;   // item added → restart FEPR from Finalize
+            }
+            // No chain item (cost-only effect or nothing happened): the same
+            // player keeps priority and chooses again.
+        }
     }
 
     return false;

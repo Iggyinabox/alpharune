@@ -596,6 +596,8 @@ private:
     void applyCombatDamage(GameObjectId target, int assigned);
     /// Whether `damager`'s damage kills in any amount (CR 142.4.c).
     bool anyDamageIsLethalFor(PlayerId damager) const;
+    /// Pay an activated ability's costs and add it to the chain (no chain run).
+    bool payAndQueueAbility(const Intent& intent);
     /// (Re)create the chain manager, effect executor and trigger manager bound
     /// to state_ / events_.
     void initSubsystems();
