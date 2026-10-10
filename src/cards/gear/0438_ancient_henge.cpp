@@ -21,10 +21,12 @@ public:
     bool isActionAbility() const override { return false; }   // [Reaction]
     bool isReactionAbility() const override { return true; }
     void onActivate(CardContext& ctx, const std::vector<GameObjectId>&) override {
-        // "Pay any amount of Energy to [Add] that much [A]." Spend X energy
-        // from the rune pool, then Add X universal power.
-        auto& ps = ctx.state.player(ctx.controller);
-        int max_x = ps.rune_pool.energy;
+        // "Pay any amount of Energy to [Add] that much [A]." CR 445.2 / 164.2.a:
+        // the Energy may be floating or come from exhausting ready runes, so X
+        // ranges over everything payable (payableEnergy), not just the pool.
+        // pickXAmount publishes one int-coded MakeChoice per X and the action
+        // vocabulary has 16 int slots (0..15), so X is capped at 15.
+        int max_x = std::min(payableEnergy(ctx.state, ctx.controller), 15);
         int x = pickXAmount(ctx, "Ancient Henge: pay X energy → Add X [A]",
                              0, max_x);
         if (x < 0) return;  // pending choice
@@ -32,7 +34,7 @@ public:
             ctx.events.logTrace("ANCIENT HENGE: X=0, no conversion");
             return;
         }
-        ps.rune_pool.energy -= x;
+        if (!payEnergy(ctx, ctx.controller, x)) return;
         ctx.executor.addFloatingUniversalPower(ctx.controller, x);
         ctx.events.logTrace("ANCIENT HENGE: paid " + std::to_string(x) +
                              " energy → +" + std::to_string(x) + " [A] power");

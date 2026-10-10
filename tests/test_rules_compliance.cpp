@@ -4,6 +4,8 @@
 /// Each test names the rule it enforces.
 
 #include "cards/card_test_fixture.h"
+#include "cards/card_helpers.h"
+#include "engine/chain_manager.h"
 #include "engine/effect_executor.h"
 #include "engine/game_engine.h"
 
@@ -238,6 +240,39 @@ TEST_F(RulesComplianceTest, CombatDamage_DoubledDamageNeedsHalfTheAssignment) {
     EXPECT_EQ(s().getObject(marked).damage_marked, 4);
 }
 
+TEST_F(RulesComplianceTest, CombatDamage_ManyDefendersEnumeratesQuicklyAndBounded) {
+    // 16 one-Might defenders and 3 damage: C(16,3) = 560 distinct outcomes.
+    // Enumeration must not permute all 16 units (16! orderings), and the
+    // option list handed to an agent is capped.
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    std::vector<GameObjectId> defenders;
+    for (int i = 0; i < 16; ++i) defenders.push_back(engineUnit(P2, 1, 0));
+
+    auto adv = engine_->testHook_advanceCombatDamage(P1, 3, defenders);
+
+    ASSERT_FALSE(adv.legal.empty());
+    EXPECT_LE(adv.legal.size(), 64u);
+    for (const auto& intent : adv.legal) {
+        int total = 0;
+        for (const auto& da : intent.damage_assignments) total += da.damage;
+        EXPECT_EQ(total, 3) << "every option assigns all the damage";
+        EXPECT_EQ(intent.damage_assignments.size(), 3u) << "one lethal point each";
+    }
+}
+
+TEST_F(RulesComplianceTest, CombatDamage_OffersEachDistinctChoiceOfWhoDies) {
+    // 3 defenders with 2 Might each and 4 damage: two die. The three
+    // different pairs are three different outcomes.
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    auto a = engineUnit(P2, 2, 0), b = engineUnit(P2, 2, 0), c = engineUnit(P2, 2, 0);
+
+    auto adv = engine_->testHook_advanceCombatDamage(P1, 4, {a, b, c});
+
+    EXPECT_EQ(adv.legal.size(), 3u);
+}
+
 // ─── CR 190.3 / 323.7-323.10 — Contested status ────────────────────────────
 // These run a Cleanup in a Closed State so the staged Showdown / Combat is
 // recorded but not started (323.11 / 323.12 need a Neutral Open State).
@@ -437,6 +472,255 @@ TEST_F(CostPaymentRulesTest, AdditionalCost_FailedPaymentChangesNothing) {
 
     EXPECT_FALSE(engine_->testHook_payAdditionalCost(P1, 2, 0, Domain::Fury));
     EXPECT_FALSE(s().getObject(r).is_exhausted) << "nothing is paid when it can't be paid in full";
+}
+
+// ─── CR 809 — Deflect ──────────────────────────────────────────────────────
+// "Spells and abilities an opponent controls that target [me] cost an amount
+// of Power equal to [Deflect Value] more ... The Power used to pay this cost
+// may always be of any Domain."
+
+class DeflectRulesTest : public CostPaymentRulesTest {
+protected:
+    GameObjectId deflector(PlayerId p, int value, int at_bf = 0) {
+        auto id = engineUnit(p, 3, at_bf);
+        auto& u = s().getObject(id);
+        u.keywords.set(Keyword::Deflect);
+        u.deflect_value = value;
+        return id;
+    }
+};
+
+TEST_F(DeflectRulesTest, CostIsTheDeflectValueForOpponentsOnly) {
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    auto unit = deflector(P2, 2);
+    EXPECT_EQ(deflectCostFor(s(), P1, unit), 2);
+    EXPECT_EQ(deflectCostFor(s(), P2, unit), 0) << "its controller pays nothing";
+}
+
+TEST_F(DeflectRulesTest, OmittedValueIsOne) {
+    // CR 809.1.b.3
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    auto unit = deflector(P2, 0);
+    EXPECT_EQ(deflectCostFor(s(), P1, unit), 1);
+}
+
+TEST_F(DeflectRulesTest, GrantedDeflectSumsWithPrinted) {
+    // CR 809.2
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    auto unit = deflector(P2, 1);
+    GameObject::AuraEffect ae;
+    ae.source = unit;
+    ae.keyword = Keyword::Deflect;
+    ae.keyword_value = 2;
+    s().getObject(unit).aura_effects.push_back(ae);
+    EXPECT_EQ(deflectCostFor(s(), P1, unit), 3);
+}
+
+TEST_F(DeflectRulesTest, ChoosingAtPlayTimePaysAnyDomainPower) {
+    // A spell with a play-time target going on the chain pays the cost with a
+    // rune of an unrelated Domain (CR 809.1.c.1).
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    auto unit = deflector(P2, 1);
+    rune(P1, Domain::Order);
+    auto spell = cardInHand(P1, kPunchFirst);
+    s().player(P1).hand.clear();
+
+    ChainManager cm(s(), events, card_db);
+    EffectExecutor exec(s(), events, card_db, &card_registry);
+    cm.setEffectExecutor(&exec);
+    cm.addSpell(spell, P1, {unit});
+
+    EXPECT_EQ(runesInBase(P1), 0) << "the rune was recycled for the Deflect cost";
+    ASSERT_FALSE(s().chain.items.empty());
+    EXPECT_EQ(s().chain.items.back().chosen_objects, std::vector<GameObjectId>{unit});
+}
+
+TEST_F(DeflectRulesTest, UnaffordableTargetIsNotALegalTarget) {
+    // No Power available: the default target enumeration leaves it out.
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    auto guarded = deflector(P2, 1);
+    auto plain   = engineUnit(P2, 3, 0);
+    const Card* punch = card_registry.get(kPunchFirst);
+
+    auto legal = punch->enumerateLegalTargets(s(), P1);
+    EXPECT_EQ(std::count(legal.begin(), legal.end(), plain), 1);
+    EXPECT_EQ(std::count(legal.begin(), legal.end(), guarded), 0);
+
+    rune(P1, Domain::Fury);
+    legal = punch->enumerateLegalTargets(s(), P1);
+    EXPECT_EQ(std::count(legal.begin(), legal.end(), guarded), 1) << "payable now";
+}
+
+// ─── Scoring by an effect ──────────────────────────────────────────────────
+
+TEST_F(RulesComplianceTest, EffectScoring_RespectsCantGainPoints) {
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    EffectExecutor exec(s(), events, card_db, &card_registry);
+    s().player(P1).cannot_gain_points = true;
+    EXPECT_EQ(exec.scorePoints(P1, 1), 0);
+    EXPECT_EQ(s().player(P1).score, 0);
+}
+
+TEST_F(RulesComplianceTest, EffectScoring_WinsImmediatelyAtVictoryScore) {
+    // CR 466.1.a.1: points from effects have no Winning Point restriction.
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    EffectExecutor exec(s(), events, card_db, &card_registry);
+    s().player(P1).score = s().mode.victory_score - 1;
+    EXPECT_EQ(exec.scorePoints(P1, 1), 1);
+    EXPECT_TRUE(s().game_over);
+    EXPECT_EQ(s().winner, P1);
+}
+
+// ─── CR 185.1 — tokens are an intrinsic category ───────────────────────────
+
+TEST_F(RulesComplianceTest, Token_CopyOfAChampionIsAChampionAndStillAToken) {
+    constexpr CardDefId kAhriAlluring = 66;
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    EffectExecutor exec(s(), events, card_db, &card_registry);
+    auto champion = engineUnit(P1, 4, 0, kAhriAlluring);
+    s().getObject(champion).super_type = card_db.get(kAhriAlluring).super_type;
+    ASSERT_EQ(s().getObject(champion).super_type, SuperType::Champion);
+
+    auto token = exec.createToken(P1, CardType::Unit, "Reflection", 0, {}, KeywordSet{},
+                                  LocationId{BaseLocation{P1}}, false);
+    ASSERT_TRUE(s().getObject(token).isToken());
+    exec.copyUnit(token, champion);
+
+    EXPECT_TRUE(s().getObject(token).isToken()) << "a token never stops being a token";
+    EXPECT_EQ(s().getObject(token).super_type, SuperType::Champion)
+        << "the copy has the copied supertype";
+    EXPECT_FALSE(s().getObject(champion).isToken()) << "a card can never become a token";
+}
+
+// ─── CR 383.2.c.3.b — "When I die" uses information from before the death ──
+
+TEST_F(RulesComplianceTest, LastKnown_CapturedBeforeTheUnitDies) {
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    auto unit = engineUnit(P1, 2, 0);
+    {
+        auto& u = s().getObject(unit);
+        u.buff_count = 1;
+        u.empowered = 1;
+        u.combat_designation = CombatDesignation::Attacker;
+        u.recomputeMight();
+        u.damage_marked = 9;
+    }
+    s().battlefields[0].combat_in_progress = true;
+
+    engine_->testHook_processLethalDamage();
+
+    const auto& lk = s().getObject(unit).last_known;
+    ASSERT_TRUE(lk.valid);
+    EXPECT_EQ(lk.empowered, 1);
+    EXPECT_EQ(lk.buff_count, 1);
+    EXPECT_EQ(lk.combat_designation, CombatDesignation::Attacker);
+    EXPECT_TRUE(lk.in_combat);
+    EXPECT_EQ(lk.might, 3);
+}
+
+// ─── CR 426 / 391.3.a — countering ─────────────────────────────────────────
+
+TEST_F(RulesComplianceTest, Counter_FlowSpellIsBanishedNotTrashed) {
+    // A spell played for its Flow cost carries "then banish it": if it would
+    // leave the chain other than by resolving, it is banished instead.
+    EffectExecutor exec(state, events, card_db, &card_registry);
+    auto flow_spell = pushSpellOnChain(P2);
+    state.getObject(flow_spell).banish_on_leave_chain = true;
+    auto counter = addToHand(P1, kInvalidId);
+    CardContext ctx{state, events, exec, P1, counter};
+
+    counterChainTop(ctx);
+
+    EXPECT_TRUE(state.chain.items.empty());
+    EXPECT_EQ(state.getObject(flow_spell).zone, ZoneType::Banishment);
+    EXPECT_FALSE(inTrash(P2, flow_spell));
+}
+
+TEST_F(RulesComplianceTest, Counter_OrdinarySpellGoesToTrash) {
+    // CR 426.1.a.1
+    EffectExecutor exec(state, events, card_db, &card_registry);
+    auto spell = pushSpellOnChain(P2);
+    auto counter = addToHand(P1, kInvalidId);
+    CardContext ctx{state, events, exec, P1, counter};
+
+    counterChainTop(ctx);
+
+    EXPECT_TRUE(inTrash(P2, spell));
+}
+
+TEST_F(RulesComplianceTest, Counter_DoesNotUncountThePlayedCard) {
+    // CR 420.4.b: non-triggered checks count FINALIZED cards; a countered
+    // spell was finalized, so "cards played this turn" keeps it.
+    EffectExecutor exec(state, events, card_db, &card_registry);
+    pushSpellOnChain(P2);
+    state.player(P2).cards_played_this_turn = 2;
+    auto counter = addToHand(P1, kInvalidId);
+    CardContext ctx{state, events, exec, P1, counter};
+
+    counterChainTop(ctx);
+
+    EXPECT_EQ(state.player(P2).cards_played_this_turn, 2);
+}
+
+// ─── CR 420.4.a — "when you play a spell" triggers on resolution ───────────
+
+TEST_F(RulesComplianceTest, PlayTrigger_SpellTriggersFireOnResolutionNotOnPlay) {
+    constexpr CardDefId kViktorInnovator = 117;   // "When you play a spell ..."
+    constexpr CardDefId kHextechRay = 9;
+    ASSERT_TRUE(card_registry.get(kViktorInnovator)->firesOn(TriggerType::WhenYouPlayASpell));
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    auto watcher = engineUnit(P1, 2, -1, kViktorInnovator);
+    auto spell = s().createObject();
+    {
+        auto& sp = s().getObject(spell);
+        sp.owner = sp.controller = P1;
+        sp.card_type = CardType::Spell;
+        sp.card_def_id = kHextechRay;
+        sp.name = "Hextech Ray";
+        sp.zone = ZoneType::Chain;
+    }
+    auto triggersFrom = [&](GameObjectId src) {
+        int n = 0;
+        for (const auto& it : s().chain.items) if (it.source == src && it.is_ability) ++n;
+        return n;
+    };
+
+    events.emit(CardPlayedEvent{spell, P1, CardType::Spell, 1, 1});
+    EXPECT_EQ(triggersFrom(watcher), 0) << "not yet: the spell has only been put on the chain";
+
+    events.emit(SpellResolvedEvent{spell, P1});
+    EXPECT_EQ(triggersFrom(watcher), 1) << "fires once the spell has resolved";
+}
+
+TEST_F(RulesComplianceTest, PlayTrigger_CounteredSpellNeverTriggers) {
+    // CR 420.4.a.1 / 426.1.b: a countered spell produces no SpellResolved.
+    constexpr CardDefId kViktorInnovator = 117;
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    auto watcher = engineUnit(P1, 2, -1, kViktorInnovator);
+    auto spell = s().createObject();
+    {
+        auto& sp = s().getObject(spell);
+        sp.owner = sp.controller = P1;
+        sp.card_type = CardType::Spell;
+        sp.name = "Some Spell";
+        sp.zone = ZoneType::Chain;
+    }
+    events.emit(CardPlayedEvent{spell, P1, CardType::Spell, 1, 1});
+    // ... it is countered: nothing else is emitted for it.
+    int n = 0;
+    for (const auto& it : s().chain.items) if (it.source == watcher) ++n;
+    EXPECT_EQ(n, 0);
 }
 
 }  // namespace

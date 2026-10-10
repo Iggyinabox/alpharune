@@ -37,14 +37,7 @@ public:
             chain.items.pop_back();
             ctx.events.logTrace("FLURRY OF FEATHERS: countered spell (id=" +
                                  std::to_string(victim.source) + ")");
-            if (ctx.state.objectExists(victim.source)) {
-                auto& sp = ctx.state.getObject(victim.source);
-                auto owner = sp.owner;
-                sp.zone = ZoneType::Trash;
-                if (owner != PlayerId::None) {
-                    ctx.state.player(owner).trash.push_back(victim.source);
-                }
-            }
+            disposeCounteredCard(ctx, victim.source);
             return;
         }
 

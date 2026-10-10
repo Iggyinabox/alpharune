@@ -30,8 +30,9 @@ public:
         LocationId loc{BaseLocation{ctx.controller}};
         std::vector<GameObjectId> made;
         for (int i = 0; i < equip_count; ++i) {
+            // CR 187.3: a Sand Soldier token has 2 Might and the Shurima tag.
             auto tok = ctx.executor.createToken(ctx.controller, CardType::Unit,
-                                                "Sand Soldier", 2, {"Sand Soldier"},
+                                                "Sand Soldier", 2, {"Shurima"},
                                                 KeywordSet{}, loc, /*enter_ready=*/false);
             if (tok != kInvalidId) made.push_back(tok);
         }

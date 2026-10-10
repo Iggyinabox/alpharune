@@ -58,8 +58,9 @@ public:
         ctx.executor.bounceToHand(bounce_target);
         // "If you do" — play a 2M Sand Soldier unit token here.
         auto loc = LocationId{BattlefieldLocation{here}};
+        // CR 187.3: a Sand Soldier token has 2 Might and the Shurima tag.
         ctx.executor.createToken(ctx.controller, CardType::Unit, "Sand Soldier", 2,
-                                 {"Sand Soldier"}, KeywordSet{}, loc);
+                                 {"Shurima"}, KeywordSet{}, loc);
         ctx.events.logTrace("EMPEROR'S DAIS: paid [1], bounced unit, spawned 2M Sand Soldier");
     }
 private:

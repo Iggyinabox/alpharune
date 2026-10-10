@@ -33,7 +33,7 @@ public:
         // card_def_id (326) so its [Reaction] kill-for-[A] ability dispatches.
         auto loc = BaseLocation{ctx.controller};
         auto tid = ctx.executor.createToken(ctx.controller, CardType::Gear, "Gold",
-                                            0, {"Gold"}, KeywordSet{}, loc,
+                                            0, {}, KeywordSet{}, loc,
                                             /*enter_ready=*/false);
         if (ctx.state.objectExists(tid)) {
             auto& tok = ctx.state.getObject(tid);

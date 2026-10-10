@@ -438,7 +438,7 @@ TEST_F(AuditFix4Test, KeeperOfMasks_CreatesTwoReflectionCopies) {
     int copies = 0;
     for (auto& [id, obj] : state.objects) {
         if (id == keeper) continue;
-        if (obj.super_type != SuperType::Token) continue;
+        if (!obj.isToken()) continue;
         ++copies;
         // copyUnit inherits Keeper's card_def_id and printed traits.
         EXPECT_EQ(obj.card_def_id, kKeeperOfMasks);

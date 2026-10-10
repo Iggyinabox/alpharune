@@ -255,9 +255,56 @@ int Card::pickMode(CardContext& ctx, const std::string& label, int num_modes,
     return legal.empty() ? -2 : legal.front();
 }
 
+// ── Deflect (CR 809) at choice time ─────────────────────────────────────────
+// "Spells and abilities an opponent controls that target [me] cost an amount of
+// Power equal to [Deflect Value] more ... for each time they choose [me]." This
+// engine makes most choices as the spell or ability resolves, so the mandatory
+// additional cost is charged at the moment of the choice: an object whose
+// Deflect cost the chooser can't pay isn't offered, and picking one pays it.
+namespace {
+std::vector<GameObjectId> affordableWithDeflect(CardContext& ctx, const Card& card,
+                                                const std::vector<GameObjectId>& in) {
+    if (card.ignoresDeflect()) return in;
+    const int payable = ctx.executor.payableAnyPower(ctx.controller);
+    std::vector<GameObjectId> out;
+    out.reserve(in.size());
+    for (auto t : in)
+        if (ctx.executor.deflectCostFor(ctx.controller, t) <= payable) out.push_back(t);
+    return out;
+}
+
+// Pays the Deflect cost for choosing `t` (if any) and records the choice on
+// the resolving chain item.
+void commitChoice(CardContext& ctx, const Card& card, GameObjectId t) {
+    if (t == kInvalidId || !ctx.state.objectExists(t)) return;
+    if (!card.ignoresDeflect()) {
+        const int cost = ctx.executor.deflectCostFor(ctx.controller, t);
+        if (cost > 0) {
+            ctx.executor.payAnyPower(ctx.controller, cost);
+            ctx.events.logTrace("DEFLECT: " + std::string(toString(ctx.controller)) +
+                                " pays " + std::to_string(cost) + " [A] to choose " +
+                                ctx.state.getObject(t).name);
+        }
+    }
+    if (ctx.state.chain.resuming.has_value())
+        ctx.state.chain.resuming->chosen_objects.push_back(t);
+    // "If you've chosen an enemy unit this turn" (Hungry Wolf).
+    const auto& tobj = ctx.state.getObject(t);
+    if (tobj.isUnit() && tobj.controller != ctx.controller)
+        ctx.state.player(ctx.controller).chose_enemy_unit_this_turn = true;
+    if (tobj.isUnit() && tobj.location.has_value() && tobj.controller == ctx.controller)
+        ctx.events.emit(ObjectStateChangedEvent{t, "chosen_by_controller"});
+}
+}  // namespace
+
 GameObjectId Card::pickTarget(CardContext& ctx, const std::string& label,
-                                const std::vector<GameObjectId>& legal_targets) {
+                                const std::vector<GameObjectId>& legal_targets_in) {
     auto& ri_opt = ctx.state.chain.resuming;
+    // Once a choice is locked in (resume_point 8) the list is not consulted
+    // again, so filtering here can't un-offer an already-paid-for target.
+    const std::vector<GameObjectId> legal_targets =
+        (ri_opt.has_value() && ri_opt->resume_point < 8)
+            ? affordableWithDeflect(ctx, *this, legal_targets_in) : legal_targets_in;
 
     if (!ri_opt.has_value()) {
         // Direct invocation (test / no chain). Default to first legal
@@ -331,12 +378,7 @@ GameObjectId Card::pickTarget(CardContext& ctx, const std::string& label,
             : std::string("?");
         ctx.events.logTrace("TGT_PICKED: " + label + " = " + name +
                              " (id=" + std::to_string(t) + ")");
-        // "If you've chosen an enemy unit this turn" (Hungry Wolf).
-        if (ctx.state.objectExists(t)) {
-            const auto& tobj = ctx.state.getObject(t);
-            if (tobj.isUnit() && tobj.controller != ctx.controller)
-                ctx.state.player(ctx.controller).chose_enemy_unit_this_turn = true;
-        }
+        commitChoice(ctx, *this, t);
         while (ri.resume_data.size() < 3) ri.resume_data.push_back(0);
         ri.resume_data[2] = static_cast<int32_t>(t);
         ri.resume_point = 8;
@@ -352,10 +394,18 @@ GameObjectId Card::pickTarget(CardContext& ctx, const std::string& label,
 
 std::pair<GameObjectId, GameObjectId> Card::pickTargetPair(
     CardContext& ctx, const std::string& label,
-    const std::vector<GameObjectId>& legal_a,
-    const std::function<std::vector<GameObjectId>(GameObjectId)>& legal_b_fn) {
+    const std::vector<GameObjectId>& legal_a_in,
+    const std::function<std::vector<GameObjectId>(GameObjectId)>& legal_b_in_fn) {
 
     auto& ri_opt = ctx.state.chain.resuming;
+    // Deflect (CR 809): see affordableWithDeflect / commitChoice above.
+    const bool choosing = ri_opt.has_value();
+    const std::vector<GameObjectId> legal_a =
+        choosing ? affordableWithDeflect(ctx, *this, legal_a_in) : legal_a_in;
+    auto legal_b_fn = [&](GameObjectId a) {
+        auto v = legal_b_in_fn(a);
+        return choosing ? affordableWithDeflect(ctx, *this, v) : v;
+    };
     if (!ri_opt.has_value()) {
         // Direct invocation (test / no chain). Default to first
         // legal pair or kInvalidId-pair.
@@ -424,6 +474,7 @@ std::pair<GameObjectId, GameObjectId> Card::pickTargetPair(
             ? ctx.state.getObject(a).name : std::string("?");
         ctx.events.logTrace("TGT_PAIR_PICKED_A: " + label + " = " +
                              name + " (id=" + std::to_string(a) + ")");
+        commitChoice(ctx, *this, a);
         ri.resume_data[3] = static_cast<int32_t>(a);
         ri.resume_point = 11;
         // Fall through to second-target publish.
@@ -475,6 +526,7 @@ std::pair<GameObjectId, GameObjectId> Card::pickTargetPair(
             ? ctx.state.getObject(b).name : std::string("?");
         ctx.events.logTrace("TGT_PAIR_PICKED_B: " + label + " = " +
                              name + " (id=" + std::to_string(b) + ")");
+        commitChoice(ctx, *this, b);
         ri.resume_data[4] = static_cast<int32_t>(b);
         ri.resume_point = 13;
         return {a, b};
@@ -517,6 +569,11 @@ std::vector<GameObjectId> Card::enumerateLegalTargets(
 
         // Stat filter
         if (reqs.max_might > 0 && obj.current_might > reqs.max_might) continue;
+
+        // CR 809: an opponent must be able to pay the Deflect cost to choose it.
+        if (!ignoresDeflect() && obj.controller != controller &&
+            deflectCostFor(state, controller, id) > payableAnyPower(state, controller))
+            continue;
 
         targets.push_back(id);
     }

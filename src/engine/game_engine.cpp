@@ -1,3 +1,5 @@
+#include <cstdio>
+#include <cstdlib>
 #include "game_engine.h"
 #include "cards/card.h"
 #include "openspiel/action_vocab.h"
@@ -26,6 +28,15 @@ GameEngine::GameEngine(const CardDB& card_db, EventBus& event_bus,
     card_revealed_conn_ = events_.on_card_revealed.connect(
         [this](const CardRevealedEvent& e) { state_.recordReveal(e); });
 
+    // RIFTBOUND_TRACE_STDERR=1 streams every engine log line to stderr as it
+    // happens. Runners buffer the log and print it when a game finishes, so
+    // this is how to see where a game that never finishes is stuck.
+    if (std::getenv("RIFTBOUND_TRACE_STDERR")) {
+        trace_stderr_conn_ = events_.on_log.connect([](const LogEvent& e) {
+            std::fprintf(stderr, "%s\n", e.message.c_str());
+        });
+    }
+
     // Subsystems exist from construction so every engine operation is usable
     // on a hand-built state (tests drive phases and effects without running a
     // whole game). runGame / resumeFromSnapshot rebuild them for the new state.
@@ -47,6 +58,7 @@ void GameEngine::initSubsystems() {
         [this](PlayerId p, const std::vector<Intent>& actions) -> Intent {
             return queryAgentForChain(p, actions);
         });
+    effect_executor_->setAuraRecalc([this]() { recalculateAuras(); });
     chain_manager_->setEffectExecutor(effect_executor_.get());
     chain_manager_->setActivateAbility(
         [this](const Intent& i) { return payAndQueueAbility(i); });
@@ -1260,6 +1272,11 @@ bool GameEngine::payAndQueueAbility(const Intent& intent) {
     // stepResolve dispatches through Card::onActivate (not
     // onTrigger). Triggered abilities flow through TriggerManager
     // which calls addAbility with the default is_activated=false.
+    {
+        auto& aps = state_.player(intent.player);
+        aps.abilities_activated_this_turn++;
+        if (source.isGear()) aps.gear_abilities_activated_this_turn++;
+    }
     chain_manager_->addAbility(intent.ability_source, intent.player,
                                 source.card_def_id, intent.targets,
                                 /*is_activated=*/true,
@@ -2114,8 +2131,10 @@ void GameEngine::applyCombatDamage(GameObjectId target_id, int assigned) {
         events_.logTrace("  COMBAT_DAMAGE: " + t.name + " assigned " + std::to_string(assigned) +
                          " -> dealt " + std::to_string(dealt));
     if (dealt <= 0) return;
+    if (t.damage_marked == 0) t.damage_marked_by[0] = t.damage_marked_by[1] = 0;
     t.damage_marked += dealt;
     t.damage_taken_this_turn += dealt;
+    t.damage_marked_by[playerIndex(opponent(t.controller))] += dealt;
     events_.emit(DamageDealtEvent{target_id, dealt, kInvalidId, true});
 }
 
@@ -3713,25 +3732,63 @@ GameEngine::CombatDamageAdvance GameEngine::advanceCombatDamage(
     // std::next_permutation requires sorted input to traverse all
     // permutations. For small bucket sizes (typical combat: 0–4 units
     // per bucket) the permutation counts stay tiny (n! with n≤4 → ≤24).
-    auto sortedTanks = tanks, sortedMids = mids, sortedBacks = backs;
-    std::sort(sortedTanks.begin(), sortedTanks.end());
-    std::sort(sortedMids.begin(), sortedMids.end());
-    std::sort(sortedBacks.begin(), sortedBacks.end());
+    // Enumerate the distinct outcomes directly instead of permuting every
+    // unit: walk the buckets in order, and at each step choose which remaining
+    // unit of the current bucket takes lethal next, until the damage runs out.
+    // Two orders that have killed the same set of units lead to the same
+    // continuations, so each set is expanded once. (Permuting whole buckets is
+    // factorial: 16 token defenders never finished.)
+    std::vector<std::vector<GameObjectId>> buckets = {tanks, mids, backs};
+    for (auto& b : buckets) std::sort(b.begin(), b.end());
+    std::vector<GameObjectId> flat;
+    std::vector<int> bucket_of;
+    for (int bi = 0; bi < 3; ++bi)
+        for (auto id : buckets[bi]) {
+            if (!canTakeCombatDamage(state_.getObject(id))) continue;   // CR 467.2.c.10
+            flat.push_back(id);
+            bucket_of.push_back(bi);
+        }
 
-    auto tanks_perm = sortedTanks;
-    do {
-        auto mids_perm = sortedMids;
-        do {
-            auto backs_perm = sortedBacks;
-            do {
-                std::vector<GameObjectId> ordered;
-                ordered.insert(ordered.end(), tanks_perm.begin(), tanks_perm.end());
-                ordered.insert(ordered.end(), mids_perm.begin(), mids_perm.end());
-                ordered.insert(ordered.end(), backs_perm.begin(), backs_perm.end());
-                emitIfNew(greedyCascade(ordered));
-            } while (std::next_permutation(backs_perm.begin(), backs_perm.end()));
-        } while (std::next_permutation(mids_perm.begin(), mids_perm.end()));
-    } while (std::next_permutation(tanks_perm.begin(), tanks_perm.end()));
+    // Bounds: the option list feeds an agent's action space, and the search
+    // must stay cheap on huge boards. Past either bound the remaining orders
+    // are not offered; the default cascade is always present.
+    constexpr size_t kMaxDamageOptions = 64;
+    constexpr int kMaxSearchNodes = 20000;
+    emitIfNew(buildDefault());
+
+    if (flat.size() <= 60) {
+        std::set<uint64_t> expanded;
+        int nodes = 0;
+        std::vector<DamageAssignment> cur;
+        std::function<void(uint64_t, int)> walk = [&](uint64_t taken, int remaining) {
+            if (options.size() >= kMaxDamageOptions || ++nodes > kMaxSearchNodes) return;
+            // Current bucket = the first one that still has an untaken unit.
+            int bucket = -1;
+            for (size_t k = 0; k < flat.size(); ++k)
+                if (!(taken >> k & 1)) { bucket = bucket_of[k]; break; }
+            if (remaining <= 0 || bucket < 0) {
+                auto da = cur;
+                if (remaining > 0 && !da.empty()) da.back().damage += remaining;
+                if (!da.empty()) emitIfNew(std::move(da));
+                return;
+            }
+            for (size_t k = 0; k < flat.size(); ++k) {
+                if ((taken >> k & 1) || bucket_of[k] != bucket) continue;
+                const auto& t = state_.getObject(flat[k]);
+                const int assigned =
+                    std::min(remaining, combatDamageNeededForLethal(t, any_damage_lethal));
+                const uint64_t next = taken | (uint64_t{1} << k);
+                const int left = remaining - assigned;
+                // Same set fully served -> same continuations: expand once.
+                if (left > 0 && !expanded.insert(next).second) continue;
+                cur.push_back({flat[k], assigned});
+                walk(next, left);
+                cur.pop_back();
+                if (options.size() >= kMaxDamageOptions || nodes > kMaxSearchNodes) return;
+            }
+        };
+        walk(0, total_damage);
+    }
 
     adv.kind = CombatDamageAdvance::Kind::NeedDecision;
     return adv;
@@ -4603,7 +4660,8 @@ void GameEngine::cleanup() {
         processLethalDamage();
         revertLapsedControl();           // "until I leave the board" (Akshan)
         updateBattlefieldControl();
-        processContestedBattlefields();  // CR 323.8/9
+        recallMisplacedObjects();        // CR 323.6
+        processContestedBattlefields();  // CR 323.2, 323.7-323.10
         recalculateAuras();
         uint64_t after = checksum();
         if (before == after) break;
@@ -4684,11 +4742,16 @@ void GameEngine::processLethalDamage() {
 
         bool lethal = obj.hasLethalDamage();
 
-        // Elder Dragon: any damage kills enemy units
+        // Elder Dragon: any amount of that player's damage kills. "Your damage"
+        // is the damage you marked, so damage a unit took from its own side
+        // (or from the other player) does not count.
         if (!lethal) {
             PlayerId damager = opponent(obj.controller);
-            if ((damager == PlayerId::Player1 && elder_p1) ||
-                (damager == PlayerId::Player2 && elder_p2)) {
+            const bool has_their_damage =
+                std::min(obj.damage_marked_by[playerIndex(damager)], obj.damage_marked) > 0;
+            if (has_their_damage &&
+                ((damager == PlayerId::Player1 && elder_p1) ||
+                 (damager == PlayerId::Player2 && elder_p2))) {
                 lethal = true;
                 events_.logTrace("ELDER_DRAGON: " + obj.name + " killed by any-damage rule");
             }
@@ -4739,28 +4802,48 @@ void GameEngine::updateBattlefieldControl() {
     }
 }
 
+void GameEngine::recallMisplacedObjects() {
+    // CR 323.6: "Recall all of the following Game Objects, unless an effect
+    // would indicate otherwise: Unattached non-Unit Gear located at
+    // Battlefields; ... Unattached Permanents and Runes in Bases other than
+    // their controller's." (A recall is not a move.)
+    for (auto& [id, obj] : state_.objects) {
+        if (!obj.location.has_value() || obj.is_hidden) continue;   // facedown cards stay put
+        if (obj.controller == PlayerId::None) continue;
+        const LocationId home{BaseLocation{obj.controller}};
+        bool recall = false;
+        if (obj.isGear() && !obj.attached_to.has_value() && obj.isAtBattlefield())
+            recall = true;
+        if ((obj.isPermanent() || obj.isRune()) && !obj.attached_to.has_value() &&
+            obj.isAtBase() && *obj.location != home)
+            recall = true;
+        if (!recall) continue;
+        events_.logTrace("RECALL (CR 323.6): " + obj.name + " (id=" + std::to_string(id) + ")");
+        obj.location = home;
+        obj.zone = ZoneType::Base;
+        obj.combat_designation = CombatDesignation::None;
+    }
+}
+
 void GameEngine::processContestedBattlefields() {
-    // CR 459.2.b.3.a / 459.2.b.4.a — units that become present at a
-    // BF where combat is already in progress get the appropriate
-    // combat designation during the cleanup following the action that
-    // brought them there. Phase 6q+ fix: pre-fix, late-arriving units
-    // (Pouncing, mid-combat plays) didn't get designated and were
-    // invisible to combat damage assignment.
-    for (auto& bf : state_.battlefields) {
-        if (!bf.combat_in_progress) continue;
-        if (!bf.attacker.has_value() || !bf.defender.has_value()) continue;
-        for (auto& [id, obj] : state_.objects) {
-            if (!obj.isUnit() || !obj.isAtBattlefield()) continue;
-            auto u_bf = obj.battlefieldId();
-            if (!u_bf || *u_bf != bf.id) continue;
-            if (obj.combat_designation != CombatDesignation::None) continue;
-            if (obj.controller == *bf.attacker) {
-                obj.combat_designation = CombatDesignation::Attacker;
-                obj.recomputeMight();
-            } else if (obj.controller == *bf.defender) {
-                obj.combat_designation = CombatDesignation::Defender;
-                obj.recomputeMight();
+    // CR 323.2: Attacker / Defender designations track where a Combat is.
+    //  .a  a Unit at the Combat's battlefield without one gains its controller's;
+    //  .b  a Unit there with the opposite one (it changed controller) is corrected;
+    //  .c  a Unit anywhere else loses any designation it still has.
+    for (auto& [id, obj] : state_.objects) {
+        if (!obj.isUnit()) continue;
+        CombatDesignation want = CombatDesignation::None;
+        if (auto u_bf = obj.battlefieldId()) {
+            for (const auto& bf : state_.battlefields) {
+                if (bf.id != *u_bf || !bf.combat_in_progress) continue;
+                if (!bf.attacker.has_value() || !bf.defender.has_value()) continue;
+                if (obj.controller == *bf.attacker) want = CombatDesignation::Attacker;
+                else if (obj.controller == *bf.defender) want = CombatDesignation::Defender;
             }
+        }
+        if (obj.combat_designation != want) {
+            obj.combat_designation = want;
+            obj.recomputeMight();
         }
     }
 
@@ -5157,7 +5240,8 @@ void GameEngine::maybePayOptionalAdditionalCost(PlayerId player, GameObjectId ca
 // (Helm of Suppression's "[A] more", Applied Researchers' "[A] less", Astral
 // Heron's "[A][A] less"). Shared by canAfford and beginCostPayment so the two
 // always agree.
-static int powerCostDelta(const GameState& state, PlayerId player, const GameObject& card) {
+static int powerCostDelta(const GameState& state, PlayerId player, const GameObject& card,
+                          const Card* card_class) {
     const auto& ps = state.player(player);
     int delta = 0;
     if (card.isSpell()) delta += ps.spell_tax_power - ps.spell_discount_power;
@@ -5168,6 +5252,7 @@ static int powerCostDelta(const GameState& state, PlayerId player, const GameObj
         if (mod.gear_only && !card.isGear()) continue;
         delta -= mod.power_reduction;
     }
+    if (card_class) delta -= card_class->selfPowerCostReduction(state, player);
     return delta;
 }
 
@@ -5251,7 +5336,7 @@ bool GameEngine::canAfford(PlayerId player, GameObjectId card_obj) const {
     energy_needed -= ps_const.transient_play_discount;
     energy_needed = std::max(min_cost, energy_needed);
     energy_needed = std::max(0, energy_needed);
-    power_needed = std::max(0, power_needed + powerCostDelta(state_, player, card));
+    power_needed = std::max(0, power_needed + powerCostDelta(state_, player, card, card_registry_.get(card.card_def_id)));
 
     // Count available runes in base, partitioned by ready/exhausted
     // and matching/non-matching-domain. The CR cost-payment ordering
@@ -5433,7 +5518,7 @@ GameEngine::CostPaymentAdvance GameEngine::beginCostPayment(
     energy_needed -= ps.transient_play_discount;
     energy_needed = std::max(min_cost, energy_needed);
     energy_needed = std::max(0, energy_needed);
-    power_needed = std::max(0, power_needed + powerCostDelta(state_, player, card));
+    power_needed = std::max(0, power_needed + powerCostDelta(state_, player, card, card_registry_.get(card.card_def_id)));
 
     // Consume one-shot modifiers that applied
     ps.cost_modifiers.erase(
@@ -5826,8 +5911,9 @@ void GameEngine::moveUnit(GameObjectId unit_id, LocationId destination) {
 void GameEngine::killUnit(GameObjectId unit_id) {
     auto& unit = state_.getObject(unit_id);
     auto controller = unit.controller;
-    // Last-known information for "When I die" (see EffectExecutor::killObject).
-    unit.card_counters["__died_empowered"] = unit.empowered;
+    // Last-known information for "When I die" (CR 383.2.c.3.b): captured now,
+    // before gear is shed and the designation and statuses are cleared.
+    effect_executor_->snapshotLastKnown(unit_id);
     events_.logTrace("KILL: " + unit.name + " (id=" + std::to_string(unit_id) +
                      ", " + std::to_string(unit.current_might) + "M, dmg=" +
                      std::to_string(unit.damage_marked) + ")");
@@ -5940,7 +6026,7 @@ void GameEngine::killUnit(GameObjectId unit_id) {
     // EffectExecutor::killObject — same rule, different kill path
     // (this one is combat lethal damage; killObject is for spell-
     // /ability-driven kills like Disintegrate).
-    const bool is_token = (unit.super_type == SuperType::Token);
+    const bool is_token = unit.isToken();
     unit.zone = is_token ? ZoneType::Banishment : ZoneType::Trash;
     unit.last_location = unit.location;  // preserve for Deathknell triggers
     unit.location = std::nullopt;
@@ -6194,22 +6280,11 @@ bool GameEngine::attachGearToUnit(GameObjectId gear_id, GameObjectId unit_id) {
 
 void GameEngine::detachAllGear(GameObjectId unit_id) {
     if (!state_.objectExists(unit_id)) return;
-    auto& unit = state_.getObject(unit_id);
-
-    for (auto gear_id : unit.attachments) {
-        if (!state_.objectExists(gear_id)) continue;
-        auto& gear = state_.getObject(gear_id);
-
-        events_.logTrace("DETACH: " + gear.name + " from " + unit.name);
-
-        unit.attachment_might_bonus -= gear.might_bonus;
-        gear.attached_to = std::nullopt;
-        gear.is_rules_text_inactive = false;
-        // Detached gear stays at its current location (CR 719.5)
-        events_.emit(ObjectStateChangedEvent{gear_id, "detached"});
-    }
-    unit.attachments.clear();
-    unit.recomputeMight();
+    // Through the executor so each gear's onUnattached hook runs (CR 719.5:
+    // detached gear stays where it is).
+    const auto attached = state_.getObject(unit_id).attachments;   // copy
+    for (auto gear_id : attached) effect_executor_->unattachGear(gear_id);
+    state_.getObject(unit_id).attachments.clear();
 }
 
 } // namespace riftbound

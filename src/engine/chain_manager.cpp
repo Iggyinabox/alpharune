@@ -23,9 +23,35 @@ ChainItemId ChainManager::addSpell(GameObjectId spell_obj, PlayerId controller,
     item.card_def_id = state_.getObject(spell_obj).card_def_id;
     item.controller = controller;
     item.targets = targets;
+    // Objects chosen as this item is played. CR 809: choosing an opponent's
+    // [Deflect] object costs its Deflect Value in [A], a mandatory additional
+    // cost (resolve-time choices pay in Card::pickTarget instead).
+    item.chosen_objects = targets;
+    if (executor_) {
+        for (auto t : targets) {
+            const int deflect = executor_->deflectCostFor(controller, t);
+            if (deflect > 0) {
+                executor_->payAnyPower(controller, deflect);
+                events_.logTrace("DEFLECT: " + std::string(toString(controller)) + " pays " +
+                                 std::to_string(deflect) + " [A] to choose " +
+                                 state_.getObject(t).name);
+            }
+        }
+    }
     item.is_spell = true;
 
     chain.items.push_back(item);
+    // Announce the choices only once the item is on the chain, so abilities
+    // that trigger on them go above it (and resolve first).
+    for (auto t : targets) {
+        if (!state_.objectExists(t)) continue;
+        const auto& tobj = state_.getObject(t);
+        if (!tobj.isUnit() || !tobj.location.has_value()) continue;
+        if (tobj.controller == controller)
+            events_.emit(ObjectStateChangedEvent{t, "chosen_by_controller"});
+        else
+            state_.player(controller).chose_enemy_unit_this_turn = true;
+    }
 
     // Move spell object to chain zone
     auto& obj = state_.getObject(spell_obj);
@@ -82,11 +108,37 @@ ChainItemId ChainManager::addAbility(GameObjectId source, PlayerId controller,
     item.card_def_id = def_id;
     item.controller = controller;
     item.targets = targets;
+    // Objects chosen as this item is played. CR 809: choosing an opponent's
+    // [Deflect] object costs its Deflect Value in [A], a mandatory additional
+    // cost (resolve-time choices pay in Card::pickTarget instead).
+    item.chosen_objects = targets;
+    if (executor_) {
+        for (auto t : targets) {
+            const int deflect = executor_->deflectCostFor(controller, t);
+            if (deflect > 0) {
+                executor_->payAnyPower(controller, deflect);
+                events_.logTrace("DEFLECT: " + std::string(toString(controller)) + " pays " +
+                                 std::to_string(deflect) + " [A] to choose " +
+                                 state_.getObject(t).name);
+            }
+        }
+    }
     item.is_ability = true;
     item.is_activated_ability = is_activated;
     item.ability_index = ability_index;
 
     chain.items.push_back(item);
+    // Announce the choices only once the item is on the chain, so abilities
+    // that trigger on them go above it (and resolve first).
+    for (auto t : targets) {
+        if (!state_.objectExists(t)) continue;
+        const auto& tobj = state_.getObject(t);
+        if (!tobj.isUnit() || !tobj.location.has_value()) continue;
+        if (tobj.controller == controller)
+            events_.emit(ObjectStateChangedEvent{t, "chosen_by_controller"});
+        else
+            state_.player(controller).chose_enemy_unit_this_turn = true;
+    }
 
     // Source stays on board — do NOT move to Chain zone
 

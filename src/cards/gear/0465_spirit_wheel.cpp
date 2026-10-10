@@ -22,20 +22,20 @@ public:
         if (!ctx.state.objectExists(ctx.source)) return;
         auto& self = ctx.state.getObject(ctx.source);
         if (self.is_exhausted) return;
-        auto& ps = ctx.state.player(ctx.controller);
         // confirmOptional needs to re-validate both energy AND the still-
         // ready state of this gear (a different effect may have exhausted
         // it between trigger fire and resolution).
-        auto still_legal = [&ps, &ctx]() {
+        auto still_legal = [&ctx]() {
             if (!ctx.state.objectExists(ctx.source)) return false;
             if (ctx.state.getObject(ctx.source).is_exhausted) return false;
-            return ps.rune_pool.energy >= 1;
+            // CR 445.2 / 164.2.a: floating Energy or a ready rune can pay.
+            return payableEnergy(ctx.state, ctx.controller) >= 1;
         };
         if (!still_legal()) return;
         auto conf = confirmOptional(ctx,
             "Spirit Wheel: pay [1] + exhaust to draw 1?", still_legal);
         if (conf < 1) return;
-        ps.rune_pool.energy -= 1;
+        if (!payEnergy(ctx, ctx.controller, 1)) return;
         ctx.executor.exhaustObject(ctx.source);
         ctx.executor.drawCards(ctx.controller, 1);
         ctx.events.logTrace("SPIRIT WHEEL: paid [1] + exhaust -> draw 1");

@@ -25,7 +25,12 @@ public:
             LocationId loc{BaseLocation{opp}};
             auto tok = ctx.executor.createToken(opp, CardType::Gear, "Gold",
                                                 0, {}, {}, loc, /*enter_ready=*/false);
-            if (ctx.state.objectExists(tok)) ctx.state.getObject(tok).is_exhausted = true;
+            if (ctx.state.objectExists(tok)) {
+                ctx.state.getObject(tok).is_exhausted = true;
+                // CR 187.5: a Gold gear token has "[Reaction][>] Kill this, [E]:
+                // [Add] [A]" — carried by the registered Gold card.
+                ctx.state.getObject(tok).card_def_id = kGoldGearCardDefId;
+            }
         }
         // "For each opponent who did, you play a Gold gear token exhausted."
         createGoldExhausted(ctx);

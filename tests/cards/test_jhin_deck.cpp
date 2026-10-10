@@ -1255,7 +1255,7 @@ TEST_F(JhinDeckTest, SpriteBurst_SpawnsTwoSpriteTokens) {
     int sprites = 0;
     for (auto& [id, obj] : state.objects) {
         if (obj.name == "Sprite" && obj.controller == P1 &&
-            obj.super_type == SuperType::Token) {
+            obj.isToken()) {
             sprites++;
         }
     }
@@ -1272,7 +1272,7 @@ TEST_F(JhinDeckTest, SpriteBurst_TokensHaveTemporaryKeyword) {
     EffectExecutor exec(state, events, card_db);
     invokeOnResolve(src, 631, P1, {}, exec);
     for (auto& [id, obj] : state.objects) {
-        if (obj.name == "Sprite" && obj.super_type == SuperType::Token) {
+        if (obj.name == "Sprite" && obj.isToken()) {
             EXPECT_TRUE(obj.keywords.has(Keyword::Temporary))
                 << "Sprite Burst tokens must have Temporary keyword";
             EXPECT_EQ(obj.controller, P1)

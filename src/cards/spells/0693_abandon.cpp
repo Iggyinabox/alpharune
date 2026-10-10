@@ -43,9 +43,7 @@ public:
                         auto& obj = ctx.state.getObject(countered_source);
                         ctx.events.logTrace("COUNTER: " + obj.name +
                                             " countered by Abandon -> hand");
-                        obj.zone = ZoneType::Hand;
-                        obj.location = std::nullopt;
-                        ctx.state.player(obj.owner).hand.push_back(countered_source);
+                        disposeCounteredCard(ctx, countered_source, ZoneType::Hand);
                     }
                 }
             }

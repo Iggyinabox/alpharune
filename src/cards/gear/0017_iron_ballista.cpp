@@ -33,11 +33,13 @@ public:
         }};
     }
     std::vector<GameObjectId> enumerateLegalTargets(
-        const GameState& state, PlayerId /*controller*/,
+        const GameState& state, PlayerId controller,
         int /*ability_index*/) const override {
         std::vector<GameObjectId> out;
         for (auto& [id, obj] : state.objects) {
             if (!obj.isUnit() || !obj.isAtBattlefield()) continue;
+            // "Can't be chosen by enemy spells and abilities."
+            if (obj.controller != controller && obj.untargetable_by_enemy) continue;
             out.push_back(id);
         }
         return out;

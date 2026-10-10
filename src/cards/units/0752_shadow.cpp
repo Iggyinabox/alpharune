@@ -15,6 +15,13 @@ namespace {
 class Shadow : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
+    // ENGINE-GAP: "If you play me to a battlefield, I enter ready." onPlay runs
+    // before GameEngine::resolvePermanent, which then recomputes is_exhausted
+    // from Accelerate / Card::entersReadyOnPlay(state, controller) and
+    // overwrites what is set here. That hook receives neither the object nor
+    // its destination, so the card cannot express "ready only at a
+    // battlefield" through it. Missing: an entersReadyOnPlay overload that is
+    // given the played GameObject (or its LocationId).
     void onPlay(CardContext& ctx) override {
         if (!ctx.state.objectExists(ctx.source)) return;
         auto& self = ctx.state.getObject(ctx.source);
@@ -22,8 +29,10 @@ public:
     }
     std::vector<ActivatedAbility> activatedAbilities() const override {
         return {{
+            // [1][A]: the power is of ANY Domain (CR 135.2.e), so it is flagged
+            // power_any_domain — power_domain alone would demand Fury.
             .cost = {.exhaust = true, .energy = 1, .power = 1,
-                     .power_domain = Domain::Fury},  // [1][A] — A is universal
+                     .power_any_domain = true},
             .targets = TargetRequirements{.count = 1, .must_be_unit = true,
                                            .must_be_enemy = true,
                                            .must_be_at_battlefield = true},
@@ -49,6 +58,14 @@ public:
         // verify combat is in progress at THIS BF.
         auto& tgt = ctx.state.getObject(picked);
         if (tgt.combat_designation != CombatDesignation::Attacker) return;
+        // "attacking here": the attacker must be at my battlefield.
+        // ENGINE-GAP: Card::enumerateLegalTargets(state, controller, index) is
+        // not given the source object, so the action generator cannot limit
+        // the offered targets to my battlefield; an attacker elsewhere is
+        // rejected here instead (the ability then does nothing).
+        if (!ctx.state.objectExists(ctx.source)) return;
+        auto my_bf = ctx.state.getObject(ctx.source).battlefieldId();
+        if (!my_bf || tgt.battlefieldId() != my_bf) return;
         ctx.executor.stunUnitBy(picked, ctx.source);
     }
 private:

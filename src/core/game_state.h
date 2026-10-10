@@ -221,6 +221,8 @@ struct PlayerState {
     bool played_spell_this_turn = false;
     int cards_played_not_from_hand_this_turn = 0;
     int spells_played_this_turn = 0;      // Crumbling Sands
+    int gear_abilities_activated_this_turn = 0;   // Piltovan Forge ("first ... each turn")
+    int abilities_activated_this_turn = 0;
     // Continuous-effect flags/counters below are recomputed by
     // recalculateAuras (reset there, then set by cards' applyPassiveAura).
     bool skip_draw_phase = false;         // Endless Riches: "Skip your Draw Phase."
@@ -244,6 +246,8 @@ struct PlayerState {
         played_spell_this_turn = false;
         cards_played_not_from_hand_this_turn = 0;
         spells_played_this_turn = 0;
+        gear_abilities_activated_this_turn = 0;
+        abilities_activated_this_turn = 0;
         cards_played_this_turn = 0;
         equipment_played_this_turn = 0;
         gears_played_this_turn = 0;
@@ -423,6 +427,11 @@ struct ChainItem {
 
     // Targeting
     std::vector<GameObjectId> targets;
+    // Everything this item has chosen so far: play-time targets plus objects
+    // picked at resolution (Card::pickTarget / pickTargetPair). Lets other
+    // effects ask "what does this chain item choose" (Deflect, Irelia,
+    // Sandswept Tomb, Decree of Focus, Repulse) for resolve-time-target cards.
+    std::vector<GameObjectId> chosen_objects;
 
     // Classification
     bool is_spell = false;        // true for spells (go to trash on resolve)

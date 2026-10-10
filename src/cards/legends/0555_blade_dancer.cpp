@@ -3,6 +3,7 @@
 #include "core/game_state.h"
 #include "core/events.h"
 #include "engine/effect_executor.h"
+#include "cards/card_helpers.h"
 #include <algorithm>
 #include <memory>
 #include <string>
@@ -20,23 +21,22 @@ public:
     }
 
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
-        auto& ps = ctx.state.player(ctx.controller);
-
         if (ctx.firing_trigger == TriggerType::WhenIConquer) {
             // "you may pay [1] to ready me."
             if (!ctx.state.objectExists(ctx.source)) return;
             auto& self = ctx.state.getObject(ctx.source);
             if (!self.is_exhausted) return;  // already ready, nothing to do
-            auto still_legal = [&ps, &ctx]() {
+            auto still_legal = [&ctx]() {
                 if (!ctx.state.objectExists(ctx.source)) return false;
                 if (!ctx.state.getObject(ctx.source).is_exhausted) return false;
-                return ps.rune_pool.energy >= 1;
+                // CR 445.2 / 164.2.a: floating Energy or a ready rune can pay.
+                return payableEnergy(ctx.state, ctx.controller) >= 1;
             };
             if (!still_legal()) return;
             int conf = confirmOptional(ctx, "Blade Dancer: pay [1] to ready me?",
                                        still_legal);
             if (conf < 1) return;
-            ps.rune_pool.energy -= 1;
+            if (!payEnergy(ctx, ctx.controller, 1)) return;
             ctx.executor.readyObject(ctx.source);
             ctx.events.logTrace("BLADE DANCER: paid [1] -> ready me");
             return;
@@ -59,10 +59,12 @@ public:
                 }
                 return out;
             };
-            auto still_legal = [&ps, &ctx, &findTargets]() {
+            auto still_legal = [&ctx, &findTargets]() {
                 if (!ctx.state.objectExists(ctx.source)) return false;
                 if (ctx.state.getObject(ctx.source).is_exhausted) return false;
-                if (ps.rune_pool.totalPower() < 1) return false;
+                // [A] = power of any Domain: floating power, or a rune recycled
+                // for it (CR 164.2.b) — not only what already floats.
+                if (ctx.executor.payableAnyPower(ctx.controller) < 1) return false;
                 return !findTargets().empty();
             };
             if (!still_legal()) return;
@@ -73,8 +75,8 @@ public:
             auto target = pickTarget(ctx, "Blade Dancer: ready a friendly unit",
                                      findTargets());
             if (target == kInvalidId) return;
-            // Pay [A] (universal power) — spend one power from the pool.
-            spendOnePower(ps);
+            // Pay [A] once, after the target is known (pickTarget re-enters).
+            if (!ctx.executor.payAnyPower(ctx.controller, 1)) return;
             ctx.executor.exhaustObject(ctx.source);
             ctx.executor.readyObject(target);
             ctx.events.logTrace("BLADE DANCER: exhaust me + [A] -> ready " +
@@ -83,20 +85,6 @@ public:
         }
     }
 
-private:
-    // Spend one unit of power from the pool (universal first, then any domain).
-    static void spendOnePower(PlayerState& ps) {
-        if (ps.rune_pool.universal_power > 0) {
-            ps.rune_pool.universal_power--;
-            return;
-        }
-        for (int d = 0; d < static_cast<int>(Domain::Count); ++d) {
-            if (ps.rune_pool.power[d] > 0) {
-                ps.rune_pool.power[d]--;
-                return;
-            }
-        }
-    }
 private:
     const CardDef def_ = [] {
         CardDef d;

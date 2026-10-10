@@ -17,8 +17,9 @@ public:
     void onResolve(CardContext& ctx,
                    const std::vector<GameObjectId>& /*targets*/) override {
         auto loc = LocationId{BaseLocation{ctx.controller}};
+        // CR 187.3: a Sand Soldier token has 2 Might and the Shurima tag.
         ctx.executor.createToken(ctx.controller, CardType::Unit, "Sand Soldier",
-                                 /*might=*/2, /*tags=*/{"Sand Soldier"},
+                                 /*might=*/2, /*tags=*/{"Shurima"},
                                  KeywordSet{}, loc, /*enter_ready=*/false);
         ctx.events.logTrace("DESERT'S CALL: played 2[M] Sand Soldier token "
                             "(engine repeats per [Repeat][2] paid)");

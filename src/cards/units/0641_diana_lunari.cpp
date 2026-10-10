@@ -3,6 +3,7 @@
 #include "core/game_state.h"
 #include "core/events.h"
 #include "engine/effect_executor.h"
+#include "cards/card_helpers.h"
 #include <algorithm>
 #include <memory>
 #include <string>
@@ -20,12 +21,16 @@ public:
 
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         auto& ps = ctx.state.player(ctx.controller);
-        auto still_legal = [&ps]() { return ps.rune_pool.energy >= 1; };
+        // CR 445.2 / 164.2.a: the [1] may come from floating Energy or from
+        // exhausting a ready rune (payableEnergy / payEnergy).
+        auto still_legal = [&ctx]() {
+            return payableEnergy(ctx.state, ctx.controller) >= 1;
+        };
         if (!still_legal()) return;
         int conf = confirmOptional(ctx, "Diana Lunari: pay [1] to Predict + reveal?",
                                    still_legal);
         if (conf < 1) return;
-        ps.rune_pool.energy -= 1;
+        if (!payEnergy(ctx, ctx.controller, 1)) return;
 
         // [Predict] — look at top card, agent may recycle it.
         ctx.executor.predict(ctx.controller, 1);

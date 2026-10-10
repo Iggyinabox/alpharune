@@ -349,7 +349,7 @@ TEST_F(DeceiverTest, NoOpWhenHandEmpty) {
     // No token created (only Deceiver itself + 0 base bf objects).
     int unit_token_count = 0;
     for (auto& [id, obj] : state.objects) {
-        if (obj.super_type == SuperType::Token) ++unit_token_count;
+        if (obj.isToken()) ++unit_token_count;
     }
     EXPECT_EQ(unit_token_count, 0);
     state.chain.resuming.reset();
@@ -399,7 +399,7 @@ TEST_F(DeceiverTest, DiscardsAndCreatesReflectionToken) {
 
     int reflection_count = 0;
     for (auto& [id, obj] : state.objects) {
-        if (obj.super_type == SuperType::Token && obj.name == "Reflection")
+        if (obj.isToken() && obj.name == "Reflection")
             ++reflection_count;
     }
     EXPECT_EQ(reflection_count, 1) << "Deceiver creates exactly 1 Reflection token";

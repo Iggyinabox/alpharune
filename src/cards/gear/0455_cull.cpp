@@ -3,6 +3,7 @@
 #include "core/game_state.h"
 #include "core/events.h"
 #include "engine/effect_executor.h"
+#include "cards/card_helpers.h"
 #include <algorithm>
 #include <memory>
 #include <string>
@@ -20,7 +21,14 @@ public:
     void onEquippedTrigger(CardContext& ctx, GameObjectId unit,
                             const std::vector<GameObjectId>& targets) override {
         auto loc = ctx.state.getObject(unit).location.value_or(BaseLocation{ctx.controller});
-        ctx.executor.createToken(ctx.controller, CardType::Gear, "Gold", 0, {}, {}, loc);
+        auto tok = ctx.executor.createToken(ctx.controller, CardType::Gear, "Gold",
+                                            0, {}, {}, loc);
+        if (ctx.state.objectExists(tok)) {
+            // CR 187.5: a Gold gear token has "[Reaction][>] Kill this, [E]:
+            // [Add] [A]" — carried by the registered Gold card.
+            ctx.state.getObject(tok).card_def_id = kGoldGearCardDefId;
+            ctx.state.getObject(tok).is_exhausted = true;   // "exhausted"
+        }
     }
 private:
     const CardDef def_ = [] {

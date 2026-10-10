@@ -26,7 +26,8 @@ public:
     }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         ctx.executor.createToken(ctx.controller, CardType::Unit, "Tentacle", 1,
-                                 {"Tentacle", "Bilgewater"}, KeywordSet{},
+                                 // CR 187.10: 1 Might and the Bilgewater tag only.
+                                 {"Bilgewater"}, KeywordSet{},
                                  BaseLocation{ctx.controller}, /*enter_ready=*/false);
         ctx.events.logTrace("ILLAOI, PROPHET: 1[M] Tentacle token");
     }

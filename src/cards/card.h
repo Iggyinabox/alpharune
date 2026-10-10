@@ -598,6 +598,28 @@ public:
     virtual int selfCostReduction(const GameState& /*state*/,
                                   PlayerId /*player*/) const { return 0; }
 
+    /// Power-side counterpart ("I cost [2][Y] less if ..." — Keeper of Law).
+    /// Reduces this card's own POWER cost, clamped at 0.
+    virtual int selfPowerCostReduction(const GameState& /*state*/,
+                                       PlayerId /*player*/) const { return 0; }
+
+    /// Called when this gear stops being attached to `unit` for any reason
+    /// (re-equipped elsewhere, the unit or the gear left the board). Lets
+    /// "for as long as this is attached" effects end (Shady Spectacles).
+    virtual void onUnattached(CardContext& /*ctx*/, GameObjectId /*unit*/) {}
+
+    /// Kinds of hostile effect a card may replace on itself (Gangplank, Naval:
+    /// "If a spell or ability that chooses me would stun me, give me -[M], or
+    /// return me to hand, give me +3 [M] this turn instead").
+    enum class HostileEffect : uint8_t { Stun, ReduceMight, ReturnToHand };
+    /// Return true if this card replaced the effect (the caller then skips it).
+    /// Consulted only for effects of a spell or ability that chose `self`.
+    virtual bool replaceHostileEffect(CardContext& /*ctx*/, GameObjectId /*self*/,
+                                      HostileEffect /*kind*/) { return false; }
+
+    /// "Ignore [Deflect] while paying this spell's cost." (Decree of Insight)
+    virtual bool ignoresDeflect() const { return false; }
+
     // ── Reaction-to-attack play (e.g., Rengar, Pouncing) ──
     /// Whether this card can be played as a [Reaction] to a battlefield
     /// where the controller is currently attacking. Action generator

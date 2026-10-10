@@ -3,6 +3,7 @@
 #include "core/game_state.h"
 #include "core/events.h"
 #include "engine/effect_executor.h"
+#include "cards/card_helpers.h"
 #include <algorithm>
 #include <memory>
 #include <string>
@@ -22,12 +23,12 @@ public:
     }
     std::vector<GameObjectId> enumerateLegalTargets(
         const GameState& state, PlayerId controller) const override {
-        std::vector<GameObjectId> out;
-        for (auto& [id, obj] : state.objects) {
-            if (!obj.isUnit() || obj.controller == controller) continue;
-            if (obj.isAtBattlefield()) out.push_back(id);
-        }
-        return out;
+        // chooseableUnits honours "can't be chosen by enemy spells and
+        // abilities" (GameObject::untargetable_by_enemy), which this override
+        // used to skip.
+        return chooseableUnits(state, controller, [&](const GameObject& obj) {
+            return obj.controller != controller && obj.isAtBattlefield();
+        });
     }
     void onResolve(CardContext& ctx, const std::vector<GameObjectId>& targets) override {
         GameObjectId picked = kInvalidId;

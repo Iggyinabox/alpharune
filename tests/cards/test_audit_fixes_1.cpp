@@ -600,7 +600,7 @@ TEST_F(AuditFix1Test, Deceiver_CreatesCopyTokenWithTemporary) {
     GameObjectId token = kInvalidId;
     for (auto& [id, obj] : state.objects) {
         if (id == model) continue;
-        if (obj.super_type != SuperType::Token) continue;
+        if (!obj.isToken()) continue;
         if (!obj.isUnit()) continue;
         if (obj.battlefieldId() == 0u) { token = id; break; }
     }
@@ -611,8 +611,8 @@ TEST_F(AuditFix1Test, Deceiver_CreatesCopyTokenWithTemporary) {
     EXPECT_EQ(tk.base_might, card_db.get(kUnitScorch).might);
     // Keeps [Temporary] after the copy overwrote keywords.
     EXPECT_TRUE(tk.keywords.has(Keyword::Temporary));
-    // Token stays super_type Token.
-    EXPECT_EQ(tk.super_type, SuperType::Token);
+    // CR 185.1: it is still a token (intrinsic), whatever supertype it copied.
+    EXPECT_TRUE(tk.isToken());
 }
 
 TEST_F(AuditFix1Test, Deceiver_NoOpWhenLegendExhausted) {
@@ -673,7 +673,7 @@ TEST_F(AuditFix1Test, Deceiver_NoUnitToCopyStillMakesTemporaryToken) {
     // Token exists at BF 0, still a Reflection token with Temporary.
     GameObjectId token = kInvalidId;
     for (auto& [id, obj] : state.objects) {
-        if (obj.super_type != SuperType::Token || !obj.isUnit()) continue;
+        if (!obj.isToken() || !obj.isUnit()) continue;
         if (obj.battlefieldId() == 0u) { token = id; break; }
     }
     ASSERT_NE(token, kInvalidId);

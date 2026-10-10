@@ -30,14 +30,15 @@ public:
     TriggerType triggerType() const override { return TriggerType::WhenIConquer; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         if (!ctx.state.objectExists(ctx.source)) return;
-        auto& ps = ctx.state.player(ctx.controller);
+        // CR 445.2 / 164.2.a: the [1] may come from floating Energy or from
+        // exhausting a ready rune (payableEnergy / payEnergy).
         int conf = confirmOptional(ctx, "Vayne, Hunter: pay [1] to return me to hand?",
                                    [&]() {
-            return ctx.state.objectExists(ctx.source) && ps.rune_pool.energy >= 1;
+            return ctx.state.objectExists(ctx.source) &&
+                   payableEnergy(ctx.state, ctx.controller) >= 1;
         });
         if (conf != 1) return;
-        if (ps.rune_pool.energy < 1) return;
-        ps.rune_pool.energy -= 1;
+        if (!payEnergy(ctx, ctx.controller, 1)) return;
         ctx.executor.bounceToHand(ctx.source);
         ctx.events.logTrace("VAYNE, HUNTER: conquer -> paid [1] to return to hand");
     }

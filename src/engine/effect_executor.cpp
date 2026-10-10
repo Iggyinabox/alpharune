@@ -134,9 +134,34 @@ void EffectExecutor::dealDamage(GameObjectId target, int amount,
                      obj.name + " (id=" + std::to_string(target) + ", was " +
                      std::to_string(obj.damage_marked) + "/" +
                      std::to_string(obj.current_might) + "M)");
+    if (obj.damage_marked == 0) obj.damage_marked_by[0] = obj.damage_marked_by[1] = 0;
     obj.damage_marked += dealt;
     obj.damage_taken_this_turn += dealt;
+    // "Your damage" is the damage you marked: credit the source's controller.
+    if (state_.objectExists(source)) {
+        const PlayerId by = state_.getObject(source).controller;
+        if (by != PlayerId::None) obj.damage_marked_by[playerIndex(by)] += dealt;
+    }
     events_.emit(DamageDealtEvent{target, dealt, source, false});
+}
+
+void EffectExecutor::snapshotLastKnown(GameObjectId id) {
+    if (!state_.objectExists(id)) return;
+    auto& obj = state_.getObject(id);
+    auto& lk = obj.last_known;
+    lk.valid = true;
+    lk.might = obj.current_might;
+    lk.empowered = obj.empowered;
+    lk.buff_count = obj.buff_count;
+    lk.combat_designation = obj.combat_designation;
+    lk.attachments = obj.attachments;
+    lk.keywords = obj.keywords | obj.aura_keywords;
+    lk.in_combat = false;
+    if (auto bf = obj.battlefieldId())
+        for (const auto& b : state_.battlefields)
+            if (b.id == *bf) lk.in_combat = b.combat_in_progress;
+    // Kept for cards that read the older key.
+    obj.card_counters["__died_empowered"] = obj.empowered;
 }
 
 void EffectExecutor::killObject(GameObjectId target) {
@@ -144,10 +169,8 @@ void EffectExecutor::killObject(GameObjectId target) {
     auto& obj = state_.getObject(target);
     if (obj.zone == ZoneType::Trash) return; // already dead
     events_.logTrace("EFFECT: kill " + obj.name + " (id=" + std::to_string(target) + ")");
-    // Last-known information for "When I die" (CR: death abilities use state
-    // from before the source died). Empowered is cleared once off the board,
-    // so "[Empowered][>][Deathknell]" reads this snapshot.
-    obj.card_counters["__died_empowered"] = obj.empowered;
+    // Last-known information for "When I die" (CR 383.2.c.3.b).
+    snapshotLastKnown(target);
 
     auto was_at = obj.location;
     auto controller = obj.controller;
@@ -212,7 +235,7 @@ void EffectExecutor::killObject(GameObjectId target) {
         obj.attachment_might_bonus = 0;
 
         int might = obj.current_might;
-        const bool is_token = (obj.super_type == SuperType::Token);
+        const bool is_token = (obj.isToken());
         // CR 183.1: tokens cease to exist when leaving the board. Route
         // them to Banishment and skip the player's trash vector so
         // they're truly gone. Non-token units go to trash as usual.
@@ -234,7 +257,7 @@ void EffectExecutor::killObject(GameObjectId target) {
             was_at.value_or(BaseLocation{controller}),
             is_token ? ZoneType::Banishment : ZoneType::Trash, true});
     } else if (obj.isGear()) {
-        const bool is_token = (obj.super_type == SuperType::Token);
+        const bool is_token = (obj.isToken());
         obj.zone = is_token ? ZoneType::Banishment : ZoneType::Trash;
         obj.last_location = obj.location;
         obj.location = std::nullopt;
@@ -281,7 +304,7 @@ void EffectExecutor::drawCards(PlayerId player, int count) {
 // Victory Score in effect right now: the mode's score plus any battlefield
 // that raises it (Aspirant's Climb: "Increase the points needed to win the
 // game by 1."). Mirrors GameEngine::checkWinCondition.
-static int effectiveVictoryScore(const GameState& state, const CardDB& db) {
+static int victoryScoreInEffect(const GameState& state, const CardDB& db) {
     int v = state.mode.victory_score;
     for (const auto& bf : state.battlefields) {
         if (!state.objectExists(bf.card_object_id)) continue;
@@ -292,6 +315,105 @@ static int effectiveVictoryScore(const GameState& state, const CardDB& db) {
             v += 1;
     }
     return v;
+}
+
+int EffectExecutor::effectiveVictoryScore() const {
+    return victoryScoreInEffect(state_, card_db_);
+}
+
+int EffectExecutor::scorePoints(PlayerId player, int amount) {
+    if (amount <= 0 || player == PlayerId::None) return 0;
+    auto& ps = state_.player(player);
+    if (ps.cannot_gain_points) {
+        events_.logTrace(std::string("SCORE_BLOCKED: ") + toString(player) +
+                         " can't gain points");
+        return 0;
+    }
+    ps.score += amount;
+    events_.logTrace(std::string("SCORE: ") + toString(player) + " +" +
+                     std::to_string(amount) + " via effect -> " + std::to_string(ps.score));
+    events_.emit(PointsGainedEvent{player, amount, ps.score});
+    // CR 466.1.a.1: points from effects have no Winning Point restriction.
+    const auto& opp = state_.player(opponent(player));
+    if (!state_.game_over && ps.score >= effectiveVictoryScore() && ps.score > opp.score) {
+        state_.game_over = true;
+        state_.winner = player;
+        state_.game_over_reason = std::string(toString(player)) + " reached " +
+                                   std::to_string(ps.score) + " points";
+        events_.emit(GameOverEvent{player, state_.game_over_reason});
+    }
+    return amount;
+}
+
+int deflectCostFor(const GameState& state, PlayerId chooser, GameObjectId target) {
+    if (!state.objectExists(target)) return 0;
+    const auto& obj = state.getObject(target);
+    if (obj.controller == chooser || !obj.location.has_value()) return 0;
+    if (!obj.hasKeyword(Keyword::Deflect) && obj.deflect_value <= 0) return 0;
+    // Heisho: "Players ignore [Deflect] while paying for spells and abilities
+    // choosing something here."
+    if (auto bf = obj.battlefieldId())
+        for (const auto& b : state.battlefields)
+            if (b.id == *bf && b.ignore_deflect_here) return 0;
+    int value = obj.deflect_value;
+    for (const auto& ae : obj.aura_effects)
+        if (ae.keyword == Keyword::Deflect) value += std::max(1, ae.keyword_value);
+    return std::max(1, value);
+}
+
+int payableAnyPower(const GameState& state, PlayerId player) {
+    const auto& pool = state.player(player).rune_pool;
+    int n = pool.universal_power;
+    for (int di = 0; di < static_cast<int>(Domain::Count); ++di) n += pool.power[di];
+    LocationId base{BaseLocation{player}};
+    for (const auto& [id, obj] : state.objects)
+        if (obj.isRune() && obj.controller == player &&
+            obj.location.has_value() && *obj.location == base) ++n;
+    return n;
+}
+
+int EffectExecutor::deflectCostFor(PlayerId chooser, GameObjectId target) const {
+    return ::riftbound::deflectCostFor(state_, chooser, target);
+}
+
+int EffectExecutor::payableAnyPower(PlayerId player) const {
+    return ::riftbound::payableAnyPower(state_, player);
+}
+
+bool EffectExecutor::payAnyPower(PlayerId player, int amount) {
+    if (amount <= 0) return true;
+    if (payableAnyPower(player) < amount) return false;
+    auto& ps = state_.player(player);
+    auto take = [&amount](int& from) {
+        int n = std::min(from, amount);
+        from -= n;
+        amount -= n;
+    };
+    take(ps.rune_pool.universal_power);
+    for (int di = 0; di < static_cast<int>(Domain::Count); ++di) take(ps.rune_pool.power[di]);
+    if (amount <= 0) return true;
+    // Recycle runes, exhausted ones first (they have nothing else to give).
+    LocationId base{BaseLocation{player}};
+    std::vector<GameObjectId> runes;
+    for (auto& [id, obj] : state_.objects)
+        if (obj.isRune() && obj.controller == player &&
+            obj.location.has_value() && *obj.location == base) runes.push_back(id);
+    std::stable_sort(runes.begin(), runes.end(), [&](GameObjectId a, GameObjectId b) {
+        return state_.getObject(a).is_exhausted > state_.getObject(b).is_exhausted;
+    });
+    for (auto rid : runes) {
+        if (amount <= 0) break;
+        auto& rune = state_.getObject(rid);
+        rune.location = std::nullopt;
+        rune.zone = ZoneType::RuneDeck;
+        rune.is_exhausted = false;
+        ps.rune_deck.insert(ps.rune_deck.begin(), rid);
+        ps.power_spent_this_turn++;
+        events_.emit(LeftBoardEvent{rid, player, CardType::Rune, base,
+                                    ZoneType::RuneDeck, false});
+        --amount;
+    }
+    return amount <= 0;
 }
 
 bool EffectExecutor::burnOut(PlayerId player) {
@@ -318,7 +440,7 @@ bool EffectExecutor::burnOut(PlayerId player) {
                      std::to_string(opp_ps.score));
     // CR 432.3.c.1: a burn-out point that reaches the Victory Score with more
     // points than every opponent wins immediately, without waiting for cleanup.
-    if (opp_ps.score >= effectiveVictoryScore(state_, card_db_) &&
+    if (opp_ps.score >= victoryScoreInEffect(state_, card_db_) &&
         opp_ps.score > ps.score) {
         state_.game_over = true;
         state_.winner = opp_id;
@@ -341,6 +463,27 @@ bool EffectExecutor::burnOutUntilDeckHasCards(PlayerId player) {
     for (int guard = 0; ps.main_deck.empty() && !state_.game_over && guard < 256; ++guard)
         burnOut(player);
     return !ps.main_deck.empty() && !state_.game_over;
+}
+
+// "If a spell or ability that chooses me would <stun me / give me -[M] / return
+// me to hand>, <do something else> instead." Applies only to effects of the
+// chain item now resolving, and only if that item chose `target`.
+static bool hostileEffectReplaced(GameState& state, EventBus& events, EffectExecutor& exec,
+                                  const CardRegistry* registry, GameObjectId target,
+                                  Card::HostileEffect kind) {
+    if (!registry || !state.chain.resuming.has_value() || !state.objectExists(target)) return false;
+    const auto& item = *state.chain.resuming;
+    const bool chose = std::find(item.chosen_objects.begin(), item.chosen_objects.end(), target)
+                           != item.chosen_objects.end() ||
+                       std::find(item.targets.begin(), item.targets.end(), target)
+                           != item.targets.end();
+    if (!chose) return false;
+    const auto& obj = state.getObject(target);
+    if (obj.card_def_id == kInvalidId || !obj.location.has_value()) return false;
+    Card* card = registry->get(obj.card_def_id);
+    if (!card) return false;
+    CardContext rctx{state, events, exec, obj.controller, target};
+    return card->replaceHostileEffect(rctx, target, kind);
 }
 
 bool EffectExecutor::empower(GameObjectId target) {
@@ -393,8 +536,21 @@ std::vector<GameObjectId> EffectExecutor::burn(PlayerId player, int count) {
     return burned;
 }
 
+// CR 719.5: gear attached to a unit that leaves the board is shed first, and
+// gear that itself leaves stops being attached.
+static void shedAttachments(GameState& state, EffectExecutor& exec, GameObjectId id) {
+    if (!state.objectExists(id)) return;
+    auto& obj = state.getObject(id);
+    if (obj.attached_to.has_value()) exec.unattachGear(id);
+    const auto attached = obj.attachments;          // copy: unattachGear edits it
+    for (auto gid : attached) exec.unattachGear(gid);
+}
+
 void EffectExecutor::bounceToHand(GameObjectId target) {
     if (!state_.objectExists(target)) return;
+    if (hostileEffectReplaced(state_, events_, *this, card_registry_, target,
+                              Card::HostileEffect::ReturnToHand)) return;
+    shedAttachments(state_, *this, target);
     auto& obj = state_.getObject(target);
     auto was_at = obj.location;
     auto controller = obj.controller;
@@ -406,7 +562,7 @@ void EffectExecutor::bounceToHand(GameObjectId target) {
     // alive in state.objects (so any in-flight references stay valid)
     // but route it to Banishment and skip the player's hand vector,
     // matching "ceases to exist" semantically.
-    if (obj.super_type == SuperType::Token) {
+    if (obj.isToken()) {
         events_.logTrace("EFFECT: bounce " + obj.name + " (id=" +
                          std::to_string(target) +
                          ") — token ceases to exist (CR 183.1)");
@@ -445,6 +601,9 @@ void EffectExecutor::bounceToHand(GameObjectId target) {
 void EffectExecutor::giveTemporaryMight(GameObjectId target, int amount, int minimum) {
     if (!state_.objectExists(target)) return;
     auto& obj = state_.getObject(target);
+
+    if (amount < 0 && hostileEffectReplaced(state_, events_, *this, card_registry_, target,
+                                            Card::HostileEffect::ReduceMight)) return;
 
     // Mel, Newly Awakened: "If a spell or ability you control would give -[M]
     // to a unit it chooses, it gives an additional -1 [M]."
@@ -551,6 +710,13 @@ void EffectExecutor::unattachGear(GameObjectId gear) {
     }
     g.attached_to = std::nullopt;
     g.is_rules_text_inactive = false;
+    // "For as long as this is attached" effects end here (Shady Spectacles).
+    if (card_registry_ && g.card_def_id != kInvalidId) {
+        if (Card* gc = card_registry_->get(g.card_def_id)) {
+            CardContext uctx{state_, events_, *this, g.controller, gear};
+            gc->onUnattached(uctx, unit_id);
+        }
+    }
     // CR 719.5 — detached gear stays at its current location, unattached.
     events_.logTrace("EFFECT: unattach " + g.name + " (id=" + std::to_string(gear) + ")");
     events_.emit(ObjectStateChangedEvent{gear, "detached"});
@@ -604,6 +770,8 @@ void EffectExecutor::stunUnitBy(GameObjectId target, GameObjectId stunner_source
 
     // CR 423: already stunned units can't be stunned again
     if (obj.is_stunned) return;
+    if (hostileEffectReplaced(state_, events_, *this, card_registry_, target,
+                              Card::HostileEffect::Stun)) return;
     events_.logTrace("EFFECT: stun " + obj.name + " (id=" + std::to_string(target) + ")");
 
     obj.is_stunned = true;
@@ -761,6 +929,7 @@ void EffectExecutor::recycleCards(PlayerId /*effect_controller*/,
 
 void EffectExecutor::banishObject(GameObjectId target) {
     if (!state_.objectExists(target)) return;
+    shedAttachments(state_, *this, target);
     auto& obj = state_.getObject(target);
     events_.logTrace("EFFECT: banish " + obj.name + " (id=" + std::to_string(target) + ")");
     auto was_at = obj.location;
@@ -922,6 +1091,9 @@ void EffectExecutor::copyUnit(GameObjectId token_id, GameObjectId source_id) {
     // src has a card_def_id, so a copy of a buffed/aura'd unit takes its
     // pristine printed values, not the live state. Falls back to src's
     // live values for token sources (no CardDef). Phase 6q+ fix.
+    // CR 185.1: whether the copier is a token is intrinsic — pin it before its
+    // supertype is overwritten by the copied one.
+    token.is_token = token.isToken();
     token.card_def_id = src.card_def_id;
     if (src.card_def_id != kInvalidId) {
         const auto& def = card_db_.get(src.card_def_id);
@@ -934,13 +1106,21 @@ void EffectExecutor::copyUnit(GameObjectId token_id, GameObjectId source_id) {
         token.assault_value = def.assault_value;
         token.shield_value = def.shield_value;
         token.deflect_value = def.deflect_value;
+        // The copy has the copied supertype (a copy of a Champion is a
+        // Champion); whether it is a token is intrinsic and unchanged.
+        token.super_type = def.super_type == SuperType::Token ? SuperType::None
+                                                              : def.super_type;
     } else {
         token.name = src.name;
         token.card_type = src.card_type;
         token.tags = src.tags;
         token.domains = src.domains;
         token.base_might = src.base_might;
+        // Copy effects copy printed traits only (CR 446): leave out keywords
+        // the source merely has "this turn".
         token.keywords = src.keywords;
+        token.keywords.bits &= ~src.temp_keywords.bits;
+        token.super_type = SuperType::None;
         token.assault_value = src.assault_value;
         token.shield_value = src.shield_value;
         token.deflect_value = src.deflect_value;
@@ -970,6 +1150,7 @@ GameObjectId EffectExecutor::createToken(PlayerId controller, CardType type,
     obj.controller = controller;
     obj.card_type = type;
     obj.super_type = SuperType::Token;
+    obj.is_token = true;   // CR 185.1 intrinsic
     obj.name = name;
     obj.base_might = might;
     obj.current_might = might;
@@ -1027,6 +1208,7 @@ BattlefieldId EffectExecutor::addBattlefieldToken(const std::string& name,
     obj.controller = PlayerId::None;
     obj.card_type = CardType::Battlefield;
     obj.super_type = SuperType::Token;
+    obj.is_token = true;   // CR 185.1 intrinsic
     obj.name = name;
     obj.zone = ZoneType::BattlefieldZone;
 
@@ -1078,6 +1260,7 @@ void EffectExecutor::replaceBattlefieldWithToken(BattlefieldId target_bf,
     tok.controller = PlayerId::None;
     tok.card_type = CardType::Battlefield;
     tok.super_type = SuperType::Token;
+    tok.is_token = true;   // CR 185.1 intrinsic
     tok.name = token_name;
     tok.zone = ZoneType::BattlefieldZone;
     tok.location = BattlefieldLocation{target_bf};

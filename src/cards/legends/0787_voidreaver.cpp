@@ -49,6 +49,8 @@ public:
             // Any unit (buff target).
             for (auto& [id, obj] : state.objects) {
                 if (!obj.isUnit() || !obj.location.has_value()) continue;
+                // "Can't be chosen by enemy spells and abilities."
+                if (obj.controller != controller && obj.untargetable_by_enemy) continue;
                 out.push_back(id);
             }
         } else {

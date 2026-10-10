@@ -30,12 +30,14 @@ public:
     }
     // Filter to units with might <= 3.
     std::vector<GameObjectId> enumerateLegalTargets(
-        const GameState& state, PlayerId /*controller*/) const override {
+        const GameState& state, PlayerId controller) const override {
         std::vector<GameObjectId> targets;
         for (auto& [id, obj] : state.objects) {
             if (!obj.isUnit() || !obj.location.has_value()) continue;
             if (!std::holds_alternative<BattlefieldLocation>(*obj.location)) continue;
             if (obj.current_might > 3) continue;
+            // "Can't be chosen by enemy spells and abilities."
+            if (obj.controller != controller && obj.untargetable_by_enemy) continue;
             targets.push_back(id);
         }
         return targets;

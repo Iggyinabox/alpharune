@@ -28,14 +28,11 @@ public:
             break;
         }
         if (!present) return;
-        // Grant [Weaponmaster] to friendly units tagged "Sand Soldier".
+        // Grant [Weaponmaster] to friendly Sand Soldiers. "Sand Soldier" is the
+        // token's name; its tag is Shurima (CR 187.3), so match on the name.
         for (auto& [uid, u] : state.objects) {
             if (!u.isUnit() || u.controller != controller) continue;
-            bool is_sand = false;
-            for (auto& tag : u.tags) {
-                if (tag == "Sand Soldier") { is_sand = true; break; }
-            }
-            if (!is_sand) continue;
+            if (u.name != "Sand Soldier") continue;
             GameObject::AuraEffect ae;
             ae.source = self_id;
             ae.keyword = Keyword::Weaponmaster;
@@ -53,8 +50,9 @@ public:
     }
     void onActivate(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         auto loc = BaseLocation{ctx.controller};
+        // CR 187.3: a Sand Soldier token has 2 Might and the Shurima tag.
         ctx.executor.createToken(ctx.controller, CardType::Unit, "Sand Soldier",
-                                 2, {"Sand Soldier"}, KeywordSet{}, loc, false);
+                                 2, {"Shurima"}, KeywordSet{}, loc, false);
         ctx.events.logTrace("EMPEROR OF THE SANDS: created 2[M] Sand Soldier token");
     }
 private:

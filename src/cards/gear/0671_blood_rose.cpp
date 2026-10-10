@@ -23,12 +23,16 @@ public:
         auto& ps = ctx.state.player(ctx.controller);
         // confirmOptional pattern (Phase 5f). still_legal closure validates
         // BOTH at prompt-time and after the agent says yes.
-        auto still_legal = [&ps]() { return ps.rune_pool.energy >= 1; };
+        // CR 445.2 / 164.2.a: the [1] may come from floating Energy or from
+        // exhausting a ready rune (payableEnergy / payEnergy).
+        auto still_legal = [&ctx]() {
+            return payableEnergy(ctx.state, ctx.controller) >= 1;
+        };
         if (!still_legal()) return;
         auto conf = confirmOptional(ctx,
             "Blood Rose: pay [1] to gain 1 XP?", still_legal);
         if (conf < 1) return;
-        ps.rune_pool.energy -= 1;
+        if (!payEnergy(ctx, ctx.controller, 1)) return;
         ps.xp += 1;
         ctx.events.logTrace("BLOOD ROSE: paid [1] -> +1 XP (now " +
                              std::to_string(ps.xp) + ")");

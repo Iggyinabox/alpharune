@@ -52,9 +52,7 @@ public:
         if (ctx.state.objectExists(countered)) {
             auto& obj = ctx.state.getObject(countered);
             ctx.events.logTrace("COUNTER: " + obj.name + " countered by Defy -> trash");
-            obj.zone = ZoneType::Trash;
-            obj.location = std::nullopt;
-            ctx.state.player(obj.owner).trash.push_back(countered);
+            disposeCounteredCard(ctx, countered);
         }
         // NOTE: removed the previously-present (un-printed) "draw 1".
     }

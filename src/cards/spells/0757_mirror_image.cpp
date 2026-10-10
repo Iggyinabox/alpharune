@@ -24,10 +24,18 @@ public:
         GameObjectId token = ctx.executor.createToken(
             ctx.controller, CardType::Unit, "Reflection",
             /*might=*/0, /*tags=*/{}, /*keywords=*/KeywordSet{},
-            BaseLocation{}, /*enter_ready=*/true);
-        if (token != kInvalidId) {
+            // "to your base": the base must name its player — a default
+            // BaseLocation{} is PlayerId::None's base, i.e. nobody's.
+            BaseLocation{ctx.controller}, /*enter_ready=*/true);
+        if (token != kInvalidId && ctx.state.objectExists(token)) {
             ctx.executor.copyUnit(token, targets[0]);
-            ctx.executor.giveTemporaryKeyword(token, Keyword::Temporary, 0);
+            // "Give it [Temporary]" has no duration, so it lasts (CR 816: the
+            // token is killed at its controller's next Beginning Phase).
+            // giveTemporaryKeyword is the "this turn" grant: it tags
+            // temp_keywords and the keyword is revoked in the expiration step,
+            // before that Beginning Phase. Set it after the copy, which
+            // overwrites the token's keywords (as Deceiver does).
+            ctx.state.getObject(token).keywords.set(Keyword::Temporary);
             ctx.events.logTrace("MIRROR IMAGE: spawned Reflection copy of " +
                                  ctx.state.getObject(targets[0]).name +
                                  " (Temporary)");

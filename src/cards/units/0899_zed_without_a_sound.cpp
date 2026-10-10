@@ -22,7 +22,8 @@ public:
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         {
             auto clone_id = ctx.executor.createToken(ctx.controller, CardType::Unit, "Shadow Clone", 0,
-                                 {"Shadow Clone"}, KeywordSet{},
+                                 // CR 187.11: 0 Might, no tags ("Shadow Clone" is its name).
+                                 std::vector<std::string>{}, KeywordSet{},
                                  BaseLocation{ctx.controller}, /*enter_ready=*/false);
             // Carry the Shadow Clone token card so its "When I attack" ability fires.
             if (ctx.state.objectExists(clone_id))

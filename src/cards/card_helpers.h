@@ -160,12 +160,35 @@ inline void discardThenAct(CardContext& ctx, int count,
     }
 }
 
-// ── Counter / play-revert ──
-inline void revertCounteredPlay(CardContext& ctx, const ChainItem& top) {
-    auto& ps = ctx.state.player(top.controller);
-    if (ps.cards_played_this_turn > 0) --ps.cards_played_this_turn;
-    if (ps.last_spell_energy_spent == top.total_energy_spent)
-        ps.last_spell_energy_spent = 0;
+// ── Countering (CR 426) ──
+// CR 420.4.b: non-triggered checks of "cards you've played" count FINALIZED
+// cards, and a countered card was finalized — so countering does not undo the
+// played count. CR 420.4.a.1 / 426.1.b: abilities that trigger on a card being
+// played simply never trigger, because those fire at resolution. Nothing is
+// reverted here; the function remains as the single place that would change.
+inline void revertCounteredPlay(CardContext& /*ctx*/, const ChainItem& /*top*/) {}
+
+/// Put a card that was removed from the chain without resolving where it
+/// belongs: `dest` (trash — CR 426.1.a.1 — or hand for "return it to hand"),
+/// unless it carries a "then banish it" replacement (CR 391.3.a: a Flow spell
+/// that would leave the chain other than by its own execution is banished).
+inline void disposeCounteredCard(CardContext& ctx, GameObjectId id,
+                                 ZoneType dest = ZoneType::Trash) {
+    if (!ctx.state.objectExists(id)) return;
+    auto& obj = ctx.state.getObject(id);
+    obj.location = std::nullopt;
+    if (obj.banish_on_leave_chain) {
+        obj.banish_on_leave_chain = false;
+        obj.zone = ZoneType::Banishment;
+        ctx.state.player(obj.owner).banishment.push_back(id);
+        ctx.state.player(obj.owner).cards_banished_this_turn++;
+        ctx.events.logTrace("COUNTER: " + obj.name + " -> banished (played for Flow)");
+        ctx.events.emit(ObjectStateChangedEvent{id, "banished_owned"});
+        return;
+    }
+    obj.zone = dest;
+    if (dest == ZoneType::Hand) ctx.state.player(obj.owner).hand.push_back(id);
+    else ctx.state.player(obj.owner).trash.push_back(id);
 }
 
 // "This can't be countered" (the spell's own card) or "Your spells and
@@ -189,11 +212,8 @@ inline void counterChainTop(CardContext& ctx) {
     revertCounteredPlay(ctx, top);  // CR 425.1.b
     ctx.state.chain.items.pop_back();
     if (ctx.state.objectExists(countered)) {
-        auto& obj = ctx.state.getObject(countered);
-        ctx.events.logTrace("COUNTER: " + obj.name + " countered -> trash");
-        obj.zone = ZoneType::Trash;
-        obj.location = std::nullopt;
-        ctx.state.player(obj.owner).trash.push_back(countered);
+        ctx.events.logTrace("COUNTER: " + ctx.state.getObject(countered).name + " countered");
+        disposeCounteredCard(ctx, countered);
     }
 }
 
@@ -210,7 +230,12 @@ inline GameObjectId createGoldExhausted(CardContext& ctx) {
     LocationId loc{BaseLocation{ctx.controller}};
     auto tok = ctx.executor.createToken(ctx.controller, CardType::Gear, "Gold",
                                         0, {}, {}, loc, /*enter_ready=*/false);
-    if (ctx.state.objectExists(tok)) ctx.state.getObject(tok).is_exhausted = true;
+    if (ctx.state.objectExists(tok)) {
+        auto& gold = ctx.state.getObject(tok);
+        gold.is_exhausted = true;
+        // Bind the Gold token card so its "[Reaction] Kill this, [E]: Add" ability exists.
+        gold.card_def_id = kGoldGearCardDefId;
+    }
     return tok;
 }
 

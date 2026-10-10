@@ -3,6 +3,7 @@
 #include "core/game_state.h"
 #include "core/events.h"
 #include "engine/effect_executor.h"
+#include "cards/card_helpers.h"
 #include <algorithm>
 #include <memory>
 #include <string>
@@ -32,13 +33,16 @@ public:
             if (obj.current_might >= 5) { has_mighty = true; break; }
         }
         if (!has_mighty) return;
-        auto& ps = ctx.state.player(ctx.controller);
-        auto still_legal = [&]() { return ps.rune_pool.energy >= 1; };
+        // CR 445.2 / 164.2.a: the [1] may come from floating Energy or from
+        // exhausting a ready rune (payableEnergy / payEnergy).
+        auto still_legal = [&]() {
+            return payableEnergy(ctx.state, ctx.controller) >= 1;
+        };
         if (!still_legal()) return;
         int conf = confirmOptional(ctx, "Sunken Temple: pay [1] to draw 1?",
                                    still_legal);
         if (conf < 1) return;
-        ps.rune_pool.energy -= 1;
+        if (!payEnergy(ctx, ctx.controller, 1)) return;
         ctx.executor.drawCards(ctx.controller, 1);
         ctx.events.logTrace("SUNKEN TEMPLE: paid [1] -> draw 1");
     }

@@ -51,7 +51,6 @@ private:
         d.set_name = R"RB(Vendetta)RB";
         d.card_type = CardType::Unit;
         d.super_type = SuperType::Token;
-        d.tags = {R"RB(Shadow Clone)RB"};
         d.might = 0;
         d.rarity = Rarity::Common;
         d.ability_text = R"RB(When I attack, you may banish a unit from your trash. If you do, give me [Assault 4] this turn.)RB";

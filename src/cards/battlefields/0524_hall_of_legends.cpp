@@ -3,6 +3,7 @@
 #include "core/game_state.h"
 #include "core/events.h"
 #include "engine/effect_executor.h"
+#include "cards/card_helpers.h"
 #include <algorithm>
 #include <memory>
 #include <string>
@@ -18,7 +19,8 @@ public:
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>&) override {
         auto legend_ready_state = [&]() {
             auto& ps = ctx.state.player(ctx.controller);
-            if (ps.rune_pool.energy < 1) return false;
+            // CR 445.2 / 164.2.a: floating Energy or a ready rune can pay.
+            if (payableEnergy(ctx.state, ctx.controller) < 1) return false;
             GameObjectId lz = ps.legend_zone;
             if (lz == kInvalidId || !ctx.state.objectExists(lz)) return false;
             return ctx.state.getObject(lz).is_exhausted;  // only worth it if exhausted
@@ -28,8 +30,7 @@ public:
         if (conf == -1) return;  // waiting on agent
         if (conf == 0) return;   // declined / can't pay
         auto& ps = ctx.state.player(ctx.controller);
-        if (ps.rune_pool.energy < 1) return;
-        ps.rune_pool.energy -= 1;
+        if (!payEnergy(ctx, ctx.controller, 1)) return;
         GameObjectId lz = ps.legend_zone;
         if (lz != kInvalidId && ctx.state.objectExists(lz)) {
             ctx.executor.readyObject(lz);

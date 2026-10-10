@@ -27,7 +27,7 @@ public:
         self.card_counters["__pyke_token_turn"] = ctx.state.turn.turn_number;
         LocationId loc = self.location.value_or(LocationId{BaseLocation{ctx.controller}});
         auto tid = ctx.executor.createToken(ctx.controller, CardType::Gear, "Gold",
-                                            0, {"Gold"}, KeywordSet{}, loc,
+                                            0, {}, KeywordSet{}, loc,
                                             /*enter_ready=*/false);
         if (ctx.state.objectExists(tid)) {
             auto& tok = ctx.state.getObject(tid);

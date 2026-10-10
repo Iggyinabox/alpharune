@@ -58,10 +58,12 @@ public:
     // Broad gate (instance unknown here): any unit carrying any tag is a
     // plausible target. The precise named-tag filter happens in onActivate.
     std::vector<GameObjectId> enumerateLegalTargets(
-        const GameState& state, PlayerId /*controller*/,
+        const GameState& state, PlayerId controller,
         int /*ability_index*/) const override {
         std::vector<GameObjectId> out;
         for (auto& [id, obj] : state.objects) {
+            // "Can't be chosen by enemy spells and abilities."
+            if (obj.controller != controller && obj.untargetable_by_enemy) continue;
             if (obj.isUnit() && obj.location.has_value() && !obj.tags.empty())
                 out.push_back(id);
         }

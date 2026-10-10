@@ -65,6 +65,7 @@ private:
     /// Fires WhenYouPlayMe triggers for the card that was just played.
     /// Also fires WhenYouPlayAUnit/WhenYouPlayASpell for other objects.
     void onCardPlayed(const CardPlayedEvent& e);
+    void onSpellResolved(const SpellResolvedEvent& e);
 
     /// Fires WhenYouPlayThis for gear entering the board.
     void onEnteredBoard(const EnteredBoardEvent& e);

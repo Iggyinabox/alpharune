@@ -11,6 +11,8 @@ TriggerManager::TriggerManager(GameState& state, EventBus& events,
       card_registry_(card_registry) {}
 
 void TriggerManager::subscribe() {
+    connections_.push_back(events_.on_spell_resolved.connect(
+        [this](const SpellResolvedEvent& e) { onSpellResolved(e); }));
     connections_.push_back(events_.on_card_played.connect(
         [this](const CardPlayedEvent& e) { onCardPlayed(e); }));
     connections_.push_back(events_.on_entered_board.connect(
@@ -270,9 +272,16 @@ void TriggerManager::onCardPlayed(const CardPlayedEvent& e) {
         if (e.card_type == CardType::Unit && !obj.isToken()) pps.played_nontoken_unit_this_turn = true;
         if (e.card_type == CardType::Gear && !obj.isToken()) pps.played_nontoken_gear_this_turn = true;
     }
+    // CR 420.4.a: abilities that trigger on a card being played trigger when
+    // playing it is COMPLETED by its resolution. A permanent resolves as it is
+    // finalized, so its play triggers fire here; a spell's fire from
+    // onSpellResolved (and never, if it is countered — 420.4.a.1 / 426.1.b).
+    if (e.card_type == CardType::Spell)
+        obj.card_counters["__energy_spent_on_play"] = e.energy_spent;
+
     // "When you play a card" (any type) on the player's other cards + legend,
     // and "When an opponent plays a gear" on the other player's cards.
-    {
+    if (e.card_type != CardType::Spell) {
         std::vector<std::pair<GameObjectId, TriggerType>> fires;
         for (auto& [id, other] : state_.objects) {
             if (id == e.object || other.card_def_id == kInvalidId) continue;
@@ -339,14 +348,6 @@ void TriggerManager::onCardPlayed(const CardPlayedEvent& e) {
             cardFiresOn(card_registry_, other.card_def_id, TriggerType::WhenYouPlayAGear)) {
             fireTrigger(id, e.player, 0, TriggerType::WhenYouPlayAGear);
         }
-        if (e.card_type == CardType::Spell &&
-            cardFiresOn(card_registry_, other.card_def_id, TriggerType::WhenYouPlayASpell)) {
-            // Snapshot triggering-spell spent so Virtuoso /
-            // Forgotten Library read the correct value at resolve
-            // time (not whichever PlayerState::last_spell_energy_spent
-            // is at chain-drain time).
-            fireTrigger(id, e.player, e.energy_spent, TriggerType::WhenYouPlayASpell);
-        }
     }
 
     // Battlefield cards with "When you play a unit here" (e.g. Star Spring).
@@ -377,45 +378,32 @@ void TriggerManager::onCardPlayed(const CardPlayedEvent& e) {
     // Legend-zone sweep: legends say "When you play a spell/unit," — the
     // legend itself has no location, so the loop above skips it. Fire any
     // matching legend on the acting player's side.
-    if (e.card_type == CardType::Spell) {
-        fireLegendTrigger(TriggerType::WhenYouPlayASpell, e.player,
-                          e.energy_spent);
-    } else if (e.card_type == CardType::Unit) {
+    if (e.card_type == CardType::Unit) {
         fireLegendTrigger(TriggerType::WhenYouPlayAUnit, e.player);
     }
+}
 
-    // Phase 6o (2026-05-18) — "When you choose a friendly unit."
-    // The just-played card's targets are visible on chain.items.back().
-    // For each target that is a friendly unit of the playing player,
-    // fire WhenYouChooseAFriendlyUnit on all of that player's on-board
-    // cards with the trigger (e.g. Spirit Wheel). The triggers are
-    // added on top of the just-played item, so they resolve first
-    // (LIFO) — meaning Spirit Wheel's draw happens BEFORE the
-    // chosen-unit effect resolves, matching the card's text.
-    if (!state_.chain.items.empty()) {
-        const auto& just_played = state_.chain.items.back();
-        bool any_friendly_target = false;
-        for (auto tgt_id : just_played.targets) {
-            if (!state_.objectExists(tgt_id)) continue;
-            const auto& tgt = state_.getObject(tgt_id);
-            if (!tgt.isUnit()) continue;
-            if (tgt.controller != e.player) continue;
-            any_friendly_target = true;
-            break;
-        }
-        if (any_friendly_target) {
-            for (auto& [id, other] : state_.objects) {
-                if (!other.location.has_value()) continue;
-                if (other.controller != e.player) continue;
-                if (id == e.object) continue;  // don't self-trigger
-                if (cardFiresOn(card_registry_, other.card_def_id,
-                                TriggerType::WhenYouChooseAFriendlyUnit)) {
-                    fireTrigger(id, e.player, 0,
-                                TriggerType::WhenYouChooseAFriendlyUnit);
-                }
-            }
-        }
+void TriggerManager::onSpellResolved(const SpellResolvedEvent& e) {
+    // CR 420.4.a: "When you play a spell" / "When you play a card" trigger now,
+    // when the spell has resolved.
+    if (!state_.objectExists(e.spell)) return;
+    const auto& spell = state_.getObject(e.spell);
+    int energy_spent = 0;
+    if (auto it = spell.card_counters.find("__energy_spent_on_play");
+        it != spell.card_counters.end()) energy_spent = it->second;
+
+    std::vector<std::pair<GameObjectId, TriggerType>> fires;
+    for (auto& [id, other] : state_.objects) {
+        if (id == e.spell || other.controller != e.controller) continue;
+        if (!other.location.has_value() && other.zone != ZoneType::LegendZone) continue;
+        if (other.card_def_id == kInvalidId) continue;
+        if (cardFiresOn(card_registry_, other.card_def_id, TriggerType::WhenYouPlayASpell))
+            fires.push_back({id, TriggerType::WhenYouPlayASpell});
+        if (cardFiresOn(card_registry_, other.card_def_id, TriggerType::WhenYouPlayACard))
+            fires.push_back({id, TriggerType::WhenYouPlayACard});
     }
+    for (auto& [id, t] : fires)
+        fireTrigger(id, e.controller, energy_spent, t, /*subject=*/e.spell);
 }
 
 void TriggerManager::onEnteredBoard(const EnteredBoardEvent& e) {
@@ -1063,6 +1051,27 @@ void TriggerManager::onObjectStateChanged(const ObjectStateChangedEvent& e) {
 
     // "When you attach an Equipment to me" — fires on the equipped unit itself
     // (attachGearToUnit / attachFree emit "equipped"). (Aphelios, Exalted 372.)
+    if (e.what_changed == "chosen_by_controller") {
+        // "When you choose a friendly unit" — a spell or ability its own
+        // controller played chose this unit (at play or at resolution).
+        std::vector<GameObjectId> watchers;
+        for (auto& [id, obj] : state_.objects) {
+            if (id == e.object || obj.controller != controller) continue;
+            if (!obj.location.has_value() && obj.zone != ZoneType::LegendZone) continue;
+            if (obj.card_def_id == kInvalidId) continue;
+            if (cardFiresOn(card_registry_, obj.card_def_id,
+                            TriggerType::WhenYouChooseAFriendlyUnit))
+                watchers.push_back(id);
+        }
+        for (auto wid : watchers)
+            fireTrigger(wid, controller, 0, TriggerType::WhenYouChooseAFriendlyUnit,
+                        /*subject=*/e.object);
+        // Battlefield cards: "when a friendly unit is chosen here".
+        if (auto bf = state_.getObject(e.object).battlefieldId())
+            fireBattlefieldTriggers(TriggerType::WhenAFriendlyUnitChosenHere, controller, *bf);
+        return;
+    }
+
     if (e.what_changed == "became_ready") {
         if (state_.getObject(e.object).card_def_id != kInvalidId &&
             cardFiresOn(card_registry_, state_.getObject(e.object).card_def_id,

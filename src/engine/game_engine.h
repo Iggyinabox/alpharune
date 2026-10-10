@@ -254,6 +254,7 @@ private:
     // restart loop), leftover subscribers from the prior engine would
     // dereference a dead `this` when the new engine emits a reveal.
     boost::signals2::connection card_revealed_conn_;
+    boost::signals2::connection trace_stderr_conn_;
 
     // Phase 2-3 subsystems
     std::unique_ptr<ChainManager> chain_manager_;
@@ -598,6 +599,9 @@ private:
     bool anyDamageIsLethalFor(PlayerId damager) const;
     /// Pay an activated ability's costs and add it to the chain (no chain run).
     bool payAndQueueAbility(const Intent& intent);
+    /// CR 323.6: recall unattached gear at battlefields and permanents / runes
+    /// sitting in a base other than their controller's.
+    void recallMisplacedObjects();
     /// (Re)create the chain manager, effect executor and trigger manager bound
     /// to state_ / events_.
     void initSubsystems();

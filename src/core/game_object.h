@@ -79,6 +79,30 @@ struct GameObject {
     // end of turn.
     int prevent_damage_remaining = 0;
 
+    // ── Intrinsic token-ness (CR 185.1) ──
+    bool is_token = false;
+
+    // ── Last-known information (CR 383.2.c.3.b / 429.1.a.1.b) ──
+    // Snapshot taken just before this object leaves the board by dying, so
+    // "When I die" abilities read the state from before the death. The kill
+    // paths fill it; it stays valid while the death trigger resolves.
+    struct LastKnown {
+        bool valid = false;
+        int might = 0;
+        int empowered = 0;
+        int buff_count = 0;
+        CombatDesignation combat_designation = CombatDesignation::None;
+        bool in_combat = false;                 // at a battlefield with combat in progress
+        std::vector<GameObjectId> attachments;  // gear attached at death
+        KeywordSet keywords;                    // printed + aura + "this turn"
+    };
+    LastKnown last_known;
+
+    // ── Who marked the damage (CR: "your damage" = damage you marked) ──
+    // damage_marked split by the player whose effect / units dealt it. Index
+    // by playerIndex(). Cleared whenever damage_marked is healed to 0.
+    int damage_marked_by[2] = {0, 0};
+
     // ── Position ──
     ZoneType zone = ZoneType::MainDeck;
     std::optional<LocationId> location;  // only meaningful when on board
@@ -260,7 +284,11 @@ struct GameObject {
     bool isLegend() const { return card_type == CardType::Legend; }
     bool isPermanent() const { return isUnit() || isGear(); }
     bool isChampion() const { return super_type == SuperType::Champion; }
-    bool isToken() const { return super_type == SuperType::Token; }
+    // CR 185.1: "Token" is an intrinsic category of game object, not a
+    // supertype: a token stays a token however it is copied or altered, and a
+    // card can never become one. is_token is that intrinsic bit; the supertype
+    // check keeps token card defs (Gold, Recruit, ...) working.
+    bool isToken() const { return is_token || super_type == SuperType::Token; }
 
     bool isAlive() const { return damage_marked < current_might; }
     bool hasLethalDamage() const {

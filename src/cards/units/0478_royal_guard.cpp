@@ -20,8 +20,9 @@ public:
         if (!ctx.state.objectExists(ctx.source)) return;
         auto loc = ctx.state.getObject(ctx.source).location;
         if (!loc) loc = LocationId{BaseLocation{ctx.controller}};
+        // CR 187.3: a Sand Soldier token has 2 Might and the Shurima tag.
         ctx.executor.createToken(ctx.controller, CardType::Unit, "Sand Soldier",
-                                 2, {"Sand Soldier"}, KeywordSet{}, *loc, false);
+                                 2, {"Shurima"}, KeywordSet{}, *loc, false);
         ctx.events.logTrace("ROYAL GUARD: play 2[M] Sand Soldier token here");
     }
 private:

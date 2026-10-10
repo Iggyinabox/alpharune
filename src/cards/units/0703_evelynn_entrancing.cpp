@@ -19,20 +19,30 @@ public:
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         if (!ctx.state.objectExists(ctx.source)) return;
         auto& self = ctx.state.getObject(ctx.source);
+        // "When you play me FROM FACE DOWN ON YOUR TURN": WhenYouPlayMe fires
+        // for every play, so gate on the marker GameEngine::executePlayFromHidden
+        // stamps. Latch and consume it on the first entry (as Tornado Warrior
+        // does) so a later play from hand does not see a stale marker.
+        const auto& ri = ctx.state.chain.resuming;
+        if (!ri.has_value() || ri->resume_point == 0) {
+            auto& from_facedown = self.card_counters["__played_from_facedown"];
+            self.card_counters["__evelynn_from_facedown"] =
+                (from_facedown == 1 && ctx.state.turn.turn_player == ctx.controller) ? 1 : 0;
+            from_facedown = 0;
+        }
+        if (self.card_counters["__evelynn_from_facedown"] != 1) return;
         if (!self.isAtBattlefield()) return;      // need a destination battlefield
         auto my_bf = self.battlefieldId();
         if (!my_bf) return;
 
-        PlayerId opp = opponent(ctx.controller);
-        std::vector<GameObjectId> legal;
-        for (auto& [id, obj] : ctx.state.objects) {
-            if (!obj.isUnit() || obj.controller != opp) continue;
-            if (!obj.location.has_value()) continue;
-            // "at a different location" — exclude enemies already at my BF.
-            auto obf = obj.battlefieldId();
-            if (obf && *obf == *my_bf) continue;
-            legal.push_back(id);
-        }
+        // Enemy units at a different location; chooseableUnits drops the ones
+        // that can't be chosen by enemy spells and abilities.
+        auto legal = chooseableUnits(ctx.state, ctx.controller,
+            [&](const GameObject& obj) {
+                if (obj.controller == ctx.controller) return false;
+                auto obf = obj.battlefieldId();
+                return !(obf && *obf == *my_bf);
+            });
         auto still_legal = [&legal]() { return !legal.empty(); };
         if (!still_legal()) return;
 

@@ -27,8 +27,9 @@ public:
     }
     void onResolve(CardContext& ctx, const std::vector<GameObjectId>&) override {
         KeywordSet kw;
+        // CR 187.4: a Mech token has 3 Might and the Mech tag.
         ctx.executor.createToken(ctx.controller, CardType::Unit, "Mech",
-                                  /*might=*/3, /*tags=*/{}, kw,
+                                  /*might=*/3, /*tags=*/{"Mech"}, kw,
                                   BaseLocation{ctx.controller},
                                   /*exhausted=*/false);
         ctx.executor.drawCards(ctx.controller, 1);
