@@ -316,5 +316,128 @@ TEST_F(RulesComplianceTest, Contested_ReappliedByRemainingNonControllerUnits) {
     EXPECT_FALSE(bf.combat_staged);
 }
 
+// ─── CR 164.2 — paying Energy and Power with runes ─────────────────────────
+// A Basic Rune has "[E]: Add [1]" and "Recycle this: Add [C]". Recycling does
+// not need the rune to be exhausted, and a rune exhausted for Energy can still
+// be recycled for Power.
+
+namespace {
+constexpr CardDefId kPunchFirst = 419;   // spell, [1] + 2 Body power
+}  // namespace
+
+class CostPaymentRulesTest : public RulesComplianceTest {
+protected:
+    GameObjectId rune(PlayerId p, Domain d, bool exhausted = false) {
+        auto id = s().createObject();
+        auto& r = s().getObject(id);
+        r.owner = r.controller = p;
+        r.card_type = CardType::Rune;
+        r.name = "Rune";
+        r.domains = {d};
+        r.zone = ZoneType::Base;
+        r.location = BaseLocation{p};
+        r.is_exhausted = exhausted;
+        return id;
+    }
+    GameObjectId cardInHand(PlayerId p, CardDefId def_id) {
+        auto id = s().createObject();
+        auto& c = s().getObject(id);
+        const auto& def = card_db.get(def_id);
+        c.owner = c.controller = p;
+        c.card_def_id = def_id;
+        c.card_type = def.card_type;
+        c.name = def.name;
+        c.domains = def.domains;
+        c.keywords = def.keywords;
+        c.zone = ZoneType::Hand;
+        s().player(p).hand.push_back(id);
+        return id;
+    }
+    int runesInBase(PlayerId p) {
+        int n = 0;
+        for (auto& [id, o] : s().objects)
+            if (o.isRune() && o.controller == p && o.location.has_value()) ++n;
+        return n;
+    }
+};
+
+TEST_F(CostPaymentRulesTest, BaseCost_TwoReadyRunesPayOneEnergyAndTwoPower) {
+    // [1] + [O][O] with exactly two ready Body runes: exhaust one for the
+    // Energy, then recycle both for the Power.
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    rune(P1, Domain::Body);
+    rune(P1, Domain::Body);
+    auto spell = cardInHand(P1, kPunchFirst);
+
+    EXPECT_TRUE(engine_->testHook_canAfford(P1, spell));
+    EXPECT_TRUE(engine_->testHook_payCardCost(P1, spell));
+    EXPECT_EQ(runesInBase(P1), 0) << "both runes recycled for Power";
+}
+
+TEST_F(CostPaymentRulesTest, BaseCost_NotAffordableWithoutEnoughMatchingRunes) {
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    rune(P1, Domain::Body);
+    rune(P1, Domain::Fury);          // wrong domain for the second Power
+    auto spell = cardInHand(P1, kPunchFirst);
+
+    EXPECT_FALSE(engine_->testHook_canAfford(P1, spell));
+}
+
+TEST_F(CostPaymentRulesTest, BaseCost_SpendsFloatingPowerBeforeRecyclingRunes) {
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    rune(P1, Domain::Fury);          // pays the Energy only
+    s().player(P1).rune_pool.power[static_cast<int>(Domain::Body)] = 2;
+    auto spell = cardInHand(P1, kPunchFirst);
+
+    ASSERT_TRUE(engine_->testHook_canAfford(P1, spell));
+    EXPECT_TRUE(engine_->testHook_payCardCost(P1, spell));
+    EXPECT_EQ(s().player(P1).rune_pool.power[static_cast<int>(Domain::Body)], 0);
+    EXPECT_EQ(runesInBase(P1), 1) << "no rune recycled: the floating Power paid";
+}
+
+TEST_F(CostPaymentRulesTest, AdditionalCost_AnyDomainPowerMayMixDomains) {
+    // [A][A] is two Power of any Domain; they need not match each other.
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    rune(P1, Domain::Fury);
+    rune(P1, Domain::Calm);
+
+    EXPECT_TRUE(engine_->testHook_canPayAdditionalCost(P1, 0, 2, Domain::Count));
+    EXPECT_TRUE(engine_->testHook_payAdditionalCost(P1, 0, 2, Domain::Count));
+    EXPECT_EQ(runesInBase(P1), 0);
+}
+
+TEST_F(CostPaymentRulesTest, AdditionalCost_OneRunePaysEnergyAndPower) {
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    rune(P1, Domain::Fury);
+
+    EXPECT_TRUE(engine_->testHook_canPayAdditionalCost(P1, 1, 1, Domain::Fury));
+    EXPECT_TRUE(engine_->testHook_payAdditionalCost(P1, 1, 1, Domain::Fury));
+    EXPECT_EQ(runesInBase(P1), 0);
+}
+
+TEST_F(CostPaymentRulesTest, AdditionalCost_ExhaustedRuneCannotPayEnergy) {
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    rune(P1, Domain::Fury, /*exhausted=*/true);
+
+    EXPECT_FALSE(engine_->testHook_canPayAdditionalCost(P1, 1, 0, Domain::Fury));
+    EXPECT_TRUE(engine_->testHook_canPayAdditionalCost(P1, 0, 1, Domain::Fury))
+        << "but it can still be recycled for Power";
+}
+
+TEST_F(CostPaymentRulesTest, AdditionalCost_FailedPaymentChangesNothing) {
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    auto r = rune(P1, Domain::Fury);
+
+    EXPECT_FALSE(engine_->testHook_payAdditionalCost(P1, 2, 0, Domain::Fury));
+    EXPECT_FALSE(s().getObject(r).is_exhausted) << "nothing is paid when it can't be paid in full";
+}
+
 }  // namespace
 }  // namespace riftbound::test

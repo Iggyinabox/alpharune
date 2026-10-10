@@ -185,6 +185,14 @@ public:
     void testHook_drawCards(PlayerId p, int n) { drawCards(p, n); }
     void testHook_processLethalDamage() { processLethalDamage(); }
     void testHook_cleanup() { cleanup(); }
+    bool testHook_canAfford(PlayerId p, GameObjectId card) const { return canAfford(p, card); }
+    bool testHook_payCardCost(PlayerId p, GameObjectId card) { return payCardCost(p, card); }
+    bool testHook_canPayAdditionalCost(PlayerId p, int energy, int power, Domain d) const {
+        return canPayAdditionalCost(p, energy, power, d);
+    }
+    bool testHook_payAdditionalCost(PlayerId p, int energy, int power, Domain d) {
+        return payAdditionalCost(p, energy, power, d);
+    }
     void testHook_beginningStep() { beginningStep(); }
     void testHook_scoringStep() { scoringStep(); }
     void testHook_executeStandardMove(const Intent& i) { executeStandardMove(i); }

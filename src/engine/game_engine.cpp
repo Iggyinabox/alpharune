@@ -5292,9 +5292,10 @@ bool GameEngine::canAfford(PlayerId player, GameObjectId card_obj) const {
         }
     }
     int power_remaining = std::max(0, power_needed - power_from_pool);
-    int matching_exhausted_after_step1 =
-        matching_exhausted + std::min(matching_ready, energy_needed);
-    return matching_exhausted_after_step1 >= power_remaining;
+    // CR 164.2.b: a rune is recycled for Power whether it is ready or
+    // exhausted, and a ready one can be exhausted for Energy first — so every
+    // matching rune in base can pay Power, independently of the Energy check.
+    return matching_ready + matching_exhausted >= power_remaining;
 }
 
 // C-1 commit 8 — payCardCost split into a cursor-based state machine.
@@ -5441,6 +5442,20 @@ GameEngine::CostPaymentAdvance GameEngine::beginCostPayment(
         energy_needed -= from_pool;
     }
 
+    // Spend floating Power the same way: this card's domains first, then [A].
+    if (power_needed > 0) {
+        for (auto d : def.domains) {
+            int di = static_cast<int>(d);
+            if (di < 0 || di >= static_cast<int>(Domain::Count)) continue;
+            int from_pool = std::min(ps.rune_pool.power[di], power_needed);
+            ps.rune_pool.power[di] -= from_pool;
+            power_needed -= from_pool;
+        }
+        int from_uni = std::min(ps.rune_pool.universal_power, power_needed);
+        ps.rune_pool.universal_power -= from_uni;
+        power_needed -= from_uni;
+    }
+
     // Initialize cursor for the rune-pick phase
     GameState::CostPaymentCursor cur;
     cur.card = card_obj;
@@ -5557,144 +5572,128 @@ GameEngine::CostPaymentAdvance GameEngine::resolveCostPaymentDecision(
 
 bool GameEngine::canPayActivationResources(PlayerId player, int energy,
                                             const ActivationCost& cost) const {
-    if (!cost.power_any_domain)
-        return canPayAdditionalCost(player, energy, cost.power, cost.power_domain);
-    for (int di = 0; di < static_cast<int>(Domain::Count); ++di)
-        if (canPayAdditionalCost(player, energy, cost.power, static_cast<Domain>(di)))
-            return true;
-    return false;
+    return canPayAdditionalCost(player, energy, cost.power,
+        cost.power_any_domain ? Domain::Count : cost.power_domain);
 }
 
 bool GameEngine::payActivationResources(PlayerId player, int energy,
                                          const ActivationCost& cost) {
-    Domain domain = cost.power_domain;
-    if (cost.power_any_domain) {
-        for (int di = 0; di < static_cast<int>(Domain::Count); ++di) {
-            if (canPayAdditionalCost(player, energy, cost.power, static_cast<Domain>(di))) {
-                domain = static_cast<Domain>(di);
-                break;
-            }
-        }
-    }
-    return payAdditionalCost(player, energy, cost.power, domain);
+    return payAdditionalCost(player, energy, cost.power,
+        cost.power_any_domain ? Domain::Count : cost.power_domain);
 }
+
+// Extra (energy, power) charge on top of — or instead of — a card's base cost:
+// Accelerate, Repeat, optional additional costs, Flow, activated abilities.
+// `domain` is the power's Domain; Domain::Count means [A] (any domain, and the
+// powers need not share one). Runes are used the way CR 164.2 lets them be:
+// exhaust for Energy, recycle (ready or exhausted) for Power, and one rune can
+// do both — so the two requirements are independent.
+namespace {
+bool runePaysPower(const GameObject& rune, Domain domain) {
+    if (domain == Domain::Count) return true;
+    for (auto d : rune.domains) if (d == domain) return true;
+    return false;
+}
+std::vector<GameObjectId> runesInBase(const GameState& state, PlayerId player) {
+    std::vector<GameObjectId> out;
+    LocationId base{BaseLocation{player}};
+    for (auto& [id, obj] : state.objects)
+        if (obj.isRune() && obj.controller == player &&
+            obj.location.has_value() && *obj.location == base) out.push_back(id);
+    return out;
+}
+}  // namespace
 
 bool GameEngine::canPayAdditionalCost(PlayerId player, int energy, int power,
                                        Domain domain) const {
-    // CR 805 Accelerate is the canonical additional-cost shape (1 energy,
-    // 1 domain-power). Floating pool may cover some of it; remainder needs
-    // ready / domain-matching runes.
-    auto& ps = state_.player(player);
-    int e_need = std::max(0, energy);
-    int p_need = std::max(0, power);
-
-    // Pool first (no decision needed).
-    int e_from_pool = std::min(ps.rune_pool.energy, e_need);
-    e_need -= e_from_pool;
-    int domain_idx = static_cast<int>(domain);
-    int p_from_pool = std::min(ps.rune_pool.power[domain_idx], p_need);
-    p_need -= p_from_pool;
-    int p_from_uni = std::min(ps.rune_pool.universal_power, p_need);
-    p_need -= p_from_uni;
-
-    if (e_need == 0 && p_need == 0) return true;
-
-    // Otherwise rune accounting (mirrors canAfford's worst-case logic).
-    auto ready = readyRunesInBase(state_, player);
-    std::vector<Domain> wanted = {domain};
-    auto matching = matchingRunesInBase(state_, player, wanted);
-    if (static_cast<int>(matching.size()) < p_need) return false;
-
-    int matching_ready = 0;
-    for (auto mr : matching) {
-        if (!state_.getObject(mr).is_exhausted) matching_ready++;
+    const auto& pool = state_.player(player).rune_pool;
+    int e_need = std::max(0, energy) - pool.energy;
+    int p_need = std::max(0, power) - pool.universal_power;
+    if (domain == Domain::Count) {
+        for (int di = 0; di < static_cast<int>(Domain::Count); ++di) p_need -= pool.power[di];
+    } else {
+        p_need -= pool.power[static_cast<int>(domain)];
     }
-    int exhausted_matching = static_cast<int>(matching.size()) - matching_ready;
-    int recycle_from_ready = std::max(0, p_need - exhausted_matching);
-    int energy_available = static_cast<int>(ready.size()) - recycle_from_ready;
-    return energy_available >= e_need;
+    if (e_need <= 0 && p_need <= 0) return true;
+
+    int ready = 0, can_recycle = 0;
+    for (auto rid : runesInBase(state_, player)) {
+        const auto& rune = state_.getObject(rid);
+        if (!rune.is_exhausted) ++ready;
+        if (runePaysPower(rune, domain)) ++can_recycle;
+    }
+    return ready >= e_need && can_recycle >= p_need;
 }
 
 bool GameEngine::payAdditionalCost(PlayerId player, int energy, int power,
                                     Domain domain) {
+    if (!canPayAdditionalCost(player, energy, power, domain)) return false;
     auto& ps = state_.player(player);
     int e_need = std::max(0, energy);
     int p_need = std::max(0, power);
 
-    // Spend pool first.
-    int e_from_pool = std::min(ps.rune_pool.energy, e_need);
-    ps.rune_pool.energy -= e_from_pool;
-    e_need -= e_from_pool;
-    int domain_idx = static_cast<int>(domain);
-    int p_from_pool = std::min(ps.rune_pool.power[domain_idx], p_need);
-    ps.rune_pool.power[domain_idx] -= p_from_pool;
-    p_need -= p_from_pool;
-    int p_from_uni = std::min(ps.rune_pool.universal_power, p_need);
-    ps.rune_pool.universal_power -= p_from_uni;
-    p_need -= p_from_uni;
+    // Floating resources first.
+    auto take = [](int& from, int& need) {
+        int n = std::min(from, std::max(0, need));
+        from -= n;
+        need -= n;
+    };
+    take(ps.rune_pool.energy, e_need);
+    if (domain == Domain::Count) {
+        for (int di = 0; di < static_cast<int>(Domain::Count); ++di)
+            take(ps.rune_pool.power[di], p_need);
+    } else {
+        take(ps.rune_pool.power[static_cast<int>(domain)], p_need);
+    }
+    take(ps.rune_pool.universal_power, p_need);
 
-    if (e_need == 0 && p_need == 0) {
-        events_.logTrace("PAY_ADD: " + std::string(toString(player)) +
-                         " [" + std::to_string(energy) + "][" +
-                         toString(domain) + "] from pool");
-        return true;
-    }
+    auto runes = runesInBase(state_, player);
 
-    // Recycle matching runes for power (prefer exhausted to preserve ready).
-    std::vector<Domain> wanted = {domain};
-    auto matching = matchingRunesInBase(state_, player, wanted);
-    // Sort: exhausted first (use them for power), then ready last.
-    std::sort(matching.begin(), matching.end(),
-              [&](GameObjectId a, GameObjectId b) {
-                  return state_.getObject(a).is_exhausted >
-                         state_.getObject(b).is_exhausted;
-              });
-    std::vector<GameObjectId> to_recycle;
-    for (auto rid : matching) {
-        if (p_need <= 0) break;
-        to_recycle.push_back(rid);
-        --p_need;
-    }
-    if (p_need > 0) return false;  // insufficient — canPay should have caught
-    // Recycle inline (no EffectExecutor dependency).
-    auto base_loc = BaseLocation{player};
-    for (auto rid : to_recycle) {
-        auto& rune = state_.getObject(rid);
-        rune.location = std::nullopt;
-        rune.zone = ZoneType::RuneDeck;
-        rune.is_exhausted = false;
-        ps.rune_deck.insert(ps.rune_deck.begin(), rid);
-        events_.emit(LeftBoardEvent{rid, player, CardType::Rune,
-            base_loc, ZoneType::RuneDeck, false});
-    }
-    if (!to_recycle.empty()) {
-        events_.logTrace("PAY_ADD: " + std::string(toString(player)) +
-                         " recycled " + std::to_string(to_recycle.size()) +
-                         " " + toString(domain) + " rune(s) for power");
-    }
-
-    // Exhaust ready runes for the remaining energy. Skip any rune we
-    // already recycled.
-    std::set<GameObjectId> recycled(to_recycle.begin(), to_recycle.end());
-    auto ready = readyRunesInBase(state_, player);
+    // Energy: exhaust ready runes, keeping runes that can pay the power for
+    // last (an exhausted rune can still be recycled, so this never strands one).
+    std::stable_sort(runes.begin(), runes.end(), [&](GameObjectId a, GameObjectId b) {
+        return runePaysPower(state_.getObject(a), domain) <
+               runePaysPower(state_.getObject(b), domain);
+    });
     int paid_e = 0;
-    for (auto rid : ready) {
+    for (auto rid : runes) {
         if (e_need <= 0) break;
-        if (recycled.count(rid)) continue;
         auto& rune = state_.getObject(rid);
+        if (rune.is_exhausted) continue;
         rune.is_exhausted = true;
         events_.emit(ObjectStateChangedEvent{rid, "exhausted"});
         --e_need;
         ++paid_e;
     }
-    if (e_need > 0) return false;  // insufficient
-    if (paid_e > 0) {
-        events_.logTrace("PAY_ADD: " + std::string(toString(player)) +
-                         " exhausted " + std::to_string(paid_e) +
-                         " rune(s) for energy");
+
+    // Power: recycle matching runes, exhausted ones first.
+    std::stable_sort(runes.begin(), runes.end(), [&](GameObjectId a, GameObjectId b) {
+        return state_.getObject(a).is_exhausted > state_.getObject(b).is_exhausted;
+    });
+    int paid_p = 0;
+    LocationId base_loc{BaseLocation{player}};
+    for (auto rid : runes) {
+        if (p_need <= 0) break;
+        auto& rune = state_.getObject(rid);
+        if (!runePaysPower(rune, domain)) continue;
+        rune.location = std::nullopt;
+        rune.zone = ZoneType::RuneDeck;
+        rune.is_exhausted = false;
+        ps.rune_deck.insert(ps.rune_deck.begin(), rid);
+        ps.power_spent_this_turn++;
+        events_.emit(LeftBoardEvent{rid, player, CardType::Rune,
+            base_loc, ZoneType::RuneDeck, false});
+        --p_need;
+        ++paid_p;
     }
-    return true;
+    events_.logTrace("PAY_ADD: " + std::string(toString(player)) + " pays [" +
+                     std::to_string(energy) + "] + " + std::to_string(power) + " power (" +
+                     (domain == Domain::Count ? "any" : toString(domain)) +
+                     "): exhausted " + std::to_string(paid_e) + ", recycled " +
+                     std::to_string(paid_p));
+    return e_need <= 0 && p_need <= 0;
 }
+
 
 bool GameEngine::payTrashReplayGrant(PlayerId player, GameObjectId card_id) {
     auto& ps = state_.player(player);
