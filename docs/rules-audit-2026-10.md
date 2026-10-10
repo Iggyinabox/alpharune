@@ -19,7 +19,7 @@ CH `src/cards/card_helpers.h`.
 ## Status after the fix batches (2026-10-10, branch `vendetta-rules-update`)
 
 The table further down is the ORIGINAL audit. This is where each item stands
-now. "Fixed" means implemented with tests that run in the suite (1489 passing)
+now. "Fixed" means implemented with tests that run in the suite (1495 passing)
 and exercised by random-game smoke runs.
 
 | # | Item | Now |
@@ -43,8 +43,8 @@ and exercised by random-game smoke runs.
 | 17 | Copy layer | Partly fixed (printed traits only; copied supertype). Copies are still not a tracked, removable effect in general. |
 | 18 | Units can't be attached | Not modelled (first needed by Radiance). |
 | 19 | Negated vs ignored | Partly: a finalization-time target that becomes illegal is ignored. No general linked-instruction model. |
-| 20 | Requirements / restrictions | **Open** (Perched Grimwyrm ordering, Dragon Roost). |
-| 21 | New choices | **Open** (Mystic Reversal, Rebuttal change control only). |
+| 20 | Requirements / restrictions | Dragon Roost fixed (a battlefield-sourced additional cost that grants the play location). **Open:** Perched Grimwyrm ordering. |
+| 21 | New choices | Fixed: `EffectExecutor::makeNewChoices` has the new controller re-choose targets (Rebuttal). Choices made through a card's own helpers are re-asked as the item resolves rather than immediately. Mystic Reversal still changes control only. |
 | 23 | Ambush | Fixed. |
 | 24 | Burn Out | Fixed. |
 | 25 | Cleanup order | Fixed for 323.2, 323.6, 323.10 and the cleanup before scoring. No cleanup between chain items yet. |
@@ -88,14 +88,18 @@ Rebel) had no dispatcher, and Flame Chompers listened for the wrong event;
 neither card ever triggered. A static check now passes: every trigger type a
 card declares is referenced by the dispatcher.
 
-Still open at card level (`grep -rn ENGINE-GAP src/cards`): an alternative
-Empower cost (Legion Marauder), free-form "name a card" (Fallen Feline), a
-battlefield-sourced additional cost (Dragon Roost), an Equip cost hook (Jax,
-Unrelenting), per-token play locations (Arise), re-choosing a locked target
-(Rebuttal), split damage declared as targets (Volibear, Alpha Strike), the
-target-dependent discount at payment time (Sandswept Tomb), and Shady
-Spectacles' three notes. `RunePool::unit_energy` is not in the ML feature
-vector yet (adding it changes `kStateFeatureDim`).
+Batch 14 landed the last Vendetta cards: Fallen Feline names any spell
+(`Intent::chosen_card_def`), Dragon Roost offers its pay-to-play location,
+Legion Marauder has both Empower costs, Rebuttal's new controller re-chooses,
+Shady Spectacles' unit is the player's choice, and a spell's target is chosen
+before its cost is paid, so Sandswept Tomb and Irelia, Graceful discount it.
+No Vendetta card carries an `ENGINE-GAP` note.
+
+Still open at card level (`grep -rn ENGINE-GAP src/cards`), none of it
+Vendetta: an Equip cost hook (Jax, Unrelenting), per-token play locations
+(Arise), and split damage declared as targets (Volibear, Alpha Strike).
+`RunePool::unit_energy` is not in the ML feature vector yet (adding it changes
+`kStateFeatureDim`).
 
 ## Audit table
 

@@ -38,10 +38,8 @@ public:
     // With two Shady Spectacles on one unit, taking one off leaves the unit as
     // the copy most recently applied (copy timestamps are not modelled).
     //
-    // ENGINE-GAP: GameEngine runs onEquip outside the chain (no
-    // ChainState::resuming), so pickTarget cannot suspend for the agent and
-    // falls back to the first legal unit. Needed: equip activations resolved
-    // through the resumable chain loop (as needsEquipTimeTarget assumes).
+    // Equip resolves outside the chain, so the unit to copy is chosen with a
+    // direct agent decision (EffectExecutor::chooseObjectNow).
     static constexpr const char* kCopies = "__spectacles_copies";
     static constexpr const char* kBearer = "__spectacles_bearer";
 
@@ -144,8 +142,9 @@ public:
             others.push_back(id);
         }
         std::sort(others.begin(), others.end());
-        GameObjectId chosen = pickTarget(ctx, "Shady Spectacles: copy which friendly unit?",
-                                         others);
+        GameObjectId chosen = ctx.state.chain.resuming.has_value()
+            ? pickTarget(ctx, "Shady Spectacles: copy which friendly unit?", others)
+            : ctx.executor.chooseObjectNow(ctx.controller, others);
         if (chosen != kInvalidId && ctx.state.objectExists(chosen)) {
             auto& u = ctx.state.getObject(unit);
             if (u.card_counters[kCopies]++ == 0) remember(u);

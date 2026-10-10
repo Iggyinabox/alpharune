@@ -871,10 +871,21 @@ TEST_F(VendettaCTest, Vendetta_FallenFeline_NamedSpellLockedWhileAtBattlefield) 
     EffectExecutor exec(state, events, card_db, &card_registry);
     const Card* c = card_registry.get(kFallenFeline);
     auto feline = addUnit(P1, kFallenFeline, 0, 0);
-    addToTrash(P2, kOnslaught);
-    addToTrash(P2, kPunchingPoro);                    // not a spell: can't be named
 
-    fireTriggerAs(kFallenFeline, P1, feline, TriggerType::WhenYouPlayMe, exec);
+    // "Name a spell": any spell, whether or not the opponent has shown one.
+    size_t offered = 0;
+    bool unit_offered = false;
+    driveResumableTrigger(kFallenFeline, P1, feline,
+        [&](const std::vector<Intent>& legal) {
+            offered = legal.size();
+            for (const auto& i : legal)
+                if (i.chosen_card_def == kPunchingPoro) unit_offered = true;
+            for (const auto& i : legal)
+                if (i.chosen_card_def == kOnslaught) return i;
+            return legal.front();
+        }, exec, TriggerType::WhenYouPlayMe);
+    EXPECT_GT(offered, 100u);
+    EXPECT_FALSE(unit_offered) << "not a spell: can't be named";
     EXPECT_EQ(state.getObject(feline).string_state["named_spell"], "Onslaught");
 
     c->applyPassiveAura(state, P1);
@@ -888,8 +899,13 @@ TEST_F(VendettaCTest, Vendetta_FallenFeline_NoLockInBaseOrUnnamed) {
     EffectExecutor exec(state, events, card_db, &card_registry);
     const Card* c = card_registry.get(kFallenFeline);
     auto feline = addUnit(P1, kFallenFeline);         // base
-    addToTrash(P2, kOnslaught);
-    fireTriggerAs(kFallenFeline, P1, feline, TriggerType::WhenYouPlayMe, exec);
+    driveResumableTrigger(kFallenFeline, P1, feline,
+        [&](const std::vector<Intent>& legal) {
+            for (const auto& i : legal)
+                if (i.chosen_card_def == kOnslaught) return i;
+            return legal.front();
+        }, exec, TriggerType::WhenYouPlayMe);
+    ASSERT_EQ(state.getObject(feline).string_state["named_spell"], "Onslaught");
     c->applyPassiveAura(state, P1);
     EXPECT_TRUE(state.player(P2).locked_spell_names.empty()) << "not at a battlefield";
 

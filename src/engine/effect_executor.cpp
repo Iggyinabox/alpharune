@@ -1013,6 +1013,26 @@ void EffectExecutor::channelRunes(PlayerId player, int count, bool enter_exhaust
 // Add abilities (CR 429) — floating energy / power / universal power
 // ═══════════════════════════════════════════════════════════════════════════════
 
+GameObjectId EffectExecutor::chooseObjectNow(PlayerId player,
+                                              const std::vector<GameObjectId>& objects) {
+    if (objects.empty()) return kInvalidId;
+    if (!agent_query_) return objects.front();
+    std::vector<Intent> options;
+    options.reserve(objects.size());
+    for (auto id : objects) {
+        Intent i;
+        i.type = IntentType::MakeChoice;
+        i.player = player;
+        i.chosen_objects = {id};
+        options.push_back(std::move(i));
+    }
+    const Intent chosen = agent_query_(player, options);
+    if (!chosen.chosen_objects.empty() &&
+        std::find(objects.begin(), objects.end(), chosen.chosen_objects.front()) != objects.end())
+        return chosen.chosen_objects.front();
+    return objects.front();
+}
+
 void EffectExecutor::addUnitOnlyEnergy(PlayerId player, int amount) {
     state_.player(player).rune_pool.unit_energy += amount;
     events_.logTrace("EFFECT: " + std::string(toString(player)) + " adds " +

@@ -17,11 +17,17 @@ public:
     const CardDef& def() const override { return def_; }
     // "Any player may pay [A][A] as an additional cost to play a Dragon. If they
     // do, they play it to this battlefield."
-    // ENGINE-GAP: optional additional costs are declared by the card being
-    // played (Card::optionalAdditionalCost), not by a battlefield, and can't
-    // grant a play location. Needs a battlefield-sourced additional-cost offer
-    // in the play-unit generator for units tagged "Dragon" that adds this
-    // battlefield as a destination when [A][A] is paid.
+    // The battlefield publishes the offer; the play generator adds this
+    // battlefield as a destination for a Dragon that can't otherwise be played
+    // here, and the engine charges the [A][A] on top of the unit's own cost.
+    void applyPassiveAura(GameState& state, PlayerId /*controller*/) const override {
+        for (auto& bf : state.battlefields) {
+            if (!state.objectExists(bf.card_object_id)) continue;
+            if (state.getObject(bf.card_object_id).card_def_id != cardDefId()) continue;
+            bf.paid_play_power = 2;
+            bf.paid_play_tag = "Dragon";
+        }
+    }
 private:
     const CardDef def_ = [] {
         CardDef d;

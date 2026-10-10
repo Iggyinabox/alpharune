@@ -697,6 +697,17 @@ ActivatedAbility Card::empowerAbility() const {
     return ab;
 }
 
+void Card::appendEmpowerAbilities(std::vector<ActivatedAbility>& out) const {
+    const auto spec = empowerSpec();
+    if (!spec.valid) return;
+    out.push_back(empowerAbility());
+    if (spec.has_alt_cost) {
+        ActivatedAbility alt = empowerAbility();
+        alt.cost = spec.alt_cost;
+        out.push_back(alt);
+    }
+}
+
 int Card::empowerAbilityIndex() const {
     auto abs = activatedAbilities();
     for (size_t i = 0; i < abs.size(); ++i)
@@ -732,8 +743,9 @@ int Card::activationCostReductionFor(const GameState& state, PlayerId controller
 
 std::vector<ActivatedAbility> Card::activatedAbilities() const {
     if (!hasActivatedAbility()) {
-        if (empowerSpec().valid) return { empowerAbility() };
-        return {};
+        std::vector<ActivatedAbility> only_empower;
+        appendEmpowerAbilities(only_empower);
+        return only_empower;
     }
     std::vector<ActivatedAbility> out = { ActivatedAbility{
         .cost = getActivationCost(),
@@ -744,7 +756,7 @@ std::vector<ActivatedAbility> Card::activatedAbilities() const {
         // hook today; opt in by overriding activatedAbilities() directly.
         .needs_activation_time_target = false,
     } };
-    if (empowerSpec().valid) out.push_back(empowerAbility());
+    appendEmpowerAbilities(out);
     return out;
 }
 

@@ -16,9 +16,14 @@ class LegionMarauder : public UnitCard {
 public:
     const CardDef& def() const override { return def_; }
 
-    // "[Empower] — [1] or [O]". The engine's ActivationCost models one cost, so
-    // the [1] (energy) option is offered; the alternative [O] payment is not.
-    EmpowerSpec empowerSpec() const override { return empowerCost(1); }
+    // "[Empower] — [1] or [O]": pay either cost.
+    EmpowerSpec empowerSpec() const override {
+        EmpowerSpec spec = empowerCost(1);
+        spec.has_alt_cost = true;
+        spec.alt_cost.power = 1;
+        spec.alt_cost.power_domain = Domain::Body;   // [O]
+        return spec;
+    }
     // "[Empowered][>] I have +1 [M]."
     void applyPassiveAura(GameState& state, PlayerId controller) const override {
         forEachEmpoweredSelf(*this, state, controller,

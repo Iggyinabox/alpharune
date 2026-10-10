@@ -573,7 +573,9 @@ private:
 
     // ── Cost payment ──
     /// Check if a player can afford a card's cost with available runes.
-    bool canAfford(PlayerId player, GameObjectId card_obj) const;
+    /// `extra_any_power`: [A] owed on top of everything else (a battlefield's
+    /// pay-to-play-here cost).
+    bool canAfford(PlayerId player, GameObjectId card_obj, int extra_any_power = 0) const;
 
     /// Auto-pay a card's cost by exhausting/recycling runes.
     /// Returns false if payment failed (shouldn't happen if canAfford was checked).
@@ -604,6 +606,10 @@ private:
     /// Make the choices the rules place at finalization for `item` (targets).
     void chooseTargetsAtFinalize(ChainItem& item);
     void runFinalizePass(ChainItem& item);
+    /// "You may make new choices for it" (CR 750-755).
+    void makeNewChoicesFor(ChainItemId item_id);
+    /// One agent decision among `options` for `player`, logged like any other.
+    Intent decideNow(PlayerId player, const std::vector<Intent>& options, const std::string& what);
     /// Pay an activated ability's costs and add it to the chain (no chain run).
     bool payAndQueueAbility(const Intent& intent);
     /// CR 323.6: recall unattached gear at battlefields and permanents / runes

@@ -313,6 +313,10 @@ struct BattlefieldState {
     bool ignore_deflect_here = false;       // Heisho: players ignore [Deflect] choosing something here
     int reaction_tax_power = 0;             // Mystic Vortex: [Reaction] cards cost [A] more in showdowns here
     int friendly_spell_discount_power = 0;  // Sandswept Tomb: spells choosing friendly units here cost [A] less
+    // "Any player may pay [A]... as an additional cost to play a <tag>. If they
+    // do, they play it to this battlefield." (Dragon Roost). 0 = no such offer.
+    int paid_play_power = 0;
+    std::string paid_play_tag;
     int empower_cost_reduction[2] = {0, 0}; // Risen Altar: per-player [Empower] discount for units here
     bool is_contested = false;
     PlayerId contested_by = PlayerId::None;

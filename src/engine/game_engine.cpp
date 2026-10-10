@@ -73,6 +73,7 @@ void GameEngine::initSubsystems() {
     trigger_manager_ = std::make_unique<TriggerManager>(
         state_, events_, card_db_, *chain_manager_, card_registry_);
     trigger_manager_->setEffectExecutor(effect_executor_.get());
+    effect_executor_->setRechoose([this](ChainItemId id) { makeNewChoicesFor(id); });
     effect_executor_->setQueueTrigger(
         [this](GameObjectId source, PlayerId controller, TriggerType t, GameObjectId subject) {
             trigger_manager_->queueTrigger(source, controller, t, subject);
@@ -1275,6 +1276,78 @@ void GameEngine::chooseTargetsAtFinalize(ChainItem& item) {
     }
 }
 
+Intent GameEngine::decideNow(PlayerId player, const std::vector<Intent>& options,
+                             const std::string& what) {
+    state_.decision_index++;
+    events_.logTrace("DECISION #" + std::to_string(state_.decision_index) + " (" +
+                     toString(player) + "): " + what + " [" +
+                     std::to_string(options.size()) + " options]");
+    auto chosen = getAgent(player).selectAction(state_, options);
+    recordAppliedIntent(chosen);
+    if (on_decision) on_decision(state_, options, chosen);
+    return chosen;
+}
+
+// CR 750-755: the item's (new) controller re-chooses its targets. Nothing is
+// re-chosen when there is no legal choice to make (753.2), and the choices
+// obey the same requirements as the originals (753.3).
+void GameEngine::makeNewChoicesFor(ChainItemId item_id) {
+    ChainItem* item = nullptr;
+    for (auto& ci : state_.chain.items) if (ci.id == item_id) { item = &ci; break; }
+    if (!item || item->card_def_id == kInvalidId) return;
+    const Card* card = card_registry_.get(item->card_def_id);
+    if (!card) return;
+    const PlayerId chooser = item->controller;
+    const auto legal = card->enumerateLegalTargets(state_, chooser);
+
+    if (item->is_spell && card->needsPlayTimeTarget()) {
+        if (legal.empty()) return;
+        item->targets.clear();
+        item->chosen_objects.clear();
+        item->resume_point = 0;
+        item->resume_data.clear();
+        chooseTargetsAtFinalize(*item);
+        return;
+    }
+    if (card->needsPlayTimeTargetPair() || card->choicesAtFinalization() != 0) {
+        // Chosen through the card's own helpers: forget the answers, and the
+        // new controller is asked as the item resolves.
+        item->targets.clear();
+        item->chosen_objects.clear();
+        item->resume_point = 0;
+        item->resume_data.clear();
+        item->may_answer = -1;
+        item->choices_finalized = false;
+        item->finalize_checked = 0;
+        return;
+    }
+    // Targets locked in as the spell was played: choose that many again.
+    const size_t needed = item->targets.size();
+    if (needed == 0 || legal.size() < needed) return;
+    std::vector<GameObjectId> remaining = legal, picked;
+    while (picked.size() < needed) {
+        std::vector<Intent> options;
+        for (auto t : remaining) {
+            Intent i;
+            i.type = IntentType::MakeChoice;
+            i.player = chooser;
+            i.chosen_objects = {t};
+            options.push_back(std::move(i));
+        }
+        const Intent chosen = decideNow(chooser, options, "make a new choice");
+        GameObjectId t = remaining.front();
+        if (!chosen.chosen_objects.empty() &&
+            std::find(remaining.begin(), remaining.end(), chosen.chosen_objects.front()) !=
+                remaining.end())
+            t = chosen.chosen_objects.front();
+        picked.push_back(t);
+        remaining.erase(std::remove(remaining.begin(), remaining.end(), t), remaining.end());
+    }
+    // decideNow may have reallocated the chain.
+    for (auto& ci : state_.chain.items)
+        if (ci.id == item_id) { ci.targets = picked; ci.chosen_objects = picked; }
+}
+
 // Runs an opted-in card's callback once as its chain item is finalized, so the
 // choice helpers (confirmOptional / pickMode / pickTarget / pickTargetPair) ask
 // the agent now and costs are paid now; the card returns at its
@@ -1587,6 +1660,19 @@ void GameEngine::executePlayCard(const Intent& intent) {
     ps.current_play_source = Intent::PlaySource::Hand;
     ps.transient_play_discount -= prepay_discount;  // un-stage Brazen's discount
 
+    // A battlefield's pay-to-play-here additional cost (Dragon Roost).
+    if (intent.pay_location_cost && intent.play_location.has_value() &&
+        std::holds_alternative<BattlefieldLocation>(*intent.play_location)) {
+        const auto bf_id = std::get<BattlefieldLocation>(*intent.play_location).id;
+        for (const auto& bf : state_.battlefields) {
+            if (bf.id != bf_id || bf.paid_play_power <= 0) continue;
+            effect_executor_->payAnyPower(intent.player, bf.paid_play_power);
+            events_.logTrace("ADDITIONAL_COST: " + card.name + " pays " +
+                             std::to_string(bf.paid_play_power) + " [A] to be played to BF#" +
+                             std::to_string(bf_id));
+        }
+    }
+
     // "You may pay X as an additional cost to play me" (Akshan, Nami). Paid
     // here — after the base cost, before CardPlayedEvent fires WhenYouPlayMe —
     // so the card's play trigger can read card_counters[paid_flag].
@@ -1661,6 +1747,42 @@ void GameEngine::executePlaySpell(const Intent& intent) {
         if (it != ps.trash.end()) ps.trash.erase(it);
     }
 
+    // CR 355: a spell's targets are chosen before its cost is determined and
+    // paid, so effects that depend on what it chooses apply to the payment
+    // (Sandswept Tomb, Irelia, Graceful). Spells that take one target through
+    // Card::pickTarget choose it here; the rest keep the targets they were
+    // played with.
+    std::vector<GameObjectId> play_targets = intent.targets;
+    bool target_chosen_at_play = false;
+    if (play_targets.empty() && card.card_def_id != kInvalidId) {
+        const Card* sc = card_registry_.get(card.card_def_id);
+        if (sc && sc->needsPlayTimeTarget() && !sc->ignoresDeflect()) {
+            const auto legal = sc->enumerateLegalTargets(state_, intent.player);
+            if (!legal.empty()) {
+                std::vector<Intent> options;
+                options.reserve(legal.size());
+                for (auto t : legal) {
+                    Intent i;
+                    i.type = IntentType::MakeChoice;
+                    i.player = intent.player;
+                    i.chosen_objects = {t};
+                    options.push_back(std::move(i));
+                }
+                const Intent chosen = decideNow(intent.player, options,
+                                                "choose a target for " + card.name);
+                GameObjectId t = legal.front();
+                if (!chosen.chosen_objects.empty() &&
+                    std::find(legal.begin(), legal.end(), chosen.chosen_objects.front()) !=
+                        legal.end())
+                    t = chosen.chosen_objects.front();
+                play_targets = {t};
+                target_chosen_at_play = true;
+                events_.logTrace("TARGET (play): " + card.name + " -> " +
+                                 state_.getObject(t).name);
+            }
+        }
+    }
+
     // Pay cost. A trash-replay grant overrides the printed cost (and its own
     // additional costs); otherwise the normal play_source-aware path runs.
     bool paid_via_grant = false;
@@ -1671,18 +1793,16 @@ void GameEngine::executePlaySpell(const Intent& intent) {
         ps.current_play_source = intent.play_source;
         // Irelia, Graceful (462): "your spells that choose me cost [1]/[A] less."
         // Stage the largest per-target reduction among this spell's chosen
-        // targets; canAfford/beginCostPayment subtract it. APPROX: only
-        // play-time targets count (deferred-target spells pick at chain time).
+        // targets; canAfford/beginCostPayment subtract it.
         int tgt_disc = 0;
-        for (auto t : intent.targets)
+        for (auto t : play_targets)
             if (state_.objectExists(t))
                 tgt_disc = std::max(tgt_disc,
                     state_.getObject(t).spells_targeting_me_cost_reduction);
         // Sandswept Tomb: "Each spell that chooses one or more units here that
-        // are friendly to it costs [A] less." Same APPROX as above: only
-        // targets chosen as the spell is played are known here.
+        // are friendly to it costs [A] less."
         int tgt_power_disc = 0;
-        for (auto t : intent.targets) {
+        for (auto t : play_targets) {
             if (!state_.objectExists(t)) continue;
             const auto& tobj = state_.getObject(t);
             if (!tobj.isUnit() || tobj.controller != intent.player) continue;
@@ -1804,11 +1924,17 @@ void GameEngine::executePlaySpell(const Intent& intent) {
     // Add spell to chain with targets. Carry energy_spent and repeats_paid
     // onto the chain item — ChainManager re-resolves the spell `repeats_paid`
     // extra times in its post-resume loop.
-    auto chain_id = chain_manager_->addSpell(intent.card, intent.player, intent.targets);
+    auto chain_id = chain_manager_->addSpell(intent.card, intent.player, play_targets);
     (void)chain_id;
     if (!state_.chain.items.empty()) {
-        state_.chain.items.back().total_energy_spent = total_energy_spent;
-        state_.chain.items.back().repeats_paid = repeats;
+        auto& added = state_.chain.items.back();
+        added.total_energy_spent = total_energy_spent;
+        added.repeats_paid = repeats;
+        if (target_chosen_at_play) {
+            // Read by Card::pickTarget: the target is already chosen.
+            while (added.resume_data.size() < 6) added.resume_data.push_back(0);
+            added.resume_data[5] = 1;
+        }
     }
 
     // Run the FEPR loop
@@ -2601,6 +2727,16 @@ std::vector<Intent> GameEngine::generateMainPhaseActions(PlayerId player) const 
                 Intent bf_play = play_intent;
                 bf_play.play_location = BattlefieldLocation{bf.id};
                 actions.push_back(bf_play);
+            } else if (bf.paid_play_power > 0 &&
+                       std::find(card.tags.begin(), card.tags.end(), bf.paid_play_tag) !=
+                           card.tags.end() &&
+                       canAfford(player, card_id, bf.paid_play_power)) {
+                // "Any player may pay ... as an additional cost to play a <tag>.
+                // If they do, they play it to this battlefield."
+                Intent paid_play = play_intent;
+                paid_play.play_location = BattlefieldLocation{bf.id};
+                paid_play.pay_location_cost = true;
+                actions.push_back(paid_play);
             }
         }
     }
@@ -4313,6 +4449,8 @@ void GameEngine::recalculateAuras() {
         bf.ignore_deflect_here = false;                  // Heisho
         bf.reaction_tax_power = 0;                       // Mystic Vortex
         bf.friendly_spell_discount_power = 0;            // Sandswept Tomb
+        bf.paid_play_power = 0;                          // Dragon Roost
+        bf.paid_play_tag.clear();
         bf.empower_cost_reduction[0] = bf.empower_cost_reduction[1] = 0;  // Risen Altar
     }
 
@@ -5461,7 +5599,7 @@ static int powerCostDelta(const GameState& state, PlayerId player, const GameObj
     return delta;
 }
 
-bool GameEngine::canAfford(PlayerId player, GameObjectId card_obj) const {
+bool GameEngine::canAfford(PlayerId player, GameObjectId card_obj, int extra_any_power) const {
     // Play-legality gates that sit in front of every play generator.
     if (state_.objectExists(card_obj)) {
         const auto& gate_obj = state_.getObject(card_obj);
@@ -5605,7 +5743,7 @@ bool GameEngine::canAfford(PlayerId player, GameObjectId card_obj) const {
     if (matching_ready + matching_exhausted < power_remaining) return false;
     // "[A] more" extras: any rune in base can be recycled for them, on top of
     // the ones recycled for this card's own Power.
-    const int extra_any = extraAnyPowerCost(state_, player, card);
+    const int extra_any = extraAnyPowerCost(state_, player, card) + extra_any_power;
     if (extra_any > 0) {
         const int any_available = payableAnyPower(state_, player) - power_needed;
         if (any_available < extra_any) return false;

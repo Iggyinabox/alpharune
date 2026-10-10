@@ -63,6 +63,18 @@ public:
     using AgentChoiceQuery = std::function<Intent(PlayerId, const std::vector<Intent>&)>;
     void setAgentQuery(AgentChoiceQuery query) { agent_query_ = std::move(query); }
 
+    /// Ask `player` to choose one of `objects` right now, for an effect that
+    /// is not resolving from the chain and so cannot suspend (an Equip
+    /// attaching). Returns the first object when there is no agent to ask, and
+    /// kInvalidId when `objects` is empty.
+    GameObjectId chooseObjectNow(PlayerId player, const std::vector<GameObjectId>& objects);
+
+    /// "You may make new choices for it" (CR 750-755): the item's controller
+    /// re-chooses its targets. Costs already paid are unaffected (755.1).
+    using RechooseFn = std::function<void(ChainItemId)>;
+    void setRechoose(RechooseFn fn) { rechoose_ = std::move(fn); }
+    void makeNewChoices(ChainItemId item) { if (rechoose_) rechoose_(item); }
+
     // ── Atomic game operations ──
     void dealDamage(GameObjectId target, int amount, GameObjectId source);
     void killObject(GameObjectId target);
@@ -344,6 +356,7 @@ private:
     CanAffordFn can_afford_;
     QueueSpellFn queue_spell_;
     QueueTriggerFn queue_trigger_;
+    RechooseFn rechoose_;
     PayCostFn pay_cost_;
     const CardRegistry* card_registry_ = nullptr;  // optional; needed for playIgnoringCost onPlay dispatch
     std::mt19937_64* rng_ = nullptr;

@@ -56,18 +56,10 @@ public:
                 obj.controller = ctx.controller;
                 name = obj.name;
             }
-            // "You may make new choices for it": spells that pick at
-            // resolution (needsPlayTimeTarget / pair) re-prompt their NEW
-            // controller once any play-time targets are dropped.
-            // ENGINE-GAP: spells whose targets were locked into
-            // ChainItem::targets at play time keep them - there is no hook
-            // to re-run the play-time target selection for a chain item.
-            if (ctx.registry && top.card_def_id != kInvalidId) {
-                if (const Card* c = ctx.registry->get(top.card_def_id))
-                    if (c->needsPlayTimeTarget() || c->needsPlayTimeTargetPair())
-                        top.targets.clear();
-            }
             ctx.events.logTrace("REBUTTAL: paid [A] - gained control of " + name);
+            // "You may make new choices for it" (CR 750-755): its new
+            // controller re-chooses its targets. `top` may dangle afterwards.
+            ctx.executor.makeNewChoices(top.id);
             return;
         }
         // "Otherwise, counter it."

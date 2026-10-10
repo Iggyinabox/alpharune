@@ -131,10 +131,16 @@ public:
     struct EmpowerSpec {
         bool valid = false;
         ActivationCost cost;
+        // "[Empower] — [1] or [O]": a second way to pay. Each cost is its own
+        // Empower ability, so the player picks one by activating it.
+        bool has_alt_cost = false;
+        ActivationCost alt_cost;
     };
     virtual EmpowerSpec empowerSpec() const { return {}; }
     /// The Empower ability descriptor built from empowerSpec().
     ActivatedAbility empowerAbility() const;
+    /// Appends the Empower abilities (one per cost) to `out`.
+    void appendEmpowerAbilities(std::vector<ActivatedAbility>& out) const;
     /// Index of the Empower ability within activatedAbilities(), or -1.
     int empowerAbilityIndex() const;
     /// How many Empowered statuses this object may hold (Kayle, Justified: 3).

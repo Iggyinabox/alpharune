@@ -22,11 +22,6 @@ public:
     // the top of the chain; it never scans or flags the chain. What that item
     // chooses is ChainItem::chosen_objects (everything it has chosen) together
     // with its play-time targets.
-    // ENGINE-GAP: a spell or ability that makes its choice at resolution
-    // (needsPlayTimeTarget + Card::pickTarget) has chosen nothing while it
-    // waits on the chain, so Repulse can't be played against it. CR 355 has
-    // those choices made as the item is played; needed: resolve-time-target
-    // cards choosing at play time (or a pending choice recorded on the item).
 
     /// The one friendly unit `item` chooses, if it chooses exactly one and
     /// that unit is at a battlefield; kInvalidId otherwise.

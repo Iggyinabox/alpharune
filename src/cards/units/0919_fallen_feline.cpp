@@ -17,41 +17,60 @@ public:
     const CardDef& def() const override { return def_; }
     unsigned choicesAtFinalization() const override { return kFinalizeTrigger; }
     // ── behaviour (Vendetta batch C) ──
-    // "When you play me, name a spell."
-    // The named spell is stored in string_state["named_spell"].
-    // ENGINE-GAP: there is no free-form "name a card" decision (MakeChoice
-    // only carries a GameObjectId or a small int, not an arbitrary CardDefId),
-    // so the nameable set is the distinct spell names the controller can see
-    // an opponent's copy of: spells in the opponent's trash and banishment and
-    // opponent spells on the chain. Needed: a MakeChoice variant keyed by
-    // CardDefId over every spell in CardDB. With no such spell visible nothing
-    // is named.
+    // "When you play me, name a spell." Any spell: one option per distinct
+    // spell name in the card table (Intent::chosen_card_def). The name is kept
+    // in string_state["named_spell"].
     static constexpr const char* kNamedKey = "named_spell";
+    static constexpr int kAsked = 20, kNamed = 21;   // resume points
+    static constexpr size_t kDefSlot = 6;             // resume_data slot
     TriggerType triggerType() const override { return TriggerType::WhenYouPlayMe; }
-    static std::vector<GameObjectId> nameableSpells(const GameState& state, PlayerId opp) {
-        std::vector<GameObjectId> out;
-        std::vector<std::string> seen;
-        auto consider = [&](GameObjectId cid) {
-            if (!state.objectExists(cid)) return;
-            const auto& obj = state.getObject(cid);
-            if (!obj.isSpell() || obj.name.empty()) return;
-            if (std::find(seen.begin(), seen.end(), obj.name) != seen.end()) return;
-            seen.push_back(obj.name);
-            out.push_back(cid);
-        };
-        for (auto cid : state.player(opp).trash) consider(cid);
-        for (auto cid : state.player(opp).banishment) consider(cid);
-        for (const auto& item : state.chain.items)
-            if (item.is_spell && item.controller == opp) consider(item.source);
+    static std::vector<CardDefId> nameableSpells(const CardDB& db) {
+        std::vector<std::pair<std::string, CardDefId>> by_name;
+        for (const auto& [id, def] : db.all()) {
+            if (def.card_type != CardType::Spell || def.name.empty()) continue;
+            auto it = std::find_if(by_name.begin(), by_name.end(),
+                                   [&](const auto& e) { return e.first == def.name; });
+            if (it == by_name.end()) by_name.push_back({def.name, id});
+            else if (id < it->second) it->second = id;      // reprints share a name
+        }
+        std::vector<CardDefId> out;
+        for (const auto& e : by_name) out.push_back(e.second);
+        std::sort(out.begin(), out.end());
         return out;
     }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         if (!ctx.state.objectExists(ctx.source)) return;
-        GameObjectId picked = pickTarget(ctx, "Fallen Feline: name a spell",
-                                         nameableSpells(ctx.state, opponent(ctx.controller)));
+        if (!ctx.state.chain.resuming.has_value()) return;   // only from the chain
+        auto& ri = *ctx.state.chain.resuming;
+        const auto& db = ctx.executor.cardDB();
+        if (ri.resume_point == 0) {
+            std::vector<Intent> options;
+            for (auto def_id : nameableSpells(db)) {
+                Intent i;
+                i.type = IntentType::MakeChoice;
+                i.player = ctx.controller;
+                i.chosen_card_def = def_id;
+                i.choice_label = db.get(def_id).name;
+                options.push_back(std::move(i));
+            }
+            if (options.empty()) { ri.resume_point = kNamed; return; }
+            ctx.executor.requestChoice(ctx.controller, std::move(options),
+                                       "Fallen Feline: name a spell");
+            ri.resume_point = kAsked;
+            return;
+        }
+        if (ri.resume_point == kAsked) {
+            auto c = ctx.executor.takeChoice();
+            while (ri.resume_data.size() <= kDefSlot) ri.resume_data.push_back(0);
+            ri.resume_data[kDefSlot] =
+                c.has_value() ? static_cast<int32_t>(c->chosen_card_def) : -1;
+            ri.resume_point = kNamed;
+        }
         if (finalizingChoices(ctx)) return;   // choices end here (CR 383.3)
-        if (picked == kInvalidId || !ctx.state.objectExists(picked)) return;
-        const std::string name = ctx.state.getObject(picked).name;
+        if (ri.resume_point != kNamed || ri.resume_data.size() <= kDefSlot) return;
+        const auto def_id = static_cast<CardDefId>(ri.resume_data[kDefSlot]);
+        if (def_id == kInvalidId || db.all().find(def_id) == db.all().end()) return;
+        const std::string name = db.get(def_id).name;
         ctx.state.getObject(ctx.source).string_state[kNamedKey] = name;
         ctx.events.logTrace("FALLEN FELINE: named \"" + name + "\"");
     }

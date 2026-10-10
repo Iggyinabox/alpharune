@@ -78,10 +78,17 @@ struct Intent {
     // Generic choice payload (for prompted choices during resolution)
     std::vector<GameObjectId> chosen_objects;
     std::optional<int> chosen_value;
+    // MakeChoice — a card named rather than pointed at ("name a spell"): there
+    // need be no object with this definition anywhere in the game.
+    CardDefId chosen_card_def = kInvalidId;
 
     // Alternative play cost (Jhin, Meticulous Killer): when true, the payment
     // path charges Card::alternativePlayCost(...) instead of the printed cost.
     bool use_alt_play_cost = false;
+    // PlayCard — the unit is played to `play_location` by paying that
+    // battlefield's additional cost (BattlefieldState::paid_play_power; Dragon
+    // Roost). Only offered where the unit could not otherwise be played.
+    bool pay_location_cost = false;
     // Aura-granted activated ability (Forge/Gardens/Heimerdinger): when nonzero,
     // this ActivateAbility invokes ability_source's GRANTED ability whose logic
     // lives on card def `granted_ability_def` (0 = the source's own ability).
@@ -198,7 +205,9 @@ struct Intent {
             && choose_first == o.choose_first
             && sideboard_swaps == o.sideboard_swaps
             && chosen_objects == o.chosen_objects
-            && chosen_value == o.chosen_value;
+            && chosen_value == o.chosen_value
+            && chosen_card_def == o.chosen_card_def
+            && pay_location_cost == o.pay_location_cost;
     }
 };
 

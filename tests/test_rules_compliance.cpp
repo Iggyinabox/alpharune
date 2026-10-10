@@ -1469,5 +1469,171 @@ TEST_F(RulesComplianceTest, FlameChompersTriggersWhenItIsDiscarded) {
     EXPECT_EQ(s().chain.items.back().fired_trigger, TriggerType::WhenIAmDiscarded);
 }
 
+// ─── The last Vendetta cards ────────────────────────────────────────────────
+class VendettaLastCardsTest : public TriggerFinalizationTest {
+protected:
+    GameObjectId setBattlefieldCard(int bf, CardDefId def, std::optional<PlayerId> controller) {
+        auto id = s().createObject();
+        auto& b = s().getObject(id);
+        b.card_type = CardType::Battlefield;
+        b.card_def_id = def;
+        b.name = card_db.get(def).name;
+        s().battlefields[bf].card_object_id = id;
+        s().battlefields[bf].controller = controller;
+        return id;
+    }
+    static const Intent* paidPlay(const std::vector<Intent>& actions, GameObjectId card) {
+        for (const auto& a : actions)
+            if (a.type == IntentType::PlayCard && a.card == card && a.pay_location_cost) return &a;
+        return nullptr;
+    }
+};
+
+TEST_F(VendettaLastCardsTest, DragonRoost_ADragonMayPayToBePlayedThere) {
+    constexpr CardDefId kDragonRoost = 944;   // "[A][A] ... to play a Dragon ... to this battlefield."
+    setUpBoard();
+    setBattlefieldCard(0, kDragonRoost, std::nullopt);       // nobody controls it
+    engine_->testHook_cleanup();
+    auto dragon = cardInHand(P1, kFieldMusicians);           // any [4] unit ...
+    s().getObject(dragon).tags = {"Dragon"};                 // ... that is a Dragon
+    auto plain = cardInHand(P1, kFieldMusicians);
+    s().player(P1).rune_pool.energy = 4;
+
+    EXPECT_EQ(paidPlay(engine_->generateLegalActions(), dragon), nullptr)
+        << "not without the [A][A]";
+    rune(P1, Domain::Fury); rune(P1, Domain::Calm);
+    const auto actions = engine_->generateLegalActions();
+    const Intent* offer = paidPlay(actions, dragon);
+    ASSERT_NE(offer, nullptr);
+    EXPECT_EQ(paidPlay(actions, plain), nullptr) << "only Dragons";
+    ASSERT_TRUE(offer->play_location.has_value());
+    EXPECT_EQ(*offer->play_location, LocationId{BattlefieldLocation{0}});
+
+    engine_->testHook_executeIntent(*offer);
+    EXPECT_EQ(s().getObject(dragon).battlefieldId().value_or(kInvalidId), 0u);
+    EXPECT_EQ(runesInBase(P1), 0) << "both runes recycled for the [A][A]";
+    EXPECT_EQ(s().player(P1).rune_pool.energy, 0);
+}
+
+TEST_F(VendettaLastCardsTest, SandsweptTomb_DiscountsASpellThatChoosesAFriendlyUnitThere) {
+    constexpr CardDefId kSandsweptTomb = 951;   // "... costs [A] less."
+    setUpBoard();
+    setBattlefieldCard(0, kSandsweptTomb, std::nullopt);
+    engine_->testHook_cleanup();
+    auto here  = engineUnit(P1, 2, /*at_bf=*/0);
+    auto there = engineUnit(P1, 2, /*at_bf=*/1);
+    auto cast = [&](GameObjectId target) {
+        p1_.want = target;
+        s().player(P1).rune_pool.energy = 1;
+        s().player(P1).rune_pool.power[static_cast<int>(Domain::Body)] = 2;
+        auto spell = cardInHand(P1, kPunchFirst);            // [1] + 2 Body
+        Intent play;
+        play.type = IntentType::PlayCard;
+        play.player = P1;
+        play.card = spell;
+        engine_->testHook_executeIntent(play);
+        const int left = s().player(P1).rune_pool.power[static_cast<int>(Domain::Body)];
+        s().player(P1).rune_pool.clear();
+        return left;
+    };
+    EXPECT_EQ(cast(here), 1) << "the target is known before the cost is paid";
+    EXPECT_EQ(s().getObject(here).temp_might_bonus, 5);
+    EXPECT_EQ(cast(there), 0) << "no discount for a unit at another battlefield";
+}
+
+TEST_F(VendettaLastCardsTest, NewChoices_TheNewControllerReChoosesTheTarget) {
+    setUpBoard();
+    auto original = engineUnit(P1, 2);
+    auto theirs   = engineUnit(P2, 2);
+    // P1's Punch First on the chain, target already chosen; then P2 takes it.
+    auto spell = cardInHand(P1, kPunchFirst);
+    s().player(P1).hand.clear();
+    ChainItem item;
+    item.id = s().chain.allocateId();
+    item.status = ChainItemStatus::Finalized;
+    item.source = spell;
+    item.card_def_id = kPunchFirst;
+    item.controller = P2;
+    item.is_spell = true;
+    item.targets = {original};
+    item.chosen_objects = {original};
+    item.resume_data = {0, 0, 0, 0, 0, 1};
+    s().chain.items.push_back(item);
+
+    TriggerChoiceAgent p2;
+    p2.want = theirs;
+    engine_->testHook_setAgents(&p1_, &p2);
+    engine_->testHook_executor().makeNewChoices(item.id);
+
+    ASSERT_EQ(s().chain.items.size(), 1u);
+    EXPECT_EQ(s().chain.items.back().targets, std::vector<GameObjectId>{theirs});
+    EXPECT_EQ(p2.target_asked, 1);
+}
+
+TEST_F(VendettaLastCardsTest, FallenFeline_NamesAnySpell) {
+    constexpr CardDefId kFallenFeline = 919;   // "When you play me, name a spell."
+    setUpBoard();
+    class NamingAgent : public AgentInterface {
+    public:
+        CardDefId name = kInvalidId; size_t offered = 0;
+        Intent selectAction(const GameState&, const std::vector<Intent>& legal) override {
+            if (!legal.empty() && legal.front().chosen_card_def != kInvalidId) {
+                offered = legal.size();
+                for (const auto& i : legal) if (i.chosen_card_def == name) return i;
+            }
+            for (const auto& i : legal) if (i.type == IntentType::PassPriority) return i;
+            return legal.empty() ? Intent{} : legal.front();
+        }
+    } namer;
+    namer.name = kPunchFirst;
+    engine_->testHook_setAgents(&namer, &p2_);
+    s().player(P1).rune_pool.power[static_cast<int>(Domain::Order)] = 1;
+    auto card = cardInHand(P1, kFallenFeline);
+    s().player(P1).rune_pool.energy = 2;
+    Intent play;
+    play.type = IntentType::PlayCard;
+    play.player = P1;
+    play.card = card;
+    play.play_location = LocationId{BaseLocation{P1}};
+    engine_->testHook_executeIntent(play);
+
+    EXPECT_GT(namer.offered, 100u) << "every spell name is offered, not only ones seen";
+    EXPECT_EQ(s().getObject(card).string_state["named_spell"], card_db.get(kPunchFirst).name)
+        << "a spell the opponent has never shown";
+}
+
+TEST_F(VendettaLastCardsTest, LegionMarauder_EmpowerMayBePaidEitherWay) {
+    constexpr CardDefId kLegionMarauder = 861;   // "[Empower] — [1] or [O]"
+    setUpBoard();
+    const auto abs = card_registry.get(kLegionMarauder)->activatedAbilities();
+    ASSERT_EQ(abs.size(), 2u);
+    EXPECT_TRUE(abs[0].is_empower);
+    EXPECT_TRUE(abs[1].is_empower);
+    EXPECT_EQ(abs[0].cost.energy, 1);
+    EXPECT_EQ(abs[1].cost.energy, 0);
+    EXPECT_EQ(abs[1].cost.power, 1);
+
+    auto marauder = engineUnit(P1, 2, -1, kLegionMarauder);
+    auto body = rune(P1, Domain::Body, /*exhausted=*/true);   // can't give Energy, can give [O]
+    Intent act;
+    act.type = IntentType::ActivateActionAbility;
+    act.player = P1;
+    act.ability_source = marauder;
+    act.ability_index = 1;
+    engine_->testHook_executeIntent(act);
+    EXPECT_TRUE(s().getObject(marauder).isEmpowered());
+    EXPECT_FALSE(s().getObject(body).location.has_value()) << "the rune was recycled for [O]";
+}
+
+TEST_F(VendettaLastCardsTest, ChooseObjectNowAsksTheAgent) {
+    // Shady Spectacles picks the unit to copy as it is attached, outside the chain.
+    setUpBoard();
+    auto first  = engineUnit(P1, 2);
+    auto second = engineUnit(P1, 3);
+    p1_.want = second;
+    EXPECT_EQ(engine_->testHook_executor().chooseObjectNow(P1, {first, second}), second);
+    EXPECT_EQ(engine_->testHook_executor().chooseObjectNow(P1, {}), kInvalidId);
+}
+
 }  // namespace
 }  // namespace riftbound::test

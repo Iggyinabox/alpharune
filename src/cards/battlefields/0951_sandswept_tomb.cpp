@@ -17,10 +17,8 @@ public:
     const CardDef& def() const override { return def_; }
     // "Each spell that chooses one or more units here that are friendly to it
     // costs [A] less."
-    // The engine applies the published discount when the spell is played
-    // with a friendly unit here among its targets.
-    // ENGINE-GAP: spells that choose their targets as they resolve are not
-    // known at payment time, so they do not get the discount.
+    // The spell's target is chosen before its cost is paid (CR 355), and the
+    // engine takes the discount published here off that payment.
     void applyPassiveAura(GameState& state, PlayerId /*controller*/) const override {
         for (auto& bf : state.battlefields) {
             if (!state.objectExists(bf.card_object_id)) continue;

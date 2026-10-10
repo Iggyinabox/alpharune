@@ -19,10 +19,6 @@ public:
     // Peek-and-pop: the item answered is the top of the chain. What it chooses
     // is ChainItem::chosen_objects (everything it has chosen) together with its
     // play-time targets.
-    // ENGINE-GAP: a spell or ability that makes its choice at resolution
-    // (needsPlayTimeTarget + Card::pickTarget) has chosen nothing while it
-    // waits on the chain, so this can't be played against it. Needed:
-    // resolve-time-target cards choosing at play time (CR 355).
     static bool choosesFriendlyUnitOrGear(const GameState& state, PlayerId controller) {
         if (state.chain.items.empty()) return false;
         const auto& top = state.chain.items.back();

@@ -22,10 +22,6 @@ public:
     // everything the item chose, at play time or (for spells that pick at
     // resolution) so far while resolving — plus the spell currently resolving
     // (ChainState::resuming), which has left chain.items.
-    // ENGINE-GAP: a spell that picks at resolution (needsPlayTimeTarget +
-    // pickTarget) has chosen nothing while it waits on the chain, so this
-    // [Reaction] cannot answer it in the window CR 355 gives (choices are made
-    // as the spell is played). Needed: those spells' choices made at play time.
     static bool hasDomain(const GameObject& obj, Domain d) {
         return std::find(obj.domains.begin(), obj.domains.end(), d) != obj.domains.end();
     }

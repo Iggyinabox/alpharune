@@ -18,12 +18,6 @@ public:
     // The engine fires WhenYouChooseAFriendlyUnit on ALL the player's units
     // when ANY friendly unit is chosen, so self-filter: only draw if a chain
     // item actually chose ME (ChainItem::chosen_objects / targets).
-    // ENGINE-GAP: a spell that picks at resolution (needsPlayTimeTarget +
-    // Card::pickTarget) has already left the chain when this trigger resolves,
-    // so "with a spell" can't be confirmed and this does not draw for it. The
-    // trigger carries the chosen unit (ChainItem::triggering_subject) but not
-    // what chose it. Needed: the choosing item's kind (spell / ability) on the
-    // "chosen_by_controller" trigger.
     TriggerType triggerType() const override { return TriggerType::WhenYouChooseAFriendlyUnit; }
     void onTrigger(CardContext& ctx, const std::vector<GameObjectId>& /*targets*/) override {
         bool chose_me = false;
