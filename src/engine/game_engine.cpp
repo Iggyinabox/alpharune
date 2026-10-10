@@ -4750,55 +4750,69 @@ void GameEngine::processContestedBattlefields() {
         }
     }
 
-    // CR 323.8/9 — cleanup re-evaluates staging on each contested BF.
-    // Phase 6q+: pre-fix this was a no-op and we relied on move/play
-    // sites to stage. That left some edge cases unstaged (death-cleanup
-    // changing presence, replacement effects relocating units, etc.).
-    // This pass:
-    //  • 323.8: Mark a Showdown as Staged on any BF Contested has been
-    //    applied to that has units only from the contesting player.
-    //  • 323.9: Mark a Combat as Staged on any contested BF with units
-    //    from BOTH players.
-    //  • 323.10: If a BF has Combat staged but no longer has units from
-    //    opposing players, the Combat ceases to be Staged.
+    // CR 190.3 / 323.7-323.10: Contested status and what it stages.
     for (auto& bf : state_.battlefields) {
-        if (!bf.is_contested) continue;
+        // CR 190.4.b: nothing changes while a Showdown or Combat is ongoing.
         if (bf.showdown_in_progress || bf.combat_in_progress) continue;
 
-        bool p1_units = bf.hasUnitsFrom(PlayerId::Player1, state_.objects);
-        bool p2_units = bf.hasUnitsFrom(PlayerId::Player2, state_.objects);
+        const bool has_p1 = bf.hasUnitsFrom(PlayerId::Player1, state_.objects);
+        const bool has_p2 = bf.hasUnitsFrom(PlayerId::Player2, state_.objects);
+        auto present = [&](PlayerId p) {
+            return p == PlayerId::Player1 ? has_p1 : p == PlayerId::Player2 ? has_p2 : false;
+        };
 
-        if (p1_units && p2_units) {
-            // Combat staging — both sides present.
+        // CR 323.10 (190.3.b.1): remove Contested when the player who applied
+        // it has no Units here. Whatever was staged on its account goes too.
+        if (bf.is_contested) {
+            // States built without a recorded contester (older snapshots,
+            // tests) fall back to "anyone present".
+            const bool contester_present = bf.contested_by != PlayerId::None
+                ? present(bf.contested_by) : (has_p1 || has_p2);
+            if (!contester_present) {
+                events_.logTrace("CONTESTED_REMOVED: BF#" + std::to_string(bf.id) +
+                                 " (contester has no units here)");
+                bf.is_contested = false;
+                bf.contested_by = PlayerId::None;
+                bf.showdown_staged = false;
+                bf.combat_staged = false;
+            }
+        }
+
+        // CR 190.3.a / 323.10.a: Units at an uncontested Battlefield that their
+        // controller does not control apply Contested. This also covers Units
+        // that "otherwise become present" by an effect (moved, played or
+        // created there, or changing controller there). Turn player first.
+        if (!bf.is_contested) {
+            for (PlayerId p : {state_.turn.turn_player, opponent(state_.turn.turn_player)}) {
+                if (p == PlayerId::None || !present(p)) continue;
+                if (bf.controller.has_value() && *bf.controller == p) continue;
+                bf.is_contested = true;
+                bf.contested_by = p;
+                events_.emit(ContestedEvent{bf.id, p});
+                break;
+            }
+        }
+
+        if (!bf.is_contested) {
+            bf.showdown_staged = false;
+            bf.combat_staged = false;
+            continue;
+        }
+
+        if (has_p1 && has_p2) {
+            // CR 323.8: Units of opposing players → a Combat is staged.
             if (!bf.combat_staged) {
                 bf.combat_staged = true;
                 bf.showdown_staged = false;  // promote showdown → combat
             }
-        } else if (p1_units || p2_units) {
-            // One side present — showdown staging.
-            if (!bf.showdown_staged && !bf.combat_staged) {
-                bf.showdown_staged = true;
-            }
-            // CR 323.10: if combat WAS staged but only one side is now
-            // present, the combat ceases to be staged (becomes showdown).
-            if (bf.combat_staged) {
-                bf.combat_staged = false;
-                bf.showdown_staged = true;
-            }
         } else {
-            // No units from either player — contested status is moot.
-            // The BF stays contested (uncontrolled) but neither stage is
-            // active. Don't clear is_contested here — a subsequent move
-            // will re-stage.
-            bf.showdown_staged = false;
+            // CR 323.7 / 323.9: only the contester is here → a Showdown.
             bf.combat_staged = false;
+            bf.showdown_staged = true;
         }
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// Board operations
-// ═══════════════════════════════════════════════════════════════════════════════
 
 GameObjectId GameEngine::instantiateCard(CardDefId def_id, PlayerId owner) {
     auto obj_id = state_.createObject();

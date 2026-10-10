@@ -238,5 +238,83 @@ TEST_F(RulesComplianceTest, CombatDamage_DoubledDamageNeedsHalfTheAssignment) {
     EXPECT_EQ(s().getObject(marked).damage_marked, 4);
 }
 
+// ─── CR 190.3 / 323.7-323.10 — Contested status ────────────────────────────
+// These run a Cleanup in a Closed State so the staged Showdown / Combat is
+// recorded but not started (323.11 / 323.12 need a Neutral Open State).
+
+TEST_F(RulesComplianceTest, Contested_RemovedWhenContesterHasNoUnitsThere) {
+    // P1 moved in and contested P2's battlefield, then P1's unit left (died /
+    // bounced) before the showdown opened. CR 323.10: Contested is removed.
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    s().turn.oc_state = OpenClosedState::Closed;
+    engineUnit(P2, 3, 0);
+    auto& bf = s().battlefields[0];
+    bf.controller = P2;
+    bf.is_contested = true;
+    bf.contested_by = P1;
+    bf.showdown_staged = true;
+
+    engine_->testHook_cleanup();
+
+    EXPECT_FALSE(bf.is_contested);
+    EXPECT_FALSE(bf.showdown_staged) << "no showdown for a contest that no longer exists";
+    EXPECT_FALSE(bf.combat_staged);
+    ASSERT_TRUE(bf.controller.has_value());
+    EXPECT_EQ(*bf.controller, P2);
+}
+
+TEST_F(RulesComplianceTest, Contested_AppliedWhenAUnitArrivesByAnEffect) {
+    // CR 190.3.a: a Unit that "otherwise becomes present" at a battlefield its
+    // controller doesn't control applies Contested — not only a standard move.
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    s().turn.oc_state = OpenClosedState::Closed;
+    engineUnit(P2, 3, 0);
+    auto& bf = s().battlefields[0];
+    bf.controller = P2;
+    engineUnit(P1, 2, 0);            // put there by an effect: no move intent ran
+
+    engine_->testHook_cleanup();
+
+    EXPECT_TRUE(bf.is_contested);
+    EXPECT_EQ(bf.contested_by, P1);
+    EXPECT_TRUE(bf.combat_staged) << "CR 323.8: opposing units -> Combat staged";
+}
+
+TEST_F(RulesComplianceTest, Contested_NotAppliedByTheControllersOwnUnits) {
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    s().turn.oc_state = OpenClosedState::Closed;
+    engineUnit(P2, 3, 0);
+    auto& bf = s().battlefields[0];
+    bf.controller = P2;
+
+    engine_->testHook_cleanup();
+
+    EXPECT_FALSE(bf.is_contested);
+    EXPECT_FALSE(bf.showdown_staged);
+}
+
+TEST_F(RulesComplianceTest, Contested_ReappliedByRemainingNonControllerUnits) {
+    // CR 323.10.a: Contested (by P1) is removed because P1 has no units, but
+    // P2 has units at a battlefield P2 does not control -> P2 applies it.
+    makeEngine();
+    setLegend(P1); setLegend(P2);
+    s().turn.oc_state = OpenClosedState::Closed;
+    engineUnit(P2, 3, 0);
+    auto& bf = s().battlefields[0];
+    bf.controller = std::nullopt;     // uncontrolled
+    bf.is_contested = true;
+    bf.contested_by = P1;
+
+    engine_->testHook_cleanup();
+
+    EXPECT_TRUE(bf.is_contested);
+    EXPECT_EQ(bf.contested_by, P2);
+    EXPECT_TRUE(bf.showdown_staged) << "CR 323.7";
+    EXPECT_FALSE(bf.combat_staged);
+}
+
 }  // namespace
 }  // namespace riftbound::test
