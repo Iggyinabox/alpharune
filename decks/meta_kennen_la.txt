@@ -1,0 +1,36 @@
+Legend:
+1 Kennen, Heart of the Tempest
+
+Champion:
+1 Kennen, Storm of Shuriken
+
+MainDeck:
+1 Carrion Dredger
+3 Shadow Order Disciple
+1 Tideturner
+3 Traveling Merchant
+2 Ezreal, Prodigy
+1 Fizz, Trickster
+2 Tornado Warrior
+3 Tail-Cloaked Matriarch
+3 Rhasa the Sunderer
+3 Seal of Discord
+2 Last Rites
+2 Gust
+3 Lightning Rush
+2 Flash
+1 Hard Bargain
+2 Ride the Wind
+1 Salvage
+2 Switcheroo
+1 Star-Crossed
+1 Up from the Deep
+
+Battlefields:
+1 Minefield
+1 Shadow Temple
+1 Zaun Warrens
+
+Runes:
+9 Chaos Rune
+3 Order Rune
