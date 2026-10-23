@@ -1,0 +1,34 @@
+Legend:
+1 Ziggs, Hexplosives Expert
+
+Champion:
+1 Ziggs, Explosive
+
+MainDeck:
+2 Ziggs, Explosive
+1 Ziggs, Short-Fused
+3 Amateur Demolitionist
+2 Shimmering Swimmer
+2 Bilgewater Tracker
+3 Vex, Apathetic
+2 Explosimian
+3 Falling Star
+3 Hexplosive Minefield
+3 Detonate
+2 Star-Crossed
+2 Acceptable Losses
+3 Detonation Amplifier
+2 The Good Stuff
+2 Pack of Wonders
+2 Treasure Trove
+1 The List
+1 Mindsplitter
+
+Battlefields:
+1 Void Gate
+1 Vilemaw's Lair
+1 Rockfall Path
+
+Runes:
+8 Fury Rune
+4 Chaos Rune

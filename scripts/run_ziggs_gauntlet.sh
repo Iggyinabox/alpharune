@@ -38,6 +38,11 @@ pairing() {  # pairing <a> <b>
 #   1   = merged and original lists vs the meta decks
 #   2   = control list vs the meta decks, plus the three Ziggs head-to-heads
 #   all = everything (default)
+# PAIRS="deckA:deckB deckC:deckD" runs just those pairings instead.
+if [ -n "${PAIRS:-}" ]; then
+  for p in $PAIRS; do pairing "${p%%:*}" "${p##*:}"; done
+  exit 0
+fi
 STAGE="${STAGE:-all}"
 if [ "$STAGE" = 1 ] || [ "$STAGE" = all ]; then
   for z in ziggs_merged ziggs_nacho_original; do
