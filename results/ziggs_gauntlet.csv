@@ -1,1 +1,7 @@
 deck_a,deck_b,a_wins,b_wins,draws,games,agent
+ziggs_merged,meta_kennen_la,4,16,0,20,ismcts:sims=50
+ziggs_merged,meta_akali_la,4,16,0,20,ismcts:sims=50
+ziggs_merged,meta_kaisa_vancouver,2,18,0,20,ismcts:sims=50
+ziggs_nacho_original,meta_kennen_la,6,14,0,20,ismcts:sims=50
+ziggs_nacho_original,meta_akali_la,6,14,0,20,ismcts:sims=50
+ziggs_nacho_original,meta_kaisa_vancouver,7,13,0,20,ismcts:sims=50
