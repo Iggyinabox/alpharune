@@ -1,1 +1,5 @@
 deck_a,deck_b,a_wins,b_wins,draws,games,agent
+ziggs_claude_control,meta_kaisa_vancouver,4,16,0,20,ismcts:sims=50
+ziggs_control_vs_kaisa_a_threats,meta_kaisa_vancouver,4,16,0,20,ismcts:sims=50
+ziggs_control_vs_kaisa_b_value,meta_kaisa_vancouver,4,16,0,20,ismcts:sims=50
+ziggs_control_vs_kaisa_c_nacho,meta_kaisa_vancouver,6,14,0,20,ismcts:sims=50
