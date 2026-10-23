@@ -14,7 +14,7 @@ SEED_BASE="${SEED_BASE:-1000}"
 mkdir -p "$(dirname "$OUT")"
 [ -f "$OUT" ] || echo "deck_a,deck_b,a_wins,b_wins,draws,games,agent" > "$OUT"
 
-ZIGGS=(ziggs_merged ziggs_nacho_original ziggs_claude_control)
+
 META=(meta_kennen_la meta_akali_la meta_kaisa_vancouver)
 
 play() {  # play <p1> <p2> <games> <seed> -> prints "p1wins p2wins draws"
@@ -34,9 +34,19 @@ pairing() {  # pairing <a> <b>
   echo "$a,$b,$((a1 + a2)),$((b1 + b2)),$((d1 + d2)),$GAMES,$AGENT" | tee -a "$OUT"
 }
 
-for z in "${ZIGGS[@]}"; do
-  for m in "${META[@]}"; do pairing "$z" "$m"; done
-done
-pairing ziggs_merged ziggs_nacho_original
-pairing ziggs_merged ziggs_claude_control
-pairing ziggs_nacho_original ziggs_claude_control
+# STAGE splits the run so each part fits a 2-hour job:
+#   1   = merged and original lists vs the meta decks
+#   2   = control list vs the meta decks, plus the three Ziggs head-to-heads
+#   all = everything (default)
+STAGE="${STAGE:-all}"
+if [ "$STAGE" = 1 ] || [ "$STAGE" = all ]; then
+  for z in ziggs_merged ziggs_nacho_original; do
+    for m in "${META[@]}"; do pairing "$z" "$m"; done
+  done
+fi
+if [ "$STAGE" = 2 ] || [ "$STAGE" = all ]; then
+  for m in "${META[@]}"; do pairing ziggs_claude_control "$m"; done
+  pairing ziggs_merged ziggs_nacho_original
+  pairing ziggs_merged ziggs_claude_control
+  pairing ziggs_nacho_original ziggs_claude_control
+fi
