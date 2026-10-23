@@ -47,6 +47,8 @@ void TriggerManager::subscribe() {
         [this](const ObjectStateChangedEvent& e) { onObjectStateChanged(e); }));
     connections_.push_back(events_.on_cards_drawn.connect(
         [this](const CardsDrawnEvent& e) { onCardsDrawn(e); }));
+    connections_.push_back(events_.on_left_board.connect(
+        [this](const LeftBoardEvent& e) { onLeftBoard(e); }));
 }
 
 TriggerManager::~TriggerManager() {
@@ -158,6 +160,57 @@ static TriggerType getTrigger(const CardRegistry& reg, CardDefId def_id) {
 static bool cardFiresOn(const CardRegistry& reg, CardDefId def_id, TriggerType t) {
     Card* card = reg.get(def_id);
     return card && card->firesOn(t);
+}
+
+int TriggerManager::extraDeathknellFires(PlayerId controller, const LocationId& died_at) const {
+    // Karthus, Eternal: "Your Deathknell effects trigger an additional time."
+    int extra = std::max(0, state_.player(controller).deathknell_double_count);
+    // Detonation Amplifier: "Friendly Deathknell effects HERE trigger an
+    // additional time." Only objects at the battlefield the card died at.
+    if (!std::holds_alternative<BattlefieldLocation>(died_at)) return extra;
+    for (const auto& [id, obj] : state_.objects) {
+        if (obj.controller != controller || obj.card_def_id == kInvalidId) continue;
+        if (!obj.location.has_value() || *obj.location != died_at) continue;
+        if (const Card* card = card_registry_.get(obj.card_def_id))
+            extra += std::max(0, card->extraDeathknellTriggersHere());
+    }
+    return extra;
+}
+
+void TriggerManager::onLeftBoard(const LeftBoardEvent& e) {
+    // [Deathknell] on gear (Radiance Bomb tokens). Unit deaths go through
+    // onUnitDied; this covers killed non-unit gear only.
+    if (e.card_type != CardType::Gear || !e.was_killed) return;
+    if (!state_.objectExists(e.object)) return;
+    const auto& obj = state_.getObject(e.object);
+    if (obj.card_def_id == kInvalidId) return;
+    if (!cardFiresOn(card_registry_, obj.card_def_id, TriggerType::WhenIDie)) return;
+    const int fires = 1 + extraDeathknellFires(e.controller, e.was_at);
+    for (int i = 0; i < fires; ++i) {
+        chain_.addAbility(e.object, e.controller, obj.card_def_id);
+        if (!state_.chain.items.empty())
+            state_.chain.items.back().fired_trigger = TriggerType::WhenIDie;
+    }
+    events_.logTrace("GEAR_DEATHKNELL: " + obj.name + " fires " + std::to_string(fires) +
+                     (fires == 1 ? " time" : " times"));
+}
+
+void TriggerManager::killOpposingDeployGear(PlayerId holder, BattlefieldId bf_id) {
+    // CR 830: "When an opponent holds here, kill this."
+    if (!effect_executor_) return;
+    const LocationId here{BattlefieldLocation{bf_id}};
+    std::vector<GameObjectId> doomed;
+    for (const auto& [id, obj] : state_.objects) {
+        if (!obj.isGear() || obj.controller == holder || obj.card_def_id == kInvalidId) continue;
+        if (!obj.location.has_value() || *obj.location != here) continue;
+        const Card* card = card_registry_.get(obj.card_def_id);
+        if (card && card->hasDeploy()) doomed.push_back(id);
+    }
+    for (auto id : doomed) {
+        if (!state_.objectExists(id)) continue;
+        events_.logTrace("DEPLOY: opponent held here, killing " + state_.getObject(id).name);
+        effect_executor_->killObject(id);
+    }
 }
 
 void TriggerManager::fireBattlefieldTriggers(TriggerType t, PlayerId player,
@@ -643,7 +696,7 @@ void TriggerManager::onUnitDied(const UnitDiedEvent& e) {
             // controlled Karthus by recalculateAuras. Each unit adds
             // (1 + count) chain items. Empty in the default case so the
             // existing single-fire path is unchanged.
-            int extra = state_.player(e.controller).deathknell_double_count;
+            int extra = extraDeathknellFires(e.controller, e.was_at);
             int fires = 1 + std::max(0, extra);
             for (int i = 0; i < fires; ++i) {
                 chain_.addAbility(e.object, e.controller, obj.card_def_id);
@@ -727,6 +780,19 @@ void TriggerManager::onScore(const ScoreEvent& e) {
     }
     if (e.method == ScoreMethod::Hold) {
         fireLegendTrigger(TriggerType::WhenIHold, e.player, 0, scored_bf_card);
+        killOpposingDeployGear(e.player, e.battlefield);
+        // "When you hold here" on the holder's unattached gear at this
+        // battlefield (Deploy gear such as The Good Stuff), as WhenIHold.
+        const LocationId here{BattlefieldLocation{e.battlefield}};
+        std::vector<GameObjectId> holder_gear;
+        for (const auto& [id, obj] : state_.objects) {
+            if (!obj.isGear() || obj.isUnit() || obj.controller != e.player) continue;
+            if (obj.attached_to.has_value() || obj.card_def_id == kInvalidId) continue;
+            if (!obj.location.has_value() || *obj.location != here) continue;
+            if (cardFiresOn(card_registry_, obj.card_def_id, TriggerType::WhenIHold))
+                holder_gear.push_back(id);
+        }
+        for (auto gid : holder_gear) fireTrigger(gid, e.player, 0, TriggerType::WhenIHold);
     }
     fireLegendTrigger(TriggerType::WhenIConquerOrHold, e.player, 0, scored_bf_card);
 

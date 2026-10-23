@@ -281,6 +281,66 @@ inline GameObjectId createGoldExhausted(CardContext& ctx) {
     return tok;
 }
 
+// ── Bomb tokens (Radiance, rad-t02) ──
+// Ids for Radiance cards follow the order of the Radiance worklist in
+// docs/card-coverage/set-update-2026-10.md (row N -> 955 + N). Cards revealed
+// after that pull get ids from 1100 up: Ziggs, Hexplosives Expert 1100,
+// Explosimian 1101, Bomb 1102.
+constexpr CardDefId kBombGearCardDefId = 1102;
+constexpr CardDefId kZiggsShortFusedCardDefId = 975;
+
+/// True when a pickTarget call has just published its prompt and the card
+/// must return to wait for the agent (pickTarget's resume_point 7).
+inline bool pickSuspended(const CardContext& ctx) {
+    return ctx.state.chain.resuming.has_value() &&
+           ctx.state.chain.resuming->resume_point == 7;
+}
+
+/// The battlefields' card objects, for "to a battlefield" choices made with
+/// pickTarget (the agent picks a battlefield card; map it back below).
+inline std::vector<GameObjectId> battlefieldCardObjects(const GameState& state) {
+    std::vector<GameObjectId> out;
+    for (const auto& bf : state.battlefields)
+        if (state.objectExists(bf.card_object_id)) out.push_back(bf.card_object_id);
+    return out;
+}
+
+inline std::optional<BattlefieldId> battlefieldIdOfCardObject(const GameState& state,
+                                                              GameObjectId card_obj) {
+    for (const auto& bf : state.battlefields)
+        if (bf.card_object_id == card_obj) return bf.id;
+    return std::nullopt;
+}
+
+/// "Play a Bomb gear token to a battlefield." Bombs have [Deploy] and the
+/// Deathknell "deal 2 to an enemy there and kill your other Bombs there".
+inline GameObjectId playBombToken(CardContext& ctx, BattlefieldId bf) {
+    LocationId loc{BattlefieldLocation{bf}};
+    auto tid = ctx.executor.createToken(ctx.controller, CardType::Gear, "Bomb",
+                                        0, {"Bomb"}, KeywordSet{}, loc,
+                                        /*enter_ready=*/true);   // gear enters ready (CR 149.1)
+    if (ctx.state.objectExists(tid))
+        ctx.state.getObject(tid).card_def_id = kBombGearCardDefId;
+    return tid;
+}
+
+/// Bonus damage for "abilities of friendly gear" from the controller's
+/// on-board objects (Ziggs, Short-Fused: +1 each).
+inline int friendlyGearBonusDamage(const CardContext& ctx) {
+    int bonus = 0;
+    for (const auto& [id, obj] : ctx.state.objects) {
+        if (obj.controller != ctx.controller || !obj.location.has_value()) continue;
+        if (obj.card_def_id == kInvalidId) continue;
+        if (ctx.registry) {
+            if (const Card* c = ctx.registry->get(obj.card_def_id))
+                bonus += c->friendlyGearAbilityBonusDamage();
+        } else if (obj.card_def_id == kZiggsShortFusedCardDefId) {
+            bonus += 1;
+        }
+    }
+    return bonus;
+}
+
 // ── Misc ──
 inline GameObjectId findMostRecentlyPlayedSpell(const GameState& state, PlayerId player) {
     const auto& ps = state.player(player);

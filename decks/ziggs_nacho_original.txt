@@ -1,0 +1,42 @@
+Legend:
+1 Ziggs, Hexplosives Expert
+
+Champion:
+1 Ziggs, Explosive
+
+MainDeck:
+3 Falling Star
+3 Pack of Wonders
+3 Detonate
+3 Bewitching Spirit
+3 Amateur Demolitionist
+3 Shimmering Swimmer
+2 Seal of Rage
+2 Acceptable Losses
+2 Treasure Trove
+2 Star-Crossed
+2 The List
+2 Bilgewater Tracker
+2 Runeblade Anvil
+1 Lost to the Sands
+2 Fizz, Trickster
+2 Vex, Apathetic
+2 Kai'Sa, Survivor
+
+Battlefields:
+1 Sigil of the Storm
+1 Forgotten Monument
+1 Rockfall Path
+
+Runes:
+7 Fury Rune
+5 Chaos Rune
+
+Sideboard:
+2 Gust
+2 Whirlwind
+2 Angler Beast
+1 Mindsplitter
+1 Hard Bargain
+1 Kha'Zix, Mutating Horror
+1 Bilgewater Tracker

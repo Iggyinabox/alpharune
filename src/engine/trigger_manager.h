@@ -112,6 +112,12 @@ private:
     void onCardRevealed(const CardRevealedEvent& e);        // WhenIRevealedFromTop
     void onObjectStateChanged(const ObjectStateChangedEvent& e); // WhenIAmBuffed / WhenYouBuffAFriendlyUnit
     void onCardsDrawn(const CardsDrawnEvent& e);                  // WhenYouDrawACard
+    void onLeftBoard(const LeftBoardEvent& e);                    // gear [Deathknell] (Bomb)
+    /// Karthus-style player bonus + Detonation Amplifier-style bonuses at the
+    /// battlefield the card died at.
+    int extraDeathknellFires(PlayerId controller, const LocationId& died_at) const;
+    /// CR 830: kill the non-holder's [Deploy] gear at a held battlefield.
+    void killOpposingDeployGear(PlayerId holder, BattlefieldId bf_id);
 
     // ── Helpers ──
 

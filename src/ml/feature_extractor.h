@@ -64,7 +64,7 @@ inline constexpr int kPerUnitExtFieldsT2  = 8;   // T2/3 per-unit: assault, shie
 // (Origins/Proving Grounds/Spiritforged/Unleashed 1..787, Vendetta 788..960);
 // 961..1100 is reserved for Radiance so its release doesn't shift the layout
 // (and invalidate checkpoints) a second time.
-inline constexpr int kCardVocabSize       = 1100;
+inline constexpr int kCardVocabSize       = 1200;   // fork: raised from 1100 for Radiance cards revealed after the 10-10 pull
 inline constexpr int kZoneVectorOffset    = 470;  // first multi-hot zone starts here
 inline constexpr int kNumZoneVectors      = 5;    // self deck/trash/banish, opp trash/banish
 // 470 base+extended dims, 5 zone multi-hots, 2 play-lockout flags, 192 Tier-2/3

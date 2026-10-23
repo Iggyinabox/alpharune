@@ -2797,6 +2797,20 @@ std::vector<Intent> GameEngine::generateMainPhaseActions(PlayerId player) const 
         play_intent.type = IntentType::PlayCard;
         play_intent.player = player;
         play_intent.card = card_id;
+
+        // [Deploy] (CR 830): only to a battlefield — any battlefield,
+        // including one an opponent controls or occupies.
+        const Card* gear_card = card.card_def_id != kInvalidId
+            ? card_registry_.get(card.card_def_id) : nullptr;
+        if (gear_card && gear_card->hasDeploy()) {
+            for (const auto& bf : state_.battlefields) {
+                Intent bf_play = play_intent;
+                bf_play.play_location = BattlefieldLocation{bf.id};
+                actions.push_back(bf_play);
+            }
+            continue;
+        }
+
         play_intent.play_location = BaseLocation{player};
         actions.push_back(play_intent);
     }
@@ -5133,8 +5147,12 @@ void GameEngine::recallMisplacedObjects() {
         if (obj.controller == PlayerId::None) continue;
         const LocationId home{BaseLocation{obj.controller}};
         bool recall = false;
-        if (obj.isGear() && !obj.attached_to.has_value() && obj.isAtBattlefield())
-            recall = true;
+        if (obj.isGear() && !obj.attached_to.has_value() && obj.isAtBattlefield()) {
+            // CR 830: a non-unit [Deploy] gear isn't recalled in cleanups.
+            const Card* gear_card = obj.card_def_id != kInvalidId
+                ? card_registry_.get(obj.card_def_id) : nullptr;
+            recall = !(gear_card && gear_card->hasDeploy());
+        }
         if ((obj.isPermanent() || obj.isRune()) && !obj.attached_to.has_value() &&
             obj.isAtBase() && *obj.location != home)
             recall = true;

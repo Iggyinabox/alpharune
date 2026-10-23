@@ -958,6 +958,22 @@ void register_card_952(CardRegistry&);
 void register_card_953(CardRegistry&);
 void register_card_954(CardRegistry&);
 void register_card_955(CardRegistry&);
+// Radiance (fork)
+void register_card_956(CardRegistry&);
+void register_card_958(CardRegistry&);
+void register_card_961(CardRegistry&);
+void register_card_965(CardRegistry&);
+void register_card_966(CardRegistry&);
+void register_card_967(CardRegistry&);
+void register_card_970(CardRegistry&);
+void register_card_975(CardRegistry&);
+void register_card_1041(CardRegistry&);
+void register_card_1044(CardRegistry&);
+void register_card_1050(CardRegistry&);
+void register_card_1075(CardRegistry&);
+void register_card_1100(CardRegistry&);
+void register_card_1101(CardRegistry&);
+void register_card_1102(CardRegistry&);
 
 void registerAllCards(CardRegistry& registry) {
     register_card_1(registry);
@@ -1915,6 +1931,22 @@ void registerAllCards(CardRegistry& registry) {
     register_card_953(registry);
     register_card_954(registry);
     register_card_955(registry);
+    // Radiance (fork)
+    register_card_956(registry);
+    register_card_958(registry);
+    register_card_961(registry);
+    register_card_965(registry);
+    register_card_966(registry);
+    register_card_967(registry);
+    register_card_970(registry);
+    register_card_975(registry);
+    register_card_1041(registry);
+    register_card_1044(registry);
+    register_card_1050(registry);
+    register_card_1075(registry);
+    register_card_1100(registry);
+    register_card_1101(registry);
+    register_card_1102(registry);
 }
 
 } // namespace riftbound

@@ -220,6 +220,22 @@ public:
         return {t};
     }
 
+    // ── Radiance: Deploy and Bomb support ──
+    /// [Deploy] (CR 830): play this gear only to a battlefield; it is not
+    /// recalled in cleanup, and it is killed when an opponent holds there.
+    /// Handled by the engine as a keyword rule; the card only declares it.
+    virtual bool hasDeploy() const { return false; }
+
+    /// "Friendly [Deathknell] effects here trigger an additional time"
+    /// (Detonation Amplifier). Extra fires this object grants to its
+    /// controller's Deathknells at the battlefield this object is at.
+    virtual int extraDeathknellTriggersHere() const { return 0; }
+
+    /// "Abilities of friendly gear deal 1 Bonus Damage" (Ziggs, Short-Fused).
+    /// Summed over the controller's on-board objects by gear cards that deal
+    /// damage with an ability (card_helpers.h: friendlyGearBonusDamage).
+    virtual int friendlyGearAbilityBonusDamage() const { return 0; }
+
     /// Whether this card fires on the given trigger event.
     bool firesOn(TriggerType t) const {
         for (auto x : triggerTypes()) if (x == t) return true;
